@@ -4,8 +4,8 @@ from sadpropy.utility.input_reader import InputReader
 def cmd_read(args):
     reader = InputReader(args.file)
 
-    nodes = reader.read_sheet("Nodes")
-    elements = reader.read_sheet("Elements")
+    nodes = reader.read_inputfile("Nodes")
+    elements = reader.read_inputfile("Elements")
 
     print("Nodes:", nodes)
     print("Elements:", elements)
