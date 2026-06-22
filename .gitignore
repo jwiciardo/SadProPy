@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
-.venvmac/
+.venv/
+.venv/
+.venv/
 .vscode/
 .DS_Store
