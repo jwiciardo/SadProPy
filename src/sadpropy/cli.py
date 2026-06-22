@@ -4,11 +4,9 @@ from sadpropy.utility.input_reader import InputReader
 def cmd_read(args):
     reader = InputReader(args.file)
 
-    nodes = reader.read_inputfile("Nodes")
-    elements = reader.read_inputfile("Elements")
+    point_objects = reader.read_inputfile("Point Objects")
 
-    print("Nodes:", nodes)
-    print("Elements:", elements)
+    print("Point Objects:", point_objects)
 
 def main():
     parser = argparse.ArgumentParser(prog="sadpropy")
