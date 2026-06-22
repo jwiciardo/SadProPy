@@ -4,7 +4,7 @@ from sadpropy.utility.input_reader import InputReader
 def cmd_read(args):
     reader = InputReader(args.file)
 
-    point_objects = reader.read_inputfile("Point Objects")
+    point_objects = reader.read_inputfile("Point Objects", 7)
 
     print("Point Objects:", point_objects)
 
