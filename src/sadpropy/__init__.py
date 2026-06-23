@@ -1,4 +1,20 @@
 from .version import __version__
+from .utility import (
+    FiberSectionProperties,
+    FilePath,
+    GRAVITY_ACCELERATION,
+    GroundMotionReader,
+    InputReader,
+    LengthfromCoordinate,
+    RayleighCoefficient,
+    RebarArea,
+    SectionProperties,
+    SignificantFigures,
+    UnitConverter,
+    UnitRegistry,
+    UnitSystem,
+    ValidationError,
+)
 from .model import (
     AnalysisPreferences,
     BeamColumnElements,
@@ -9,38 +25,25 @@ from .model import (
     Mat_Steel02,
     PointCoordinates,
     ModelData,
-    ModelDataStorer,
     Nodes,
     ProjectInformation,
     Slabs,
     SurfaceConnectivity,
     StoreyData,
 )
-from .utility import (
+from .utility.helper import (
     create_storeys,
-    FiberSectionProperties,
-    FilePath,
     get_vertices_from_surface,
-    GRAVITY_ACCELERATION,
-    GroundMotionReader,
-    InputReader,
-    InputTranslator,
-    LengthfromCoordinate,
-    ModelValidator,
-    RayleighCoefficient,
-    RebarArea,
-    SectionProperties,
-    SignificantFigures,
-    TagManager,
-    UnitConverter,
-    UnitRegistry,
-    UnitSystem,
-    ValidationError,
 )
-from .workspace import Workspace
+from .utility.model_validator import ModelValidator
+from .utility.input_translator import InputTranslator
+from .model.modeldata import ModelDataStorer
 
-__all__ = list(
-    set(model.__all__) |
-    set(utility.__all__) |
-    set(workspace.__all__)
-)
+__all__ = [
+    "UnitConverter", "UnitRegistry", "UnitSystem", "FilePath", "ValidationError", "InputReader", "GroundMotionReader", "GRAVITY_ACCELERATION",
+    "FiberSectionProperties", "LengthfromCoordinate", "RayleighCoefficient", "RebarArea", "SectionProperties", "SignificantFigures",
+    "ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData", "Materials",
+    "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Nodes", "BeamColumnElements", "Slabs", "ModelData",
+    "create_storeys", "get_vertices_from_surface"
+    "ModelValidator", "InputTranslator", "ModelDataStorer"
+]

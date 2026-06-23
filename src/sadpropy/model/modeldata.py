@@ -4,21 +4,23 @@ from sadpropy.utility.input_translator import InputTranslator
 __all__ = ["ModelDataStorer"]
 
 class ModelDataStorer:
-    def __init__(self, workspace):
-        self.ws = workspace
-        self.translator = InputTranslator(self.ws.inputfile_path)
-        #self.validator = ModelValidator()
+    def __init__(self, paths):
+        # FILE PATH
+        self.parent_path = paths.parent_path
+        self.input_path = paths.input_path
+        self.output_path = paths.output_path
+        self.inputfile_path = paths.inputfile_path
+        self.logfile_path = paths.logfile_path
+
+        # TRANSLATE AND VALIDATE INPUTFILE
+        self.translator = InputTranslator(self.inputfile_path)
     
     # CENTRAL FUNCTION: MODEL DATA STORER
-    def store_data(self):
+    def store_model_data(self):
         # TRANSLATE INPUTFILE AND STORE TO MODELDATA
         data = self.translator.translate_inputfile()
-
-        # PROCESS INPUTDATA AND STORE TO MODELDATA
-        #self.processor = InputProcessor(data)
-        #data_p = self.processor.process_inputdata()
         
-        modeldata = ModelData(
+        return ModelData(
             project_information = data["Project Information"],
             units = data["System Units"],
             analysis_preferences = data["Analysis Preferences"],
@@ -27,8 +29,4 @@ class ModelDataStorer:
             line_connectivity = data["Line Connectivity"],
             surface_connectivity = data["Surface Connectivity"],
         )
-
-        #self.validator._validate(modeldata)
-        #print("Model successfully validated")
-        return modeldata
 
