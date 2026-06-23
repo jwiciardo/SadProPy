@@ -1,4 +1,4 @@
-from utility.input_translator import InputTranslator
+from sadpropy.utility.input_translator import InputTranslator
 #from utility.inputprocessor import InputProcessor
 #from utility.modelvalidator import ModelValidator
 from .dataclasses import ModelData

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict
-from utility.units import UnitSystem
+from sadpropy.utility.units import UnitSystem
 
 __all__ = ["ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData", "ModelData"]
 

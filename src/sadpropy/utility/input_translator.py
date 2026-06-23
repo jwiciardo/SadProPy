@@ -1,5 +1,5 @@
 from math import sqrt
-from model.dataclasses import *
+from sadpropy.model.dataclasses import *
 #from model.dataclass_properties import Materials, Mat_Concrete04, Mat_Steel02, Mat_MinMax
 from .exceptions import ValidationError
 from .input_reader import InputReader
