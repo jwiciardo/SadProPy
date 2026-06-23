@@ -1,10 +1,9 @@
-from pathlib import Path
 import warnings
 from openpyxl import load_workbook
 
 class InputReader:
-    def __init__(self, inputfile_path: str | Path):
-        self.inputfile_path = Path(inputfile_path)
+    def __init__(self, inputfile_path):
+        self.inputfile_path = inputfile_path
         if not self.inputfile_path.exists():
             raise FileNotFoundError(f"File not found: {self.inputfile_path}")
         with warnings.catch_warnings():
