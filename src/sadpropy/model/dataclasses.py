@@ -2,7 +2,11 @@ from dataclasses import dataclass, field
 from typing import Dict
 from sadpropy.utility.units import UnitSystem
 
-__all__ = ["ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData", "ModelData"]
+__all__ = [
+    "ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData",
+    "Materials", "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Nodes", "BeamColumnElements", "Slabs",
+    "ModelData"
+    ]
 
 # Project
 @dataclass(slots=True, frozen=True)

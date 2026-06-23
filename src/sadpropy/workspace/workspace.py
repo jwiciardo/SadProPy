@@ -1,5 +1,7 @@
 from sadpropy.model.modeldata import ModelDataStorer
 
+__all__ = ["Workspace"]
+
 class Workspace:
     def __init__(self, paths):
         # FILE PATH

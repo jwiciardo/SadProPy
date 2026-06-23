@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+__all__ = ["GroundMotionReader"]
+
 class GroundMotionReader:
     def __init__(self, home_path):
         self.home = home_path

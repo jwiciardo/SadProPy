@@ -1,8 +1,9 @@
 import warnings
-from model.dataclass_model_data import ModelData
+from sadpropy.model.dataclasses import ModelData
     
-class ModelValidator:
+__all__ = ["ModelValidator"]
 
+class ModelValidator:
     # CENTRAL FUNCTION: TRANSLATOR
     def validate_model(self, modeldata: ModelData):
         self._validate_materials(modeldata)

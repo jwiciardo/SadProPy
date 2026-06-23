@@ -1,6 +1,4 @@
-from sadpropy.workspace.workspace import Workspace
-from sadpropy.utility.filepath import FilePath
-from sadpropy.utility.input_reader import InputReader
+from sadpropy import *
 
 paths = FilePath()
 ws = Workspace(paths)

@@ -1,6 +1,6 @@
 from math import pi, sqrt
 
-__all__ = ["SignificantFigures", "Length_from_Coordinate", "RayleighCoefficient", "RebarArea", "SectionProperties", "FiberSectionProperties"]
+__all__ = ["SignificantFigures", "LengthfromCoordinate", "RayleighCoefficient", "RebarArea", "SectionProperties", "FiberSectionProperties"]
 
 # NUMERICAL CORRECTION
 def SignificantFigures(x, tol=1e-12):
@@ -17,7 +17,7 @@ def SignificantFigures(x, tol=1e-12):
         return 0.5 * abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) # Defining formula to calculate polygon area (Shoelace formula)
 
 # COMPUTE LENGTH FROM COORDINATE DATA
-def Length_from_Coordinate(i_coord, j_coord):
+def LengthfromCoordinate(i_coord, j_coord):
      i_x_coord, i_y_coord, i_z_coord = i_coord
      j_x_coord, j_y_coord, j_z_coord = j_coord
      length = sqrt((i_x_coord - j_x_coord)**2 + (i_y_coord - j_y_coord)**2 + (i_z_coord - j_z_coord)**2)

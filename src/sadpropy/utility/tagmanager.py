@@ -1,3 +1,5 @@
+__all__ = ["TagManager"]
+
 class TagManager:
     def __init__(self):
         self.counters = {

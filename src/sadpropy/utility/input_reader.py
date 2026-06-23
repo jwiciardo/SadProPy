@@ -1,6 +1,8 @@
 import warnings
 from openpyxl import load_workbook
 
+__all__ = ["InputReader"]
+
 class InputReader:
     def __init__(self, inputfile_path):
         self.inputfile_path = inputfile_path

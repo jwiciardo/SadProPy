@@ -1,6 +1,8 @@
 from pathlib import Path
 from datetime import datetime
 
+__all__ = ['FilePath']
+
 class FilePath:
     def __init__(self):
         self.parent_path = Path(__file__).resolve().parent.parent

@@ -2,7 +2,7 @@ from enum import Enum
 from math import pi
 from dataclasses import dataclass
 
-__all__ = ["UnitRegistry", "UnitConverter", "UnitSystem"]
+__all__ = ["UnitConverter", "UnitRegistry", "UnitSystem"]
 
 class Dimension(Enum):
     FORCE = "force"

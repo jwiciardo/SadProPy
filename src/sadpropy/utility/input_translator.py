@@ -1,11 +1,18 @@
 from math import sqrt
-from sadpropy.model.dataclasses import *
-#from model.dataclass_properties import Materials, Mat_Concrete04, Mat_Steel02, Mat_MinMax
+from sadpropy.model.dataclasses import (
+    ProjectInformation,
+    AnalysisPreferences,
+    PointCoordinates,
+    LineConnectivity,
+    SurfaceConnectivity
+    )
 from .exceptions import ValidationError
+from .helper import create_storeys
 from .input_reader import InputReader
-from .units import *
-from .helper import *
-from .operator import *
+from .operator import LengthfromCoordinate
+from .units import UnitConverter, UnitRegistry, UnitSystem
+
+__all__ = ["InputTranslator"]
 
 class InputTranslator:
     def __init__(self, inputfile_path):
@@ -148,7 +155,7 @@ class InputTranslator:
             vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
             i_coord = (vertex_i.x_coord, vertex_i.y_coord, vertex_i.z_coord)
             j_coord = (vertex_j.x_coord, vertex_j.y_coord, vertex_j.z_coord)
-            length = Length_from_Coordinate(i_coord, j_coord)
+            length = LengthfromCoordinate(i_coord, j_coord)
             centroid_x = (vertex_i.x_coord + vertex_j.x_coord) / 2.0
             centroid_y = (vertex_i.y_coord + vertex_j.y_coord) / 2.0
             centroid_z = (vertex_i.z_coord + vertex_j.z_coord) / 2.0
