@@ -47,15 +47,15 @@ class SurfaceConnectivity:
 
 @dataclass(slots=True, frozen=True)
 class StoreyData:
-    name: str
+    storey_name: str
     height: float
     elevation: float
 
 # Properties
 @dataclass(slots=True, frozen=True)
 class Materials:
-    name: str
-    type: str
+    mat_name: str
+    mat_type: str
     E: float
     nu: float
     G: float
@@ -142,8 +142,8 @@ class ModelData:
     point_coordinates: Dict[int, PointCoordinates] = field(default_factory=dict)
     line_connectivity: Dict[int, LineConnectivity] = field(default_factory=dict)
     surface_connectivity: Dict[int, SurfaceConnectivity] = field(default_factory=dict)
+    materials: Dict[str, Materials] = field(default_factory=dict)
 
-    #materials: Dict[str, Materials] = field(default_factory=dict)
     #mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
     #mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
     #mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)

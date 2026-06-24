@@ -28,5 +28,6 @@ class ModelDataStorer:
             storey_data = data["Storey Data"],
             line_connectivity = data["Line Connectivity"],
             surface_connectivity = data["Surface Connectivity"],
+            materials = data["Materials"],
         )
 

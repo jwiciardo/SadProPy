@@ -9,13 +9,13 @@ def create_storeys(storey_elevations: list[float]) -> dict[str, StoreyData]:
     storey_data = {}
     for i, elev in enumerate(storey_elevations):
         if i == 0:
-            name = "Base"
+            storey_name = "Base"
             height = 0.0
         else:
-            name = f"Storey{i}"
+            storey_name = f"Storey{i}"
             height = elev - storey_elevations[i - 1]
-        storey_data[name] = StoreyData(
-            name = name,
+        storey_data[storey_name] = StoreyData(
+            storey_name = storey_name,
             height = height,
             elevation = elev,
         )

@@ -9,7 +9,8 @@ storey_data = modeldata.storey_data
 point_coordinates = modeldata.point_coordinates
 line_connectivity = modeldata.line_connectivity
 surface_connectivity = modeldata.surface_connectivity
-print(surface_connectivity)
+materials = modeldata.materials
+print(materials)
 
 
 

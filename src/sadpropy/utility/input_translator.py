@@ -4,7 +4,8 @@ from sadpropy.model.dataclasses import (
     AnalysisPreferences,
     PointCoordinates,
     LineConnectivity,
-    SurfaceConnectivity
+    SurfaceConnectivity,
+    Materials,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
@@ -77,8 +78,8 @@ class InputTranslator:
         storey_data = create_storeys(storey_elevations)
         line_connectivity = self.translate_line_objects(point_coordinates)
         surface_connectivity = self.translate_surface_objects(line_connectivity)
+        materials = self.translate_materials()
 
-        #materials = self.translate_materials()
         #mat_concrete04 = self.translate_mat_concrete04(materials)
         #mat_steel02 = self.translate_mat_steel02(materials)
         #mat_minmax = self.translate_mat_minmax()
@@ -90,6 +91,7 @@ class InputTranslator:
             "Point Coordinates": point_coordinates,
             "Line Connectivity": line_connectivity,
             "Surface Connectivity": surface_connectivity,
+            "Materials": materials,
         }
 
     # TRANSLATE FUNCTION
@@ -208,17 +210,17 @@ class InputTranslator:
             )
         return surface_connectivity
 
-    #def translate_materials(self):
-        data = self.reader.read_inputfile("Materials") # Reading Sheet "Materials" in the Input file
-        ret = {}
-        for row in data.to_dict("records"): # Defining dictionary for each material
+    def translate_materials(self):
+        data = self.reader.read_inputfile(sheet_name="Materials", start_row=14) # Reading Sheet "Materials" in the Input file
+        materials = {}
+        for row in data: # Defining dictionary for each material
             mat_name, mat_type = row["Name"], row["Type"]
             E, nu, Unitweight, fc, fy, fu = row["E"], row["nu"], row["Unitweight"], row["fc"], row["fy"], row["fu"], 
             G = E / (2 * (1 + nu))
             if mat_type == "Concrete":
-                ret[str(mat_name)] = Materials(
-                    name = str(mat_name),
-                    type = str(mat_type),
+                materials[str(mat_name)] = Materials(
+                    mat_name = str(mat_name),
+                    mat_type = str(mat_type),
                     E = self.stress(E),
                     nu = float(nu),
                     G = self.stress(G),
@@ -228,9 +230,9 @@ class InputTranslator:
                     fu = 0.0,
                 )
             elif mat_type == "Rebar" or mat_type == "Steel":
-                ret[str(mat_name)] = Materials(
-                    name = str(mat_name),
-                    type = str(mat_type),
+                materials[str(mat_name)] = Materials(
+                    mat_name = str(mat_name),
+                    mat_type = str(mat_type),
                     E = self.stress(E),
                     nu = float(nu),
                     G = self.stress(G),
@@ -239,7 +241,7 @@ class InputTranslator:
                     fy = self.stress(fy),
                     fu = self.stress(fu),
                 )
-        return ret
+        return materials
     
     #def translate_mat_concrete04(self, Mats):
         data = self.reader.read_inputfile("Mat_Concrete04") # Reading Sheet "Mat_Concrete04" in the Input file
