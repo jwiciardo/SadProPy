@@ -70,10 +70,10 @@ class Materials:
 
 @dataclass(frozen=True)
 class Mat_Concrete04:
-    name: str
+    mat_name: str
     base_mat: str
-    type: str
-    model: str
+    mat_type: str
+    mat_model: str
     fc: float
     epsc: float
     epscu: float
@@ -83,7 +83,6 @@ class Mat_Concrete04:
     E: float
     nu: float
     G: float
-    Esec: float
     unitweight: float
 
 @dataclass(frozen=True)
@@ -147,7 +146,7 @@ class ModelData:
     line_connectivity: Dict[int, LineConnectivity] = field(default_factory=dict)
     surface_connectivity: Dict[int, SurfaceConnectivity] = field(default_factory=dict)
     materials: Dict[str, Materials] = field(default_factory=dict)
-
-    #mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
+    mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
+    
     #mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
     #mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)

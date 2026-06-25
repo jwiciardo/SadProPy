@@ -10,7 +10,8 @@ point_coordinates = modeldata.point_coordinates
 line_connectivity = modeldata.line_connectivity
 surface_connectivity = modeldata.surface_connectivity
 materials = modeldata.materials
-print(line_connectivity)
+mat_concrete04 = modeldata.mat_concrete04
+print(mat_concrete04)
 
 
 

@@ -6,6 +6,7 @@ from sadpropy.model.dataclasses import (
     LineConnectivity,
     SurfaceConnectivity,
     Materials,
+    Mat_Concrete04
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
@@ -79,8 +80,8 @@ class InputTranslator:
         line_connectivity = self.translate_line_objects(point_coordinates)
         surface_connectivity = self.translate_surface_objects(line_connectivity)
         materials = self.translate_materials()
+        mat_concrete04 = self.translate_mat_concrete04(materials)
 
-        #mat_concrete04 = self.translate_mat_concrete04(materials)
         #mat_steel02 = self.translate_mat_steel02(materials)
         #mat_minmax = self.translate_mat_minmax()
         return {
@@ -92,6 +93,7 @@ class InputTranslator:
             "Line Connectivity": line_connectivity,
             "Surface Connectivity": surface_connectivity,
             "Materials": materials,
+            "Mat: Concrete04": mat_concrete04,
         }
 
     # TRANSLATE FUNCTION
@@ -135,14 +137,14 @@ class InputTranslator:
         if duplicates:
             raise ValidationError(f"Duplicate Point IDs found: {sorted(duplicates)}")
         point_coordinates = {}
-        for row in data: # Defining dictionary for each point object
-            point_id, x_coord, y_coord, z_coord = row["Point ID"], row["X"], row["Y"], row["Z"]
+        for row in data:
+            point_id, x_coord, y_coord, z_coord = row["Point ID"], self.length(row["X"]), self.length(row["Y"]), self.length(row["Z"])
             point_coordinates[int(point_id)] = PointCoordinates(
                 point_id = int(point_id),
-                x_coord = self.length(x_coord),
-                y_coord = self.length(y_coord),
-                z_coord = self.length(z_coord),
-            )
+                x_coord = float(x_coord),
+                y_coord = float(y_coord),
+                z_coord = float(z_coord),
+            ) # Defining dictionary for each point object
         storey_elevations = sorted({self.length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
         return point_coordinates, storey_elevations
     
@@ -153,9 +155,9 @@ class InputTranslator:
         if duplicates:
             raise ValidationError(f"Duplicate Line IDs found: {sorted(duplicates)}")
         line_connectivity = {}
-        for row in data: # Defining dictionary for each line object
+        for row in data:
             line_id, i_end, j_end = row["Line ID"], row["I-End"], row["J-End"]
-            end_offset, i_end_offset, j_end_offset = row["End Offset"], row["I-End Offset Length"], row["J-End Offset Length"]
+            end_offset, i_end_offset, j_end_offset = row["End Offset"], self.length(row["I-End Offset Length"]), self.length(row["J-End Offset Length"])
             vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
             i_coord = (vertex_i.x_coord, vertex_i.y_coord, vertex_i.z_coord)
             j_coord = (vertex_j.x_coord, vertex_j.y_coord, vertex_j.z_coord)
@@ -168,13 +170,13 @@ class InputTranslator:
                 i_end = int(i_end),
                 j_end = int(j_end),
                 end_offset = str(end_offset),
-                i_end_offset = self.length(i_end_offset),
-                j_end_offset = self.length(j_end_offset),
-                length = self.length(length),
-                centroid_x = self.length(centroid_x),
-                centroid_y = self.length(centroid_y),
-                centroid_z = self.length(centroid_z),
-            )
+                i_end_offset = float(i_end_offset),
+                j_end_offset = float(j_end_offset),
+                length = float(length),
+                centroid_x = float(centroid_x),
+                centroid_y = float(centroid_y),
+                centroid_z = float(centroid_z),
+            ) # Defining dictionary for each line object
         return line_connectivity
     
     def translate_surface_objects(self, line_connectivity):
@@ -184,7 +186,7 @@ class InputTranslator:
         if duplicates:
             raise ValidationError(f"Duplicate Surface IDs found: {sorted(duplicates)}")
         surface_connectivity = {}
-        for row in data: # Defining dictionary for each surface object
+        for row in data:
             surface_id = row["Surface ID"]
             edges = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"]) if edge is not None]
             n_edges = len(edges)
@@ -212,7 +214,7 @@ class InputTranslator:
                 edges = tuple(edges),
                 n_edges = int(n_edges),
                 vertices = tuple(vertices),
-            )
+            ) # Defining dictionary for each surface object
         return surface_connectivity
 
     def translate_materials(self):
@@ -220,17 +222,17 @@ class InputTranslator:
         materials = {}
         for row in data: # Defining dictionary for each material
             mat_name, mat_type = row["Material Name"], row["Material Type"]
-            E, nu, Unitweight, fc, fy, fu = row["E"], row["nu"], row["Unitweight"], row["fc"], row["fy"], row["fu"], 
+            E, nu, Unitweight, fc, fy, fu = self.stress(row["E"]), row["nu"], self.unitweight(row["Unitweight"]), self.stress(row["fc"]), self.stress(row["fy"]), self.stress(row["fu"]), 
             G = E / (2 * (1 + nu))
             if mat_type == "Concrete":
                 materials[str(mat_name)] = Materials(
                     mat_name = str(mat_name),
                     mat_type = str(mat_type),
-                    E = self.stress(E),
+                    E = float(E),
                     nu = float(nu),
-                    G = self.stress(G),
-                    unitweight = self.unitweight(Unitweight),
-                    fc = self.stress(fc),
+                    G = float(G),
+                    unitweight = float(Unitweight),
+                    fc = float(fc),
                     fy = 0.0,
                     fu = 0.0,
                 )
@@ -238,44 +240,43 @@ class InputTranslator:
                 materials[str(mat_name)] = Materials(
                     mat_name = str(mat_name),
                     mat_type = str(mat_type),
-                    E = self.stress(E),
+                    E = float(E),
                     nu = float(nu),
-                    G = self.stress(G),
-                    unitweight = self.unitweight(Unitweight),
+                    G = float(G),
+                    unitweight = float(Unitweight),
                     fc = 0.0,
-                    fy = self.stress(fy),
-                    fu = self.stress(fu),
+                    fy = float(fy),
+                    fu = float(fu),
                 )
         return materials
     
-    #def translate_mat_concrete04(self, Mats):
-        data = self.reader.read_inputfile("Mat_Concrete04") # Reading Sheet "Mat_Concrete04" in the Input file
-        ret = {}
-        for row in data.to_dict("records"):
+    def translate_mat_concrete04(self, materials):
+        data = self.reader.read_inputfile(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
+        mat_concrete04 = {}
+        for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
-            fc, epsc, epscu, E, fct, et, beta = row["fc"], row["epsc"], row["epscu"], row["E"], row["fct"], row["et"], row["beta"]
-            base_mat_data = Mats[base_mat]
-            nu, G, Unitweight = base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
+            fc, epsc, epscu, fct, et, beta = self.stress(row["fc"]), row["epsc"], row["epscu"], self.stress(row["fct"]), row["et"], row["beta"]
+            base_mat_data = materials[base_mat]
+            E, nu, G, Unitweight = base_mat_data.E, base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
             Esec = fc / epsc
             et_default = fct / Esec
-            ret[str(mat_name)] = Mat_Concrete04(
-                name = str(mat_name),
+            mat_concrete04[str(mat_name)] = Mat_Concrete04(
+                mat_name = str(mat_name),
                 base_mat = str(base_mat),
-                type = str(mat_type),
-                model = str(mat_model),
-                fc = self.Stress(-fc),
+                mat_type = str(mat_type),
+                mat_model = str(mat_model),
+                fc = float(-fc),
                 epsc = float(-epsc),
                 epscu = float(-epscu),
-                fct = self.Stress(fct),
+                fct = float(fct),
                 et = float(et if et != 0.0 else et_default),
                 beta = float(beta),
-                E = self.Stress(E),
+                E = float(E),
                 nu = float(nu),
                 G = float(G),
-                Esec = self.Stress(Esec),
                 unitweight = float(Unitweight),
             ) # Defining dictionary for each material
-        return ret
+        return mat_concrete04
     
     #def translate_mat_steel02(self, Mats):
         data = self.reader.read_inputfile("Mat_Steel02") # Reading Sheet "Mat_Steel02" in the Input file
