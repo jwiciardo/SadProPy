@@ -15,4 +15,5 @@ mat_steel02 = modeldata.mat_steel02
 mat_minmax = modeldata.mat_minmax
 mat_imk = modeldata.mat_imk
 frame_sections = modeldata.frame_sections
-print(frame_sections)
+sec_fiber = modeldata.sec_fiber
+print(sec_fiber)

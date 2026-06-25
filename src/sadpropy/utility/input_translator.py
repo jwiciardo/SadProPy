@@ -11,12 +11,13 @@ from sadpropy.model.dataclasses import (
     Mat_MinMax,
     Mat_IMK,
     FrameSections,
+    Sec_Fiber,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
 from .input_reader import InputReader
 from .helper import create_storeys
-from .operator import CoordinateToLength, SectionProperties
+from .operator import CoordinateToLength, SectionProperties, FiberSectionProperties
 
 __all__ = ["InputTranslator"]
 
@@ -90,6 +91,7 @@ class InputTranslator:
         mat_minmax = self.translate_mat_minmax(materials_nl)
         mat_imk = self.translate_mat_imk()
         frame_sections = self.translate_frame_sections()
+        sec_fiber = self.translate_sec_fiber(frame_sections, materials)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -104,6 +106,7 @@ class InputTranslator:
             "Mat: MinMax": mat_minmax,
             "Mat: IMK Hinge": mat_imk,
             "Frame Sections": frame_sections,
+            "Sec: Fiber": sec_fiber,
         }
 
     # TRANSLATE FUNCTION
@@ -425,3 +428,48 @@ class InputTranslator:
                 alphaZ = float(alphaZ),
             ) # Defining dictionary for each frame section
         return frame_sections
+    
+    def translate_sec_fiber(self, frame_sections, materials):
+        data = self.reader.read_inputfile(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
+        sec_fiber = {}
+        for row in data:
+            sec_name, base_sec, integration_type = row["Section Name"], row["Base Section"], row["Integration Type"]
+            mat_1, mat_2, mat_3, sec_model = row["Material 1"], row["Material 2"], row["Material 3"], row["Section Model"]
+            cover, nbars_top, nbars_bot, nbars_int = self.length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
+            bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int = self.length(row["barDiaHoop"]), self.length(row["barDiaTop"]), self.length(row["barDiaBot"]), self.length(row["barDiaInt"])
+            base_sec_data = frame_sections[base_sec]
+            h, b, sec_shape, base_mat = base_sec_data.h, base_sec_data.b, base_sec_data.sec_shape, base_sec_data.base_mat
+            base_mat_data = materials[base_mat]
+            mat_type = base_mat_data.mat_type
+            row["h"], row["b"], row["Section Shape"], row["Material Type"] = h, b, sec_shape, mat_type
+            A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int = FiberSectionProperties(row)
+            sec_fiber[str(sec_name)] = Sec_Fiber(
+                sec_name = str(sec_name),
+                base_sec = str(base_sec),
+                integration_type = str(integration_type),
+                mat_type = str(mat_type),
+                mat_1 = str(mat_1),
+                mat_2 = str(mat_2),
+                mat_3 = str(mat_3),
+                sec_model = str(sec_model),
+                h = float(h),
+                b = float(b),
+                cover = float(cover),
+                nbars_top = int(nbars_top),
+                nbars_bot = int(nbars_bot),
+                nbars_int = int(nbars_int),
+                bar_dia_hoop = float(bar_dia_hoop),
+                bar_dia_top = float(bar_dia_top),
+                bar_dia_bot = float(bar_dia_bot),
+                bar_dia_int = float(bar_dia_int),
+                A = float(A),
+                Avy = float(Avy),
+                Avz = float(Avz),
+                Iz = float(Iz),
+                Iy = float(Iy),
+                Jxx = float(Jxx),
+                Abar_top = float(Abar_top),
+                Abar_bot = float(Abar_bot),
+                Abar_int = float(Abar_int),
+            ) # Defining dictionary for each frame section
+        return sec_fiber

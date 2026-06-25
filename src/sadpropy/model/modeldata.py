@@ -34,5 +34,6 @@ class ModelDataStorer:
             mat_minmax = data["Mat: MinMax"],
             mat_imk = data["Mat: IMK Hinge"],
             frame_sections = data["Frame Sections"],
+            sec_fiber = data["Sec: Fiber"],
         )
 

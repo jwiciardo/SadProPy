@@ -49,7 +49,7 @@ def SectionProperties(section_data):
           Jxx = h * b**3 * ((16/3) - 3.36 * (b / h) * (1 - b**4 / (12 * h**4))) / 16 # Torsional constant
      return A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ
 
-def FiberSectionProperties(fibersection_data, ):
+def FiberSectionProperties(fibersection_data):
      row = fibersection_data
      if row['Material Type'] == 'Concrete':
           if row['Section Shape'] == 'Rectangular':

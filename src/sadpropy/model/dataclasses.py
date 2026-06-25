@@ -176,6 +176,36 @@ class FrameSections:
     alphaY: float
     alphaZ: float
 
+@dataclass(slots=True, frozen=True)
+class Sec_Fiber:
+    sec_name: str
+    base_sec: str
+    integration_type: str
+    mat_type: str
+    mat_1: str
+    mat_2: str
+    mat_3: str
+    sec_model: str
+    h: float
+    b: float
+    cover: float
+    nbars_top: int
+    nbars_bot: int
+    nbars_int: int
+    bar_dia_hoop: float
+    bar_dia_top: float
+    bar_dia_bot: float
+    bar_dia_int: float
+    A: float
+    Avy: float
+    Avz: float
+    Iz: float
+    Iy: float 
+    Jxx: float
+    Abar_top: float
+    Abar_bot: float
+    Abar_int: float
+
 # Structural Objects
 @dataclass(slots=True, frozen=True)
 class Nodes:
@@ -212,3 +242,4 @@ class ModelData:
     mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
     mat_imk: Dict[str, Mat_IMK] = field(default_factory=dict)
     frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
+    sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
