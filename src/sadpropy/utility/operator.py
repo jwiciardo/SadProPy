@@ -1,6 +1,6 @@
 from math import pi, sqrt
 
-__all__ = ["SignificantFigures", "LengthfromCoordinate", "RayleighCoefficient", "RebarArea", "SectionProperties", "FiberSectionProperties"]
+__all__ = ["SignificantFigures", "CoordinateToLength", "RayleighDampingCoefficients", "RebarArea", "SectionProperties", "FiberSectionProperties"]
 
 # NUMERICAL CORRECTION
 def SignificantFigures(x, tol=1e-12):
@@ -17,14 +17,14 @@ def SignificantFigures(x, tol=1e-12):
         return 0.5 * abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) # Defining formula to calculate polygon area (Shoelace formula)
 
 # COMPUTE LENGTH FROM COORDINATE DATA
-def LengthfromCoordinate(i_coord, j_coord):
+def CoordinateToLength(i_coord, j_coord):
      i_x_coord, i_y_coord, i_z_coord = i_coord
      j_x_coord, j_y_coord, j_z_coord = j_coord
      length = sqrt((i_x_coord - j_x_coord)**2 + (i_y_coord - j_y_coord)**2 + (i_z_coord - j_z_coord)**2)
      return length
 
 # COMPUTE RAYLEIGH DAMPING COEFFICIENTS
-def RayleighCoefficient(damp_ratio1, damp_ratio2, omega1, omega2):
+def RayleighDampingCoefficients(damp_ratio1, damp_ratio2, omega1, omega2):
      alpha = 2 * (damp_ratio2 * omega1**2 * omega2 - damp_ratio1 * omega1 * omega2**2) / (omega1**2 - omega2**2)
      beta = 2 * (damp_ratio1 * omega1 - damp_ratio2 * omega2) / (omega1**2 - omega2**2)
      return alpha, beta

@@ -13,4 +13,6 @@ materials = modeldata.materials
 mat_concrete04 = modeldata.mat_concrete04
 mat_steel02 = modeldata.mat_steel02
 mat_minmax = modeldata.mat_minmax
-print(mat_minmax)
+mat_imk = modeldata.mat_imk
+frame_sections = modeldata.frame_sections
+print(frame_sections)

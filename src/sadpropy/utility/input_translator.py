@@ -9,12 +9,14 @@ from sadpropy.model.dataclasses import (
     Mat_Concrete04,
     Mat_Steel02,
     Mat_MinMax,
+    Mat_IMK,
+    FrameSections,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
 from .input_reader import InputReader
 from .helper import create_storeys
-from .operator import LengthfromCoordinate
+from .operator import CoordinateToLength, SectionProperties
 
 __all__ = ["InputTranslator"]
 
@@ -86,6 +88,8 @@ class InputTranslator:
         mat_steel02 = self.translate_mat_steel02(materials)
         materials_nl = (mat_concrete04, mat_steel02)
         mat_minmax = self.translate_mat_minmax(materials_nl)
+        mat_imk = self.translate_mat_imk()
+        frame_sections = self.translate_frame_sections()
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -98,6 +102,8 @@ class InputTranslator:
             "Mat: Concrete04": mat_concrete04,
             "Mat: Steel02": mat_steel02,
             "Mat: MinMax": mat_minmax,
+            "Mat: IMK Hinge": mat_imk,
+            "Frame Sections": frame_sections,
         }
 
     # TRANSLATE FUNCTION
@@ -165,7 +171,7 @@ class InputTranslator:
             vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
             i_coord = (vertex_i.x_coord, vertex_i.y_coord, vertex_i.z_coord)
             j_coord = (vertex_j.x_coord, vertex_j.y_coord, vertex_j.z_coord)
-            length = LengthfromCoordinate(i_coord, j_coord)
+            length = CoordinateToLength(i_coord, j_coord)
             centroid_x = (vertex_i.x_coord + vertex_j.x_coord) / 2.0
             centroid_y = (vertex_i.y_coord + vertex_j.y_coord) / 2.0
             centroid_z = (vertex_i.z_coord + vertex_j.z_coord) / 2.0
@@ -345,3 +351,77 @@ class InputTranslator:
                 et_max = float(et_max),
             ) # Defining dictionary for each material
         return mat_minmax
+    
+    def translate_mat_imk(self):
+        data = self.reader.read_inputfile(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+        mat_imk = {}
+        for row in data:
+            mat_name, mat_type, mat_model = row["Material Name"], row["Material Type"], row["Material Model"]
+            K0, as_pos, as_neg = self.moment(row["K0"]), row["as_Pos"], row["as_Neg"]
+            my_pos, my_neg, mu_pos, mu_neg = self.moment(row["My_Pos"]), self.moment(row["My_Neg"]), self.moment(row["Mu_Pos"]), self.moment(row["Mu_Neg"])
+            fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
+            lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
+            theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
+            theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
+            mat_imk[str(mat_name)] = Mat_IMK(
+                mat_name = str(mat_name),
+                mat_type = str(mat_type),
+                mat_model = str(mat_model),
+                K0 = float(K0),
+                as_pos = float(as_pos),
+                as_neg = float(as_neg),
+                my_pos = float(my_pos),
+                my_neg = float(my_neg),
+                mu_pos = float(mu_pos),
+                mu_neg = float(mu_neg),
+                fpr_pos = float(fpr_pos),
+                fpr_neg = float(fpr_neg),
+                a_pinch = float(a_pinch),
+                nfactor = float(nfactor),
+                lamda_s = float(lamda_s),
+                lamda_c = float(lamda_c),
+                lamda_a = float(lamda_a),
+                lamda_k = float(lamda_k),
+                c_s = float (c_s),
+                c_c = float(c_c),
+                c_a = float(c_a),
+                c_k = float(c_k),
+                theta_p_pos = float(theta_p_pos),
+                theta_p_neg = float(theta_p_neg),
+                theta_pc_pos = float(theta_pc_pos),
+                theta_pc_neg = float(theta_pc_neg),
+                res_pos = float(res_pos),
+                res_neg = float(res_neg),
+                theta_u_pos = float(theta_u_pos),
+                theta_u_neg = float(theta_u_neg),
+                d_pos = float(d_pos),
+                d_neg = float(d_neg),
+            ) # Defining dictionary for each material
+        return mat_imk
+    
+    def translate_frame_sections(self):
+        data = self.reader.read_inputfile(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        frame_sections = {}
+        for row in data:
+            sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
+            h, b = self.length(row["h"]), self.length(row["b"])
+            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = SectionProperties(row)
+            k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
+            frame_sections[str(sec_name)] = FrameSections(
+                sec_name = str(sec_name),
+                sec_shape = str (sec_shape),
+                base_mat = str(base_mat),
+                sec_model = str(sec_model),
+                element_type = str(element_type),
+                h = float(h),
+                b = float(b),
+                A = float(k_A * A),
+                Avy = float(k_Avy * Avy),
+                Avz = float(k_Avz * Avz),
+                Iz = float(k_Iz * Iz),
+                Iy = float(k_Iy * Iy),
+                Jxx = float(k_Jxx * Jxx),
+                alphaY = float(alphaY),
+                alphaZ = float(alphaZ),
+            ) # Defining dictionary for each frame section
+        return frame_sections

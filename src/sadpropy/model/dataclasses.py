@@ -55,7 +55,7 @@ class StoreyData:
     height: float
     elevation: float
 
-# Properties
+# Properties: Materials
 @dataclass(slots=True, frozen=True)
 class Materials:
     mat_name: str
@@ -68,7 +68,7 @@ class Materials:
     fy: float
     fu: float
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
     mat_name: str
     base_mat: str
@@ -85,7 +85,7 @@ class Mat_Concrete04:
     et: float
     beta: float
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Mat_Steel02:
     mat_name: str
     base_mat: str
@@ -109,7 +109,7 @@ class Mat_Steel02:
     a4: float
     f_init: float
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Mat_MinMax:
     mat_name: str
     base_nl_mat: str
@@ -122,21 +122,75 @@ class Mat_MinMax:
     ec_max: float
     et_max: float
 
+@dataclass(slots=True, frozen=True)
+class Mat_IMK:
+    mat_name: str
+    mat_type: str
+    mat_model: str
+    K0: float
+    as_pos: float
+    as_neg: float
+    my_pos: float
+    my_neg: float
+    mu_pos: float
+    mu_neg: float
+    fpr_pos: float
+    fpr_neg: float
+    a_pinch: float
+    nfactor: float
+    lamda_s: float
+    lamda_c: float
+    lamda_a: float
+    lamda_k: float
+    c_s: float
+    c_c: float
+    c_a: float
+    c_k: float
+    theta_p_pos: float
+    theta_p_neg: float
+    theta_pc_pos: float
+    theta_pc_neg: float
+    res_pos: float
+    res_neg: float
+    theta_u_pos: float
+    theta_u_neg: float
+    d_pos: float
+    d_neg: float
+
+# Properties: Frame Sections
+@dataclass(slots=True, frozen=True)
+class FrameSections:
+    sec_name: str
+    sec_shape: str
+    base_mat: str
+    sec_model: str
+    element_type: str
+    h: float
+    b: float
+    A: float
+    Avy: float
+    Avz: float
+    Iz: float
+    Iy: float
+    Jxx: float
+    alphaY: float
+    alphaZ: float
+
 # Structural Objects
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Nodes:
     tag: int
     x: float
     y: float
     z: float
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class BeamColumnElements:
     tag: int
     iend_node: int
     jend_node: int
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Slabs:
     tag: int
     elements: tuple[int, ...]
@@ -156,3 +210,5 @@ class ModelData:
     mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
     mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
     mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
+    mat_imk: Dict[str, Mat_IMK] = field(default_factory=dict)
+    frame_sections: Dict[str, FrameSections] = field(default_factory=dict)

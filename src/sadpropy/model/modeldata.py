@@ -32,5 +32,7 @@ class ModelDataStorer:
             mat_concrete04 = data["Mat: Concrete04"],
             mat_steel02 = data["Mat: Steel02"],
             mat_minmax = data["Mat: MinMax"],
+            mat_imk = data["Mat: IMK Hinge"],
+            frame_sections = data["Frame Sections"],
         )
 

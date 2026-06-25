@@ -5,8 +5,8 @@ from .utility import (
     GRAVITY_ACCELERATION,
     GroundMotionReader,
     InputReader,
-    LengthfromCoordinate,
-    RayleighCoefficient,
+    CoordinateToLength,
+    RayleighDampingCoefficients,
     RebarArea,
     SectionProperties,
     SignificantFigures,
@@ -41,7 +41,7 @@ from .model.modeldata import ModelDataStorer
 
 __all__ = [
     "UnitConverter", "UnitRegistry", "UnitSystem", "FilePath", "ValidationError", "InputReader", "GroundMotionReader", "GRAVITY_ACCELERATION",
-    "FiberSectionProperties", "LengthfromCoordinate", "RayleighCoefficient", "RebarArea", "SectionProperties", "SignificantFigures",
+    "FiberSectionProperties", "CoordinateToLength", "RayleighDampingCoefficients", "RebarArea", "SectionProperties", "SignificantFigures",
     "ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData", "Materials",
     "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Nodes", "BeamColumnElements", "Slabs", "ModelData",
     "create_storeys", "get_vertices_from_surface"
