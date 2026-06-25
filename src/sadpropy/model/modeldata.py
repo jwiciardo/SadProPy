@@ -22,7 +22,7 @@ class ModelDataStorer:
         
         return ModelData(
             project_information = data["Project Information"],
-            units = data["System Units"],
+            user_unitsystem = data["User Specified Unitsystem"],
             analysis_preferences = data["Analysis Preferences"],
             point_coordinates = data["Point Coordinates"],
             storey_data = data["Storey Data"],

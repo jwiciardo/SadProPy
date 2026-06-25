@@ -27,6 +27,7 @@ class PointCoordinates:
     x_coord: float
     y_coord: float
     z_coord: float
+    zero_length: str
 
 @dataclass(slots=True, frozen=True)
 class LineConnectivity:
@@ -136,7 +137,7 @@ class Slabs:
 @dataclass
 class ModelData:
     project_information: ProjectInformation
-    units: UnitSystem
+    user_unitsystem: UnitSystem
     analysis_preferences: AnalysisPreferences
     storey_data: Dict[str, StoreyData] = field(default_factory=dict)
     point_coordinates: Dict[int, PointCoordinates] = field(default_factory=dict)

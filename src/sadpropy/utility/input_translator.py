@@ -71,8 +71,8 @@ class InputTranslator:
     # CENTRAL FUNCTION: TRANSLATOR
     def translate_inputfile(self):
         project_information = self.translate_project_information()
-        units = self.translate_units()
-        self.units = units
+        user_unitsystem = self.translate_user_unitsystem()
+        self.units = user_unitsystem
         analysis_preferences = self.translate_analysis_preferences()
         point_coordinates, storey_elevations = self.translate_point_objects()
         storey_data = create_storeys(storey_elevations)
@@ -85,7 +85,7 @@ class InputTranslator:
         #mat_minmax = self.translate_mat_minmax()
         return {
             "Project Information": project_information,
-            "System Units": units,
+            "User Specified Unitsystem": user_unitsystem,
             "Analysis Preferences": analysis_preferences,
             "Storey Data": storey_data,
             "Point Coordinates": point_coordinates,
@@ -104,10 +104,10 @@ class InputTranslator:
         ) # Defining dictionary for project information
         return project_information
     
-    def translate_units(self):
-        data = self.reader.read_inputfile(sheet_name="System Units", start_row=9) # Reading Sheet "System Units" in the Input file
+    def translate_user_unitsystem(self):
+        data = self.reader.read_inputfile(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
-        units = UnitSystem(
+        user_unitsystem = UnitSystem(
                 force = str(row["Force"]),
                 length = str(row["Length"]),
                 mass = str(row["Mass"]),
@@ -115,7 +115,7 @@ class InputTranslator:
                 time = str(row["Time"]),
                 angle = str(row["Angle"]),
         ) # Defining dictionary for units
-        return units
+        return user_unitsystem
 
     def translate_analysis_preferences(self):
         data = self.reader.read_inputfile(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
@@ -128,19 +128,20 @@ class InputTranslator:
         return analysis_preferences
     
     def translate_point_objects(self):
-        data = self.reader.read_inputfile(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+        data = self.reader.read_inputfile(sheet_name="Point Objects", start_row=8) # Reading Sheet "Point Objects" in the Input file
         ids = [int(row["Point ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
             raise ValidationError(f"Duplicate Point IDs found: {sorted(duplicates)}")
         point_coordinates = {}
         for row in data: # Defining dictionary for each point object
-            point_id, x_coord, y_coord, z_coord = row["Point ID"], row["X"], row["Y"], row["Z"]
+            point_id, x_coord, y_coord, z_coord, zero_length = row["Point ID"], row["X"], row["Y"], row["Z"], row["Zero Length Element"]
             point_coordinates[int(point_id)] = PointCoordinates(
                 point_id = int(point_id),
                 x_coord = self.length(x_coord),
                 y_coord = self.length(y_coord),
                 z_coord = self.length(z_coord),
+                zero_length = str(zero_length)
             )
         storey_elevations = sorted({self.length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
         return point_coordinates, storey_elevations
@@ -214,7 +215,7 @@ class InputTranslator:
         data = self.reader.read_inputfile(sheet_name="Materials", start_row=14) # Reading Sheet "Materials" in the Input file
         materials = {}
         for row in data: # Defining dictionary for each material
-            mat_name, mat_type = row["Name"], row["Type"]
+            mat_name, mat_type = row["Material Name"], row["Material Type"]
             E, nu, Unitweight, fc, fy, fu = row["E"], row["nu"], row["Unitweight"], row["fc"], row["fy"], row["fu"], 
             G = E / (2 * (1 + nu))
             if mat_type == "Concrete":
