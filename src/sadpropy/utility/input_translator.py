@@ -118,36 +118,36 @@ class InputTranslator:
         return user_unitsystem
 
     def translate_analysis_preferences(self):
-        data = self.reader.read_inputfile(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
+        data = self.reader.read_inputfile(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         analysis_preferences = AnalysisPreferences(
-                nl_analysis = str(row["Nonlinear Analysis"]),
+                nonlinear_analysis = str(row["Nonlinear Analysis"]),
+                auto_zero_length = str(row["Zero Length Element (Auto)"]),
                 pdelta = str(row["P-Delta"]),
-                ll_mass_factor = float(row["LL Mass Factor"]),
+                liveload_mass_factor = float(row["LL Mass Factor"]),
         ) # Defining dictionary for analysis preferences
         return analysis_preferences
     
     def translate_point_objects(self):
-        data = self.reader.read_inputfile(sheet_name="Point Objects", start_row=8) # Reading Sheet "Point Objects" in the Input file
+        data = self.reader.read_inputfile(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
         ids = [int(row["Point ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
             raise ValidationError(f"Duplicate Point IDs found: {sorted(duplicates)}")
         point_coordinates = {}
         for row in data: # Defining dictionary for each point object
-            point_id, x_coord, y_coord, z_coord, zero_length = row["Point ID"], row["X"], row["Y"], row["Z"], row["Zero Length Element"]
+            point_id, x_coord, y_coord, z_coord = row["Point ID"], row["X"], row["Y"], row["Z"]
             point_coordinates[int(point_id)] = PointCoordinates(
                 point_id = int(point_id),
                 x_coord = self.length(x_coord),
                 y_coord = self.length(y_coord),
                 z_coord = self.length(z_coord),
-                zero_length = str(zero_length)
             )
         storey_elevations = sorted({self.length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
         return point_coordinates, storey_elevations
     
     def translate_line_objects(self, point_coordinates):
-        data = self.reader.read_inputfile(sheet_name="Line Objects", start_row=6) # Reading Sheet "Line Objects" in the Input file
+        data = self.reader.read_inputfile(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
         ids = [int(row["Line ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
@@ -155,6 +155,7 @@ class InputTranslator:
         line_connectivity = {}
         for row in data: # Defining dictionary for each line object
             line_id, i_end, j_end = row["Line ID"], row["I-End"], row["J-End"]
+            end_offset, i_end_offset, j_end_offset = row["End Offset"], row["I-End Offset Length"], row["J-End Offset Length"]
             vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
             i_coord = (vertex_i.x_coord, vertex_i.y_coord, vertex_i.z_coord)
             j_coord = (vertex_j.x_coord, vertex_j.y_coord, vertex_j.z_coord)
@@ -166,6 +167,9 @@ class InputTranslator:
                 line_id = int(line_id),
                 i_end = int(i_end),
                 j_end = int(j_end),
+                end_offset = str(end_offset),
+                i_end_offset = self.length(i_end_offset),
+                j_end_offset = self.length(j_end_offset),
                 length = self.length(length),
                 centroid_x = self.length(centroid_x),
                 centroid_y = self.length(centroid_y),
@@ -212,7 +216,7 @@ class InputTranslator:
         return surface_connectivity
 
     def translate_materials(self):
-        data = self.reader.read_inputfile(sheet_name="Materials", start_row=14) # Reading Sheet "Materials" in the Input file
+        data = self.reader.read_inputfile(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
         materials = {}
         for row in data: # Defining dictionary for each material
             mat_name, mat_type = row["Material Name"], row["Material Type"]

@@ -16,9 +16,10 @@ class ProjectInformation:
 
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
-    nl_analysis: str
+    nonlinear_analysis: str
+    auto_zero_length: str
     pdelta: str
-    ll_mass_factor: float
+    liveload_mass_factor: float
 
 # Structure Data
 @dataclass(slots=True, frozen=True)
@@ -27,13 +28,15 @@ class PointCoordinates:
     x_coord: float
     y_coord: float
     z_coord: float
-    zero_length: str
 
 @dataclass(slots=True, frozen=True)
 class LineConnectivity:
     line_id: int
     i_end: int
     j_end: int
+    end_offset: str
+    i_end_offset: float
+    j_end_offset: float
     length: float
     centroid_x: float
     centroid_y: float
