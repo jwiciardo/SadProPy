@@ -6,7 +6,9 @@ from sadpropy.model.dataclasses import (
     LineConnectivity,
     SurfaceConnectivity,
     Materials,
-    Mat_Concrete04
+    Mat_Concrete04,
+    Mat_Steel02,
+    Mat_MinMax,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
@@ -81,9 +83,9 @@ class InputTranslator:
         surface_connectivity = self.translate_surface_objects(line_connectivity)
         materials = self.translate_materials()
         mat_concrete04 = self.translate_mat_concrete04(materials)
-
-        #mat_steel02 = self.translate_mat_steel02(materials)
-        #mat_minmax = self.translate_mat_minmax()
+        mat_steel02 = self.translate_mat_steel02(materials)
+        materials_nl = (mat_concrete04, mat_steel02)
+        mat_minmax = self.translate_mat_minmax(materials_nl)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -94,6 +96,8 @@ class InputTranslator:
             "Surface Connectivity": surface_connectivity,
             "Materials": materials,
             "Mat: Concrete04": mat_concrete04,
+            "Mat: Steel02": mat_steel02,
+            "Mat: MinMax": mat_minmax,
         }
 
     # TRANSLATE FUNCTION
@@ -265,65 +269,79 @@ class InputTranslator:
                 base_mat = str(base_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
+                E = float(E),
+                nu = float(nu),
+                G = float(G),
+                unitweight = float(Unitweight),
                 fc = float(-fc),
                 epsc = float(-epsc),
                 epscu = float(-epscu),
                 fct = float(fct),
                 et = float(et if et != 0.0 else et_default),
                 beta = float(beta),
-                E = float(E),
-                nu = float(nu),
-                G = float(G),
-                unitweight = float(Unitweight),
             ) # Defining dictionary for each material
         return mat_concrete04
     
-    #def translate_mat_steel02(self, Mats):
-        data = self.reader.read_inputfile("Mat_Steel02") # Reading Sheet "Mat_Steel02" in the Input file
-        ret = {}
-        for row in data.to_dict("records"):
+    def translate_mat_steel02(self, materials):
+        data = self.reader.read_inputfile(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
+        mat_steel02 = {}
+        for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
-            fy, fu, eu, E, b, R0, cR1, cR2 = row["fy"], row["fu"], row["eu"], row["E"], row["b"], row["R0"], row["cR1"], row["cR2"]
-            base_mat_data = Mats[base_mat]
-            nu, G, Unitweight = base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
+            fy, fu, eu, b, R0, cR1, cR2= self.stress(row["fy"]), self.stress(row["fu"]), row["eu"], row["b"], row["R0"], row["cR1"], row["cR2"]
+            a1, a2, a3, a4, f_init = row["a1"], row["a2"], row["a3"], row["a4"], self.stress(row['f_init'])
+            base_mat_data = materials[base_mat]
+            E, nu, G, Unitweight = base_mat_data.E, base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
             ey = fy / E
             eoffset = ey + 0.002
             Epy = (fu - fy) / (eu - eoffset)
             b_default = Epy / E
-            ret[str(mat_name)] = Mat_Steel02(
-                name = str(mat_name),
+            mat_steel02[str(mat_name)] = Mat_Steel02(
+                mat_name = str(mat_name),
                 base_mat = str(base_mat),
-                type = str(mat_type),
-                model = str(mat_model),
-                fy = self.Stress(fy),
-                fu = self.Stress(fu),
-                ey = float(ey),
-                eoffset = float(eoffset),
-                eu = float(eu),
-                E = self.Stress(E),
+                mat_type = str(mat_type),
+                mat_model = str(mat_model),
+                E = float(E),
                 nu = float(nu),
                 G = float(G),
-                Epy = self.Stress(Epy),
+                unitweight = float(Unitweight),
+                fy = float(fy),
+                fu = float(fu),
+                ey = float(ey),
+                eu = float(eu),
                 b = float(b if b != 0.0 else b_default),
-                R0 = float(R0),
+                R0 = int(R0),
                 cR1 = float(cR1),
                 cR2 = float(cR2),
-                unitweight = float(Unitweight),
+                a1 = float(a1),
+                a2 = float(a2),
+                a3 = float(a3),
+                a4 = float(a4),
+                f_init = float(f_init),
             ) # Defining dictionary for each material
-        return ret
+        return mat_steel02
     
-    #def translate_mat_minmax(self):
-        data = self.reader.read_inputfile("Mat_MinMax") # Reading Sheet "Mat_MinMax" in the Input file
-        ret = {}
-        for row in data.to_dict("records"):
+    def translate_mat_minmax(self, materials_nl):
+        data = self.reader.read_inputfile(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
+        mat_minmax = {}
+        for row in data:
             mat_name, base_nl_mat, mat_type, mat_model = row["Material Name"], row["Base NL Material"], row["Material Type"], row["Material Model"]
-            ec, et = row["ec"], row["et"]
-            ret[str(mat_name)] = Mat_MinMax(
-                name = str(mat_name),
+            ec_max, et_max = row["ecmax"], row["etmax"]
+            for mats in materials_nl:
+                if base_nl_mat in mats:
+                    base_nl_mat_data = mats[base_nl_mat]
+                    E, nu, G, Unitweight = base_nl_mat_data.E, base_nl_mat_data.nu, base_nl_mat_data.G, base_nl_mat_data.unitweight
+                else:
+                    continue
+            mat_minmax[str(mat_name)] = Mat_MinMax(
+                mat_name = str(mat_name),
                 base_nl_mat = str(base_nl_mat),
-                type = str(mat_type),
-                model = str(mat_model),
-                ec = float(-ec),
-                et = float(et),
+                mat_type = str(mat_type),
+                mat_model = str(mat_model),
+                E = float(E),
+                nu = float(nu),
+                G = float(G),
+                unitweight = float(Unitweight),
+                ec_max = float(-ec_max),
+                et_max = float(et_max),
             ) # Defining dictionary for each material
-        return ret
+        return mat_minmax

@@ -30,5 +30,7 @@ class ModelDataStorer:
             surface_connectivity = data["Surface Connectivity"],
             materials = data["Materials"],
             mat_concrete04 = data["Mat: Concrete04"],
+            mat_steel02 = data["Mat: Steel02"],
+            mat_minmax = data["Mat: MinMax"],
         )
 

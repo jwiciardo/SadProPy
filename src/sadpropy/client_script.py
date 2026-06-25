@@ -11,10 +11,6 @@ line_connectivity = modeldata.line_connectivity
 surface_connectivity = modeldata.surface_connectivity
 materials = modeldata.materials
 mat_concrete04 = modeldata.mat_concrete04
-print(mat_concrete04)
-
-
-
-
-
-
+mat_steel02 = modeldata.mat_steel02
+mat_minmax = modeldata.mat_minmax
+print(mat_minmax)

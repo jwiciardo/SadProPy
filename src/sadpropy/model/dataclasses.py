@@ -74,46 +74,53 @@ class Mat_Concrete04:
     base_mat: str
     mat_type: str
     mat_model: str
+    E: float
+    nu: float
+    G: float
+    unitweight: float
     fc: float
     epsc: float
     epscu: float
     fct: float
     et: float
     beta: float
-    E: float
-    nu: float
-    G: float
-    unitweight: float
 
 @dataclass(frozen=True)
 class Mat_Steel02:
-    name: str
+    mat_name: str
     base_mat: str
-    type: str
-    model: str
-    fy: float
-    fu: float
-    ey: float
-    eoffset: float
-    eu: float
+    mat_type: str
+    mat_model: str
     E: float
     nu: float
     G: float
-    Epy: float
+    unitweight: float
+    fy: float
+    fu: float
+    ey: float
+    eu: float
     b: float
-    R0: float
+    R0: int
     cR1: float
     cR2: float
-    unitweight: float
+    a1: float
+    a2: float
+    a3: float
+    a4: float
+    f_init: float
 
 @dataclass(frozen=True)
 class Mat_MinMax:
-    name: str
+    mat_name: str
     base_nl_mat: str
-    type: str
-    model: str
-    ec: float
-    et: float
+    mat_type: str
+    mat_model: str
+    E: float
+    nu: float
+    G: float
+    unitweight: float
+    ec_max: float
+    et_max: float
 
 # Structural Objects
 @dataclass(frozen=True)
@@ -147,6 +154,5 @@ class ModelData:
     surface_connectivity: Dict[int, SurfaceConnectivity] = field(default_factory=dict)
     materials: Dict[str, Materials] = field(default_factory=dict)
     mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
-    
-    #mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
-    #mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
+    mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
+    mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
