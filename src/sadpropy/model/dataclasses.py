@@ -12,8 +12,8 @@ __all__ = [
 # Project
 @dataclass(slots=True, frozen=True)
 class ProjectInformation:
-    project_name: str
-    project_desc: str
+    name: str
+    desc: str
 
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
@@ -25,10 +25,10 @@ class AnalysisPreferences:
 # Structure Data
 @dataclass(slots=True, frozen=True)
 class PointCoordinates:
-    point_id: int
-    x_coord: float
-    y_coord: float
-    z_coord: float
+    id: int
+    x: float
+    y: float
+    z: float
 
 @dataclass(slots=True, frozen=True)
 class LineConnectivity:
