@@ -4,7 +4,8 @@ from sadpropy.utility.units import UnitSystem
 
 __all__ = [
     "ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData",
-    "Materials", "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Nodes", "BeamColumnElements", "Slabs",
+    "Materials", "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Mat_IMK", "FrameSections", "Sec_Fiber", "Sec_Aggregator", "SlabSections",
+    "Nodes", "BeamColumnElements", "Slabs",
     "ModelData"
     ]
 
@@ -222,6 +223,13 @@ class Sec_Aggregator:
     Iy: float
     Jxx: float
 
+# Properties: Slab Sections
+@dataclass(slots=True, frozen=True)
+class SlabSections:
+    sec_name: str
+    base_mat: str
+    t: float
+
 # Structural Objects
 @dataclass(slots=True, frozen=True)
 class Nodes:
@@ -260,3 +268,4 @@ class ModelData:
     frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
     sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
     sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)
+    slab_sections: Dict[str, SlabSections] = field(default_factory=dict)

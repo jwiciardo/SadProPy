@@ -36,5 +36,6 @@ class ModelDataStorer:
             frame_sections = data["Frame Sections"],
             sec_fiber = data["Sec: Fiber"],
             sec_aggregator = data["Sec: Aggregator"],
+            slab_sections = data["Slab Sections"],
         )
 

@@ -17,4 +17,5 @@ mat_imk = modeldata.mat_imk
 frame_sections = modeldata.frame_sections
 sec_fiber = modeldata.sec_fiber
 sec_aggregator = modeldata.sec_aggregator
-print(sec_aggregator)
+slab_sections = modeldata.slab_sections
+print(slab_sections)

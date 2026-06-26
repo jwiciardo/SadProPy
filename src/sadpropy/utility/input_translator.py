@@ -13,6 +13,7 @@ from sadpropy.model.dataclasses import (
     FrameSections,
     Sec_Fiber,
     Sec_Aggregator,
+    SlabSections,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
@@ -95,6 +96,7 @@ class InputTranslator:
         sec_fiber = self.translate_sec_fiber(frame_sections, materials)
         sections_list = (frame_sections, sec_fiber)
         sec_aggregator = self.translate_sec_aggregator(sections_list)
+        slab_sections = self.translate_slab_sections()
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -111,6 +113,7 @@ class InputTranslator:
             "Frame Sections": frame_sections,
             "Sec: Fiber": sec_fiber,
             "Sec: Aggregator": sec_aggregator,
+            "Slab Sections": slab_sections,
         }
 
     # TRANSLATE FUNCTION
@@ -505,3 +508,16 @@ class InputTranslator:
                 Jxx = float(Jxx),
             ) # Defining dictionary for each frame section
         return sec_aggregator
+    
+    def translate_slab_sections(self):
+        data = self.reader.read_inputfile(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
+        slab_sections = {}
+        for row in data:
+            sec_name, base_mat, t = row["Section Name"], row["Base Material"], self.length(row["t"])
+            slab_sections[str(sec_name)] = SlabSections(
+                sec_name = str(sec_name),
+                base_mat = str(base_mat),
+                t = float(t),
+            ) # Defining dictionary for each slab section
+        return slab_sections
+
