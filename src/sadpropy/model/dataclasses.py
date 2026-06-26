@@ -32,7 +32,7 @@ class PointCoordinates:
 
 @dataclass(slots=True, frozen=True)
 class LineConnectivity:
-    line_id: int
+    id: int
     i_end: int
     j_end: int
     end_offset: str
@@ -45,21 +45,21 @@ class LineConnectivity:
 
 @dataclass(slots=True, frozen=True)
 class SurfaceConnectivity:
-    surface_id: int
+    id: int
     n_edges: int
     edges: tuple[int, ...]
     vertices: tuple[int, ...]
 
 @dataclass(slots=True, frozen=True)
 class StoreyData:
-    storey_name: str
+    name: str
     height: float
     elevation: float
 
 # Properties: Materials
 @dataclass(slots=True, frozen=True)
 class Materials:
-    mat_name: str
+    name: str
     mat_type: str
     E: float
     nu: float
@@ -71,7 +71,7 @@ class Materials:
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
-    mat_name: str
+    name: str
     base_mat: str
     mat_type: str
     mat_model: str
@@ -88,7 +88,7 @@ class Mat_Concrete04:
 
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:
-    mat_name: str
+    name: str
     base_mat: str
     mat_type: str
     mat_model: str
@@ -112,7 +112,7 @@ class Mat_Steel02:
 
 @dataclass(slots=True, frozen=True)
 class Mat_MinMax:
-    mat_name: str
+    name: str
     base_nl_mat: str
     mat_type: str
     mat_model: str
@@ -125,7 +125,7 @@ class Mat_MinMax:
 
 @dataclass(slots=True, frozen=True)
 class Mat_IMK:
-    mat_name: str
+    name: str
     mat_type: str
     mat_model: str
     K0: float
@@ -161,7 +161,7 @@ class Mat_IMK:
 # Properties: Frame Sections
 @dataclass(slots=True, frozen=True)
 class FrameSections:
-    sec_name: str
+    name: str
     sec_shape: str
     base_mat: str
     sec_model: str
@@ -179,7 +179,7 @@ class FrameSections:
 
 @dataclass(slots=True, frozen=True)
 class Sec_Fiber:
-    sec_name: str
+    name: str
     base_sec: str
     integration_type: str
     mat_type: str
@@ -209,7 +209,7 @@ class Sec_Fiber:
 
 @dataclass(slots=True, frozen=True)
 class Sec_Aggregator:
-    sec_name: str
+    name: str
     aggregated_sec: str
     base_mat: str
     sec_model: str
@@ -226,7 +226,7 @@ class Sec_Aggregator:
 # Properties: Slab Sections
 @dataclass(slots=True, frozen=True)
 class SlabSections:
-    sec_name: str
+    name: str
     base_mat: str
     t: float
 

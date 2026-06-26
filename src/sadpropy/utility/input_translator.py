@@ -121,8 +121,8 @@ class InputTranslator:
         data = self.reader.read_inputfile(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         project_information = ProjectInformation(
-                project_name = str(row["Project Name"]),
-                project_desc = str(row["Project Description"]),
+                name = str(row["Project Name"]),
+                desc = str(row["Project Description"]),
         ) # Defining dictionary for project information
         return project_information
     
@@ -160,10 +160,10 @@ class InputTranslator:
         for row in data:
             point_id, x_coord, y_coord, z_coord = row["Point ID"], self.length(row["X"]), self.length(row["Y"]), self.length(row["Z"])
             point_coordinates[int(point_id)] = PointCoordinates(
-                point_id = int(point_id),
-                x_coord = float(x_coord),
-                y_coord = float(y_coord),
-                z_coord = float(z_coord),
+                id = int(point_id),
+                x = float(x_coord),
+                y = float(y_coord),
+                z = float(z_coord),
             ) # Defining dictionary for each point object
         storey_elevations = sorted({self.length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
         return point_coordinates, storey_elevations
@@ -179,14 +179,14 @@ class InputTranslator:
             line_id, i_end, j_end = row["Line ID"], row["I-End"], row["J-End"]
             end_offset, i_end_offset, j_end_offset = row["End Offset"], self.length(row["I-End Offset Length"]), self.length(row["J-End Offset Length"])
             vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
-            i_coord = (vertex_i.x_coord, vertex_i.y_coord, vertex_i.z_coord)
-            j_coord = (vertex_j.x_coord, vertex_j.y_coord, vertex_j.z_coord)
+            i_coord = (vertex_i.x, vertex_i.y, vertex_i.z)
+            j_coord = (vertex_j.x, vertex_j.y, vertex_j.z)
             length = CoordinateToLength(i_coord, j_coord)
-            centroid_x = (vertex_i.x_coord + vertex_j.x_coord) / 2.0
-            centroid_y = (vertex_i.y_coord + vertex_j.y_coord) / 2.0
-            centroid_z = (vertex_i.z_coord + vertex_j.z_coord) / 2.0
+            centroid_x = (vertex_i.x + vertex_j.x) / 2.0
+            centroid_y = (vertex_i.y + vertex_j.y) / 2.0
+            centroid_z = (vertex_i.z+ vertex_j.z) / 2.0
             line_connectivity[int(line_id)] = LineConnectivity(
-                line_id = int(line_id),
+                id = int(line_id),
                 i_end = int(i_end),
                 j_end = int(j_end),
                 end_offset = str(end_offset),
@@ -230,9 +230,9 @@ class InputTranslator:
                     raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
             vertices.pop()
             surface_connectivity[int(surface_id)] = SurfaceConnectivity(
-                surface_id = int(surface_id),
-                edges = tuple(edges),
+                id = int(surface_id),
                 n_edges = int(n_edges),
+                edges = tuple(edges),
                 vertices = tuple(vertices),
             ) # Defining dictionary for each surface object
         return surface_connectivity
@@ -246,7 +246,7 @@ class InputTranslator:
             G = E / (2 * (1 + nu))
             if mat_type == "Concrete":
                 materials[str(mat_name)] = Materials(
-                    mat_name = str(mat_name),
+                    name = str(mat_name),
                     mat_type = str(mat_type),
                     E = float(E),
                     nu = float(nu),
@@ -258,7 +258,7 @@ class InputTranslator:
                 )
             elif mat_type == "Rebar" or mat_type == "Steel":
                 materials[str(mat_name)] = Materials(
-                    mat_name = str(mat_name),
+                    name = str(mat_name),
                     mat_type = str(mat_type),
                     E = float(E),
                     nu = float(nu),
@@ -281,7 +281,7 @@ class InputTranslator:
             Esec = fc / epsc
             et_default = fct / Esec
             mat_concrete04[str(mat_name)] = Mat_Concrete04(
-                mat_name = str(mat_name),
+                name = str(mat_name),
                 base_mat = str(base_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
@@ -312,7 +312,7 @@ class InputTranslator:
             Epy = (fu - fy) / (eu - eoffset)
             b_default = Epy / E
             mat_steel02[str(mat_name)] = Mat_Steel02(
-                mat_name = str(mat_name),
+                name = str(mat_name),
                 base_mat = str(base_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
@@ -349,7 +349,7 @@ class InputTranslator:
                 else:
                     continue
             mat_minmax[str(mat_name)] = Mat_MinMax(
-                mat_name = str(mat_name),
+                name = str(mat_name),
                 base_nl_mat = str(base_nl_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
@@ -374,7 +374,7 @@ class InputTranslator:
             theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
             theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
             mat_imk[str(mat_name)] = Mat_IMK(
-                mat_name = str(mat_name),
+                name = str(mat_name),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
                 K0 = float(K0),
@@ -418,7 +418,7 @@ class InputTranslator:
             A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = SectionProperties(row)
             k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
             frame_sections[str(sec_name)] = FrameSections(
-                sec_name = str(sec_name),
+                name = str(sec_name),
                 sec_shape = str (sec_shape),
                 base_mat = str(base_mat),
                 sec_model = str(sec_model),
@@ -451,7 +451,7 @@ class InputTranslator:
             row["h"], row["b"], row["Section Shape"], row["Material Type"] = h, b, sec_shape, mat_type
             A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int = FiberSectionProperties(row)
             sec_fiber[str(sec_name)] = Sec_Fiber(
-                sec_name = str(sec_name),
+                name = str(sec_name),
                 base_sec = str(base_sec),
                 integration_type = str(integration_type),
                 mat_type = str(mat_type),
@@ -493,7 +493,7 @@ class InputTranslator:
                 else:
                     continue
             sec_aggregator[str(sec_name)] = Sec_Aggregator(
-                sec_name = str(sec_name),
+                name = str(sec_name),
                 aggregated_sec = str(aggregated_sec),
                 base_mat = str(base_mat),
                 sec_model = str(sec_model),
@@ -515,7 +515,7 @@ class InputTranslator:
         for row in data:
             sec_name, base_mat, t = row["Section Name"], row["Base Material"], self.length(row["t"])
             slab_sections[str(sec_name)] = SlabSections(
-                sec_name = str(sec_name),
+                name = str(sec_name),
                 base_mat = str(base_mat),
                 t = float(t),
             ) # Defining dictionary for each slab section
