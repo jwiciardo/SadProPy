@@ -206,6 +206,22 @@ class Sec_Fiber:
     Abar_bot: float
     Abar_int: float
 
+@dataclass(slots=True, frozen=True)
+class Sec_Aggregator:
+    sec_name: str
+    aggregated_sec: str
+    base_mat: str
+    sec_model: str
+    aggregator_type: str
+    h: float
+    b: float
+    A: float
+    Avy: float
+    Avz: float
+    Iz: float
+    Iy: float
+    Jxx: float
+
 # Structural Objects
 @dataclass(slots=True, frozen=True)
 class Nodes:
@@ -243,3 +259,4 @@ class ModelData:
     mat_imk: Dict[str, Mat_IMK] = field(default_factory=dict)
     frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
     sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
+    sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)

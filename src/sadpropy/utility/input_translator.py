@@ -12,6 +12,7 @@ from sadpropy.model.dataclasses import (
     Mat_IMK,
     FrameSections,
     Sec_Fiber,
+    Sec_Aggregator,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
@@ -87,11 +88,13 @@ class InputTranslator:
         materials = self.translate_materials()
         mat_concrete04 = self.translate_mat_concrete04(materials)
         mat_steel02 = self.translate_mat_steel02(materials)
-        materials_nl = (mat_concrete04, mat_steel02)
-        mat_minmax = self.translate_mat_minmax(materials_nl)
+        materials_list = (materials, mat_concrete04, mat_steel02)
+        mat_minmax = self.translate_mat_minmax(materials_list)
         mat_imk = self.translate_mat_imk()
         frame_sections = self.translate_frame_sections()
         sec_fiber = self.translate_sec_fiber(frame_sections, materials)
+        sections_list = (frame_sections, sec_fiber)
+        sec_aggregator = self.translate_sec_aggregator(sections_list)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -107,6 +110,7 @@ class InputTranslator:
             "Mat: IMK Hinge": mat_imk,
             "Frame Sections": frame_sections,
             "Sec: Fiber": sec_fiber,
+            "Sec: Aggregator": sec_aggregator,
         }
 
     # TRANSLATE FUNCTION
@@ -329,13 +333,13 @@ class InputTranslator:
             ) # Defining dictionary for each material
         return mat_steel02
     
-    def translate_mat_minmax(self, materials_nl):
+    def translate_mat_minmax(self, materials_list):
         data = self.reader.read_inputfile(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
         mat_minmax = {}
         for row in data:
             mat_name, base_nl_mat, mat_type, mat_model = row["Material Name"], row["Base NL Material"], row["Material Type"], row["Material Model"]
             ec_max, et_max = row["ecmax"], row["etmax"]
-            for mats in materials_nl:
+            for mats in materials_list:
                 if base_nl_mat in mats:
                     base_nl_mat_data = mats[base_nl_mat]
                     E, nu, G, Unitweight = base_nl_mat_data.E, base_nl_mat_data.nu, base_nl_mat_data.G, base_nl_mat_data.unitweight
@@ -473,3 +477,31 @@ class InputTranslator:
                 Abar_int = float(Abar_int),
             ) # Defining dictionary for each frame section
         return sec_fiber
+    
+    def translate_sec_aggregator(self, sections_list):
+        data = self.reader.read_inputfile(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
+        sec_aggregator = {}
+        for row in data:
+            sec_name, aggregated_sec, base_mat, sec_model, aggregator_type = row["Section Name"], row["Aggregated Section"], row["Base Material"], row["Section Model"], row["Aggregator Type"]
+            for sections in sections_list:
+                if aggregated_sec in sections:
+                    aggregated_sec_data = sections[aggregated_sec]
+                    h, b, A, Avy, Avz, Iz, Iy, Jxx = aggregated_sec_data.h, aggregated_sec_data.b, aggregated_sec_data.A, aggregated_sec_data.Avy, aggregated_sec_data.Avz, aggregated_sec_data.Iz, aggregated_sec_data.Iy, aggregated_sec_data.Jxx
+                else:
+                    continue
+            sec_aggregator[str(sec_name)] = Sec_Aggregator(
+                sec_name = str(sec_name),
+                aggregated_sec = str(aggregated_sec),
+                base_mat = str(base_mat),
+                sec_model = str(sec_model),
+                aggregator_type = str(aggregator_type),
+                h = float(h),
+                b = float(b),
+                A = float(A),
+                Avy = float(Avy),
+                Avz = float(Avz),
+                Iz = float(Iz),
+                Iy = float(Iy),
+                Jxx = float(Jxx),
+            ) # Defining dictionary for each frame section
+        return sec_aggregator

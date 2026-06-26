@@ -35,5 +35,6 @@ class ModelDataStorer:
             mat_imk = data["Mat: IMK Hinge"],
             frame_sections = data["Frame Sections"],
             sec_fiber = data["Sec: Fiber"],
+            sec_aggregator = data["Sec: Aggregator"],
         )
 
