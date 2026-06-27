@@ -14,12 +14,14 @@ from sadpropy.model.dataclasses import (
     Sec_Fiber,
     Sec_Aggregator,
     SlabSections,
+    Nodes,
     )
 from .units import UnitConverter, UnitRegistry, UnitSystem
 from .exceptions import ValidationError
 from .input_reader import InputReader
 from .helper import create_storeys
 from .operator import CoordinateToLength, SectionProperties, FiberSectionProperties
+from .tagmanager import TagManager
 
 __all__ = ["InputTranslator"]
 
@@ -97,6 +99,7 @@ class InputTranslator:
         sections_list = (frame_sections, sec_fiber)
         sec_aggregator = self.translate_sec_aggregator(sections_list)
         slab_sections = self.translate_slab_sections()
+        nodes = self.translate_nodes(point_coordinates)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -114,6 +117,7 @@ class InputTranslator:
             "Sec: Fiber": sec_fiber,
             "Sec: Aggregator": sec_aggregator,
             "Slab Sections": slab_sections,
+            "Nodes": nodes,
         }
 
     # TRANSLATE FUNCTION
@@ -520,4 +524,10 @@ class InputTranslator:
                 t = float(t),
             ) # Defining dictionary for each slab section
         return slab_sections
+
+    def translate_nodes(self, point_coordinates):
+        data = point_coordinates
+        nodes = {}
+        for row in data:
+
 

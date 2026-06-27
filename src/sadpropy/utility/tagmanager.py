@@ -1,14 +1,17 @@
+from .exceptions import ValidationError
+
 __all__ = ["TagManager"]
 
 class TagManager:
     def __init__(self):
         self.counters = {
+            'Node': 1,
+            'Element': 1,
+            'Constraint': 1,
             'Material': 1,
             'Section': 1,
             'Integration': 1,
             'Transformation': 1,
-            'Node': 1,
-            'Element': 1,
             'Timeseries': 1,
             'Pattern': 1,
         }
@@ -18,7 +21,7 @@ class TagManager:
         self.map_tag_to_def = {key: {} for key in self.counters}
 
     # CORE: STORE TAG
-    def _store_tag(self, category, name, tag):
+    def store_tag(self, category, name, tag):
         if name in self.map_def_to_tag[category]:
             raise ValueError(f"{category} name '{name}' already exists")
 
