@@ -270,4 +270,4 @@ class ModelData:
     sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
     sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)
     slab_sections: Dict[str, SlabSections] = field(default_factory=dict)
-    nodes: Dict[int, Nodes] = fiel(default_factory=dict)
+    nodes: Dict[int, Nodes] = field(default_factory=dict)

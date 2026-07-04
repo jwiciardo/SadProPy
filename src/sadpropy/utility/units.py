@@ -1,8 +1,11 @@
 from enum import Enum
 from math import pi
 from dataclasses import dataclass
+from .constants import GRAVITY_ACCELERATION
 
 __all__ = ["UnitConverter", "UnitRegistry", "UnitSystem"]
+
+g = GRAVITY_ACCELERATION
 
 class Dimension(Enum):
     FORCE = "force"
@@ -27,8 +30,8 @@ class UnitRegistry:
         "N":   (Dimension.FORCE, 1.0),
         "kN":  (Dimension.FORCE, 1e3),
         "MN":  (Dimension.FORCE, 1e6),
-        "kgf": (Dimension.FORCE, 9.80665),
-        "tonf": (Dimension.FORCE, 9.80665e3),
+        "kgf": (Dimension.FORCE, 1.0 * g),
+        "tonf": (Dimension.FORCE, 1e3 * g),
         "lbf":  (Dimension.FORCE, 4.44822),
         "kipf":  (Dimension.FORCE, 4.44822e3),
             
@@ -81,10 +84,10 @@ class UnitRegistry:
         "N-m": (Dimension.MOMENT, 1.0 * 1.0),
         "kN-m": (Dimension.MOMENT, 1e3 * 1.0),
         "kN-mm": (Dimension.MOMENT, 1e3 * 1e-3),
-        "kgf-m": (Dimension.MOMENT, 9.80665 * 1.0),
-        "kgf-mm": (Dimension.MOMENT, 9.80665 * 1e-3),
-        "tonf-m": (Dimension.MOMENT, 9.80665e3 * 1.0),
-        "tonf-mm": (Dimension.MOMENT, 9.80665e3 * 1e-3),
+        "kgf-m": (Dimension.MOMENT, 1.0 * g * 1.0),
+        "kgf-mm": (Dimension.MOMENT, 1.0 * g * 1e-3),
+        "tonf-m": (Dimension.MOMENT, 1e3 * g * 1.0),
+        "tonf-mm": (Dimension.MOMENT, 1e3 * g * 1e-3),
         "lbf-in": (Dimension.MOMENT, 4.44822 * 0.0254),
         "lbf-ft": (Dimension.MOMENT, 4.44822 * 0.3048),
         "kipf-in": (Dimension.MOMENT, 4.44822e3 * 0.0254),
@@ -124,8 +127,8 @@ class UnitRegistry:
         "N":   (Dimension.CONCENTRATED_LINE_LOAD, 1.0),
         "kN":  (Dimension.CONCENTRATED_LINE_LOAD, 1e3),
         "MN":  (Dimension.CONCENTRATED_LINE_LOAD, 1e6),
-        "kgf": (Dimension.CONCENTRATED_LINE_LOAD, 9.80665),
-        "tonf": (Dimension.CONCENTRATED_LINE_LOAD, 9.80665e3),
+        "kgf": (Dimension.CONCENTRATED_LINE_LOAD, 1.0 * g),
+        "tonf": (Dimension.CONCENTRATED_LINE_LOAD, 1e3 * g),
         "lbf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822),
         "kipf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822e3),
             
@@ -133,8 +136,8 @@ class UnitRegistry:
         "N":   (Dimension.POINT_LOAD, 1.0),
         "kN":  (Dimension.POINT_LOAD, 1e3),
         "MN":  (Dimension.POINT_LOAD, 1e6),
-        "kgf": (Dimension.POINT_LOAD, 9.80665),
-        "tonf": (Dimension.POINT_LOAD, 9.80665e3),
+        "kgf": (Dimension.POINT_LOAD, 1.0 * g),
+        "tonf": (Dimension.POINT_LOAD, 1e3 * g),
         "lbf":  (Dimension.POINT_LOAD, 4.44822),
         "kipf":  (Dimension.POINT_LOAD, 4.44822e3),
             
