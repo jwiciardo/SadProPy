@@ -98,8 +98,11 @@ class InputTranslator:
     def concentrated_line_load(self, value):
         return self.unitconverter.to_internal_units(value, self.units.concentrated_line_load())
         
-    def point_load(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.point_load())
+    def force_point_load(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.force_point_load())
+
+    def moment_point_load(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.moment_point_load())
     
     # MAIN FUNCTION: TRANSLATOR
     def translate_inputfile(self):
@@ -108,7 +111,7 @@ class InputTranslator:
         self.units = user_unitsystem
         analysis_preferences = self.translate_analysis_preferences()
         point_coordinates, storey_elevations = self.translate_point_objects()
-        storey_data = create_storeys(storey_elevations)
+        storey_data = self.create_storeys(storey_elevations)
         line_connectivity = self.translate_line_objects(point_coordinates)
         surface_connectivity = self.translate_surface_objects(line_connectivity)
         materials = self.translate_materials()

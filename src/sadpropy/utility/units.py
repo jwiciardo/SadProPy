@@ -20,7 +20,8 @@ class Dimension(Enum):
     SURFACE_LOAD = "surface_load"
     DISTRIBUTED_LINE_LOAD = "distributed_line_load"
     CONCENTRATED_LINE_LOAD = "concentrated_line_load"
-    POINT_LOAD = "point_load"
+    FORCE_POINT_LOAD = "force_point_load"
+    MOMENT_POINT_LOAD = "moment_point_load"
     TIME = "time"
     ANGLE = "angle"
 
@@ -132,14 +133,27 @@ class UnitRegistry:
         "lbf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822),
         "kipf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822e3),
             
-        # Point load = Force
-        "N":   (Dimension.POINT_LOAD, 1.0),
-        "kN":  (Dimension.POINT_LOAD, 1e3),
-        "MN":  (Dimension.POINT_LOAD, 1e6),
-        "kgf": (Dimension.POINT_LOAD, 1.0 * g),
-        "tonf": (Dimension.POINT_LOAD, 1e3 * g),
-        "lbf":  (Dimension.POINT_LOAD, 4.44822),
-        "kipf":  (Dimension.POINT_LOAD, 4.44822e3),
+        # Force Point load = Force
+        "N":   (Dimension.FORCE_POINT_LOAD, 1.0),
+        "kN":  (Dimension.FORCE_POINT_LOAD, 1e3),
+        "MN":  (Dimension.FORCE_POINT_LOAD, 1e6),
+        "kgf": (Dimension.FORCE_POINT_LOAD, 1.0 * g),
+        "tonf": (Dimension.FORCE_POINT_LOAD, 1e3 * g),
+        "lbf":  (Dimension.FORCE_POINT_LOAD, 4.44822),
+        "kipf":  (Dimension.FORCE_POINT_LOAD, 4.44822e3),
+
+        # Moment Point Load = Force × Length
+        "N-m": (Dimension.MOMENT_POINT_LOAD, 1.0 * 1.0),
+        "kN-m": (Dimension.MOMENT_POINT_LOAD, 1e3 * 1.0),
+        "kN-mm": (Dimension.MOMENT_POINT_LOAD, 1e3 * 1e-3),
+        "kgf-m": (Dimension.MOMENT_POINT_LOAD, 1.0 * g * 1.0),
+        "kgf-mm": (Dimension.MOMENT_POINT_LOAD, 1.0 * g * 1e-3),
+        "tonf-m": (Dimension.MOMENT_POINT_LOAD, 1e3 * g * 1.0),
+        "tonf-mm": (Dimension.MOMENT_POINT_LOAD, 1e3 * g * 1e-3),
+        "lbf-in": (Dimension.MOMENT_POINT_LOAD, 4.44822 * 0.0254),
+        "lbf-ft": (Dimension.MOMENT_POINT_LOAD, 4.44822 * 0.3048),
+        "kipf-in": (Dimension.MOMENT_POINT_LOAD, 4.44822e3 * 0.0254),
+        "kipf-ft": (Dimension.MOMENT_POINT_LOAD, 4.44822e3 * 0.3048),
             
         # Time
         "s": (Dimension.TIME, 1.0),
@@ -200,5 +214,8 @@ class UnitSystem:
     def concentrated_line_load(self):
         return f'{self.force}'
     
-    def point_load(self):
+    def force_point_load(self):
         return f'{self.force}'
+    
+    def moment_point_load(self):
+        return f'{self.force}-{self.length}'
