@@ -1,7 +1,7 @@
 import warnings
 from openpyxl import load_workbook
 from math import sqrt
-from .preprocessing_class import (
+from ._preprocessingclass import (
     ProjectInformation,
     AnalysisPreferences,
     PointCoordinates,
@@ -19,12 +19,17 @@ from .preprocessing_class import (
     SlabSections,
     Nodes,
     )
-from sadpropy.utility.units import UnitConverter, UnitRegistry, UnitSystem
-from sadpropy.utility.exceptions import ValidationError
-from sadpropy.utility.operator import CoordinateToLength, SectionProperties, FiberSectionProperties
-from sadpropy.utility.tagmanager import TagManager
+from sadpropy.utility import (
+    UnitConverter,
+    UnitRegistry,
+    UnitSystem,
+    section_properties,
+    fibersection_properties,
+    TagManager,
+)
+from sadpropy.utility._exceptions import ValidationError
 
-class InputReader:
+class ExcelReader:
     def __init__(self, inputfile_path):
         self.inputfile_path = inputfile_path
         if not self.inputfile_path.exists():
@@ -33,105 +38,110 @@ class InputReader:
             warnings.filterwarnings("ignore", message="Data Validation extension is not supported*")
             self.workbook = load_workbook(inputfile_path, data_only=True)
     
-    # MAIN FUNCTION: READER
-    def read_inputfile(self, sheet_name: str, start_row: int = 1):
+    # MAIN METHOD: READER
+    def read_excel(self, sheet_name="", start_row=1):
         if sheet_name not in self.workbook.sheetnames:
-            raise ValueError(f"Sheet '{sheet_name}' not found. Available: {self.workbook.sheetnames}")
+            raise ValidationError(f"Sheet '{sheet_name}' not found in Excel file")
         worksheet = self.workbook[sheet_name]
         rows = list(worksheet.values)
         headers = rows[start_row - 1]
-        records = []
+        data = []
         for row in rows[start_row:]:
             record = dict(zip(headers, row))
             if all(v is None for v in record.values()): # Skip completely empty rows
                 continue
-            records.append(record)
-        return records
+            data.append(record)
+        return data
 
-class InputTranslator:
+class ExcelTranslator:
     def __init__(self, inputfile_path):
-        self.reader = InputReader(inputfile_path)
+        self.reader = ExcelReader(inputfile_path)
         self.units = None
         self.unitregistry = UnitRegistry()
         self.unitconverter = UnitConverter(self.unitregistry)
 
-    # UNIT CONVERTER METHODS
-    def length(self, value):
+    # UNIT CONVERTER METHODS TO INTERNAL UNITS
+    def _to_internalunit_length(self, value):
         return self.unitconverter.to_internal_units(value, self.units.length)
 
-    def force(self, value):
+    def _to_internalunit_force(self, value):
         return self.unitconverter.to_internal_units(value, self.units.force)
         
-    def mass(self, value):
+    def _to_internalunit_mass(self, value):
         return self.unitconverter.to_internal_units(value, self.units.mass)
         
-    def velocity(self, value):
+    def _to_internalunit_velocity(self, value):
         return self.unitconverter.to_internal_units(value, self.units.velocity())
         
-    def acceleration(self, value):
+    def _to_internalunit_acceleration(self, value):
         return self.unitconverter.to_internal_units(value, self.units.acceleration())
         
-    def stress(self, value):
+    def _to_internalunit_stress(self, value):
         return self.unitconverter.to_internal_units(value, self.units.stress)
         
-    def time(self, value):
+    def _to_internalunit_time(self, value):
         return self.unitconverter.to_internal_units(value, self.units.time)
         
-    def angle(self, value):
+    def _to_internalunit_angle(self, value):
         return self.unitconverter.to_internal_units(value, self.units.angle)
         
-    def area(self, value):
+    def _to_internalunit_area(self, value):
         return self.unitconverter.to_internal_units(value, self.units.area())
         
-    def volume(self, value):
+    def _to_internalunit_volume(self, value):
         return self.unitconverter.to_internal_units(value, self.units.volume())
         
-    def inertia(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.length4())
+    def _to_internalunit_second_moment_of_area(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.second_moment_of_area())
         
-    def moment(self, value):
+    def _to_internalunit_moment(self, value):
         return self.unitconverter.to_internal_units(value, self.units.moment())
         
-    def unitweight(self, value):
+    def _to_internalunit_unitweight(self, value):
         return self.unitconverter.to_internal_units(value, self.units.unitweight())
         
-    def surface_load(self, value):
+    def _to_internalunit_surfaceload(self, value):
         return self.unitconverter.to_internal_units(value, self.units.surface_load())
         
-    def distributed_line_load(self, value):
+    def _to_internalunit_distributed_lineload(self, value):
         return self.unitconverter.to_internal_units(value, self.units.distributed_line_load())
         
-    def concentrated_line_load(self, value):
+    def _to_internalunit_concentrated_lineload(self, value):
         return self.unitconverter.to_internal_units(value, self.units.concentrated_line_load())
         
-    def force_point_load(self, value):
+    def _to_internalunit_force_pointload(self, value):
         return self.unitconverter.to_internal_units(value, self.units.force_point_load())
 
-    def moment_point_load(self, value):
+    def _to_internalunit_moment_pointload(self, value):
         return self.unitconverter.to_internal_units(value, self.units.moment_point_load())
     
+    def _to_internalunit_translational_stiffness(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.translational_stiffness())
+    
+    def _to_internalunit_rotational_stiffness(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.rotational_stiffness())
+    
     # MAIN FUNCTION: TRANSLATOR
-    def translate_inputfile(self):
-        project_information = self.translate_project_information()
-        user_unitsystem = self.translate_user_unitsystem()
+    def translate_excel(self):
+        project_information = self._translate_project_information()
+        user_unitsystem = self._translate_user_unitsystem()
         self.units = user_unitsystem
-        analysis_preferences = self.translate_analysis_preferences()
-        point_coordinates, storey_elevations = self.translate_point_objects()
-        storey_data = self.create_storeys(storey_elevations)
-        line_connectivity = self.translate_line_objects(point_coordinates)
-        surface_connectivity = self.translate_surface_objects(line_connectivity)
-        materials = self.translate_materials()
-        mat_concrete04 = self.translate_mat_concrete04(materials)
-        mat_steel02 = self.translate_mat_steel02(materials)
+        analysis_preferences = self._translate_analysis_preferences()
+        point_coordinates, storey_data = self._translate_point_objects()
+        line_connectivity = self._translate_line_objects(point_coordinates)
+        surface_connectivity = self._translate_surface_objects(line_connectivity)
+        materials = self._translate_materials()
+        mat_concrete04 = self._translate_mat_concrete04(materials)
+        mat_steel02 = self._translate_mat_steel02(materials)
         materials_list = (materials, mat_concrete04, mat_steel02)
-        mat_minmax = self.translate_mat_minmax(materials_list)
-        mat_imk = self.translate_mat_imk()
-        frame_sections = self.translate_frame_sections()
-        sec_fiber = self.translate_sec_fiber(frame_sections, materials)
+        mat_minmax = self._translate_mat_minmax(materials_list)
+        mat_imk = self._translate_mat_imk()
+        frame_sections = self._translate_frame_sections()
+        sec_fiber = self._translate_sec_fiber(frame_sections, materials)
         sections_list = (frame_sections, sec_fiber)
-        sec_aggregator = self.translate_sec_aggregator(sections_list)
-        slab_sections = self.translate_slab_sections()
-        nodes = self.translate_nodes(point_coordinates)
+        sec_aggregator = self._translate_sec_aggregator(sections_list)
+        slab_sections = self._translate_slab_sections()
+        nodes = self._translate_nodes(point_coordinates)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -153,7 +163,7 @@ class InputTranslator:
         }
 
     # HELPER FUNCTION
-    def create_storeys(storey_elevations): # Create Storey data
+    def _generate_storeys(self, storey_elevations): # Create Storey data
         storey_data = {}
         for i, elev in enumerate(storey_elevations):
             if i == 0:
@@ -170,8 +180,8 @@ class InputTranslator:
         return dict(reversed(storey_data.items()))
     
     # SUPPORTING FUNCTIONS
-    def translate_project_information(self):
-        data = self.reader.read_inputfile(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
+    def _translate_project_information(self):
+        data = self.reader.read_excel(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         project_information = ProjectInformation(
                 name = str(row["Project Name"]),
@@ -179,8 +189,8 @@ class InputTranslator:
         ) # Defining dictionary for project information
         return project_information
     
-    def translate_user_unitsystem(self):
-        data = self.reader.read_inputfile(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
+    def _translate_user_unitsystem(self):
+        data = self.reader.read_excel(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         user_unitsystem = UnitSystem(
                 force = str(row["Force"]),
@@ -192,68 +202,69 @@ class InputTranslator:
         ) # Defining dictionary for units
         return user_unitsystem
 
-    def translate_analysis_preferences(self):
-        data = self.reader.read_inputfile(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
+    def _translate_analysis_preferences(self):
+        data = self.reader.read_excel(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         analysis_preferences = AnalysisPreferences(
                 nonlinear_analysis = str(row["Nonlinear Analysis"]),
-                auto_zero_length = str(row["Zero Length Element (Auto)"]),
+                autogenerate_zero_length_elements = str(row["Zero Length Element (Auto)"]),
                 pdelta = str(row["P-Delta"]),
                 liveload_mass_factor = float(row["LL Mass Factor"]),
         ) # Defining dictionary for analysis preferences
         return analysis_preferences
-    
-    def translate_point_objects(self):
-        data = self.reader.read_inputfile(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+
+    def _translate_point_objects(self):
+        data = self.reader.read_excel(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
         ids = [int(row["Point ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
             raise ValidationError(f"Duplicate Point IDs found: {sorted(duplicates)}")
         point_coordinates = {}
         for row in data:
-            point_id, x_coord, y_coord, z_coord = row["Point ID"], self.length(row["X"]), self.length(row["Y"]), self.length(row["Z"])
+            point_id, x_coord, y_coord, z_coord = row["Point ID"], row["X"], row["Y"], row["Z"]
             point_coordinates[int(point_id)] = PointCoordinates(
-                id = int(point_id),
-                x = float(x_coord),
-                y = float(y_coord),
-                z = float(z_coord),
+                unique_id = int(point_id),
+                x = float(self._to_internalunit_length(x_coord)),
+                y = float(self._to_internalunit_length(y_coord)),
+                z = float(self._to_internalunit_length(z_coord)),
             ) # Defining dictionary for each point object
-        storey_elevations = sorted({self.length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
-        return point_coordinates, storey_elevations
-    
-    def translate_line_objects(self, point_coordinates):
-        data = self.reader.read_inputfile(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
+        storey_elevations = sorted({self._to_internalunit_length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
+        storey_data = self._generate_storeys(storey_elevations) # Generating Storey data from storey elevations
+        return point_coordinates, storey_data
+
+    def _translate_line_objects(self, point_coordinates):
+        data = self.reader.read_excel(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
         ids = [int(row["Line ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
             raise ValidationError(f"Duplicate Line IDs found: {sorted(duplicates)}")
         line_connectivity = {}
         for row in data:
-            line_id, i_end, j_end = row["Line ID"], row["I-End"], row["J-End"]
-            end_offset, i_end_offset, j_end_offset = row["End Offset"], self.length(row["I-End Offset Length"]), self.length(row["J-End Offset Length"])
-            vertex_i, vertex_j = point_coordinates[i_end], point_coordinates[j_end]
-            i_coord = (vertex_i.x, vertex_i.y, vertex_i.z)
-            j_coord = (vertex_j.x, vertex_j.y, vertex_j.z)
-            length = CoordinateToLength(i_coord, j_coord)
-            centroid_x = (vertex_i.x + vertex_j.x) / 2.0
-            centroid_y = (vertex_i.y + vertex_j.y) / 2.0
-            centroid_z = (vertex_i.z+ vertex_j.z) / 2.0
+            line_id, i_end_point, j_end_point = row["Line ID"], row["I-End"], row["J-End"]
+            end_offset_option, i_end_offset, j_end_offset = row["End Offset"], row["I-End Offset Length"], row["J-End Offset Length"]
+            dx = point_coordinates[j_end_point].x - point_coordinates[i_end_point].x # Vector x of the element
+            dy = point_coordinates[j_end_point].y - point_coordinates[i_end_point].y # Vector y of the element
+            dz = point_coordinates[j_end_point].z - point_coordinates[i_end_point].z # Vector z of the element
+            length = sqrt(dx**2 + dy**2 + dz**2)
+            centroid_x = (point_coordinates[i_end_point].x + point_coordinates[j_end_point].x) / 2.0
+            centroid_y = (point_coordinates[i_end_point].y + point_coordinates[j_end_point].y) / 2.0
+            centroid_z = (point_coordinates[i_end_point].z + point_coordinates[j_end_point].z) / 2.0
             line_connectivity[int(line_id)] = LineConnectivity(
-                id = int(line_id),
-                i_end = int(i_end),
-                j_end = int(j_end),
-                end_offset = str(end_offset),
-                i_end_offset = float(i_end_offset),
-                j_end_offset = float(j_end_offset),
+                unique_id = int(line_id),
+                i_end_point = int(i_end_point),
+                j_end_point = int(j_end_point),
+                end_offset_option = str(end_offset_option),
+                i_end_offset = float(self._to_internalunit_length(i_end_offset)),
+                j_end_offset = float(self._to_internalunit_length(j_end_offset)),
                 length = float(length),
                 centroid_x = float(centroid_x),
                 centroid_y = float(centroid_y),
                 centroid_z = float(centroid_z),
             ) # Defining dictionary for each line object
         return line_connectivity
-    
-    def translate_surface_objects(self, line_connectivity):
-        data = self.reader.read_inputfile(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
+
+    def _translate_surface_objects(self, line_connectivity):
+        data = self.reader.read_excel(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
         ids = [int(row["Surface ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
@@ -283,58 +294,58 @@ class InputTranslator:
                     raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
             vertices.pop()
             surface_connectivity[int(surface_id)] = SurfaceConnectivity(
-                id = int(surface_id),
+                unique_id = int(surface_id),
                 n_edges = int(n_edges),
                 edges = tuple(edges),
                 vertices = tuple(vertices),
             ) # Defining dictionary for each surface object
         return surface_connectivity
 
-    def translate_materials(self):
-        data = self.reader.read_inputfile(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
+    def _translate_materials(self):
+        data = self.reader.read_excel(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
         materials = {}
         for row in data: # Defining dictionary for each material
             mat_name, mat_type = row["Material Name"], row["Material Type"]
-            E, nu, Unitweight, fc, fy, fu = self.stress(row["E"]), row["nu"], self.unitweight(row["Unitweight"]), self.stress(row["fc"]), self.stress(row["fy"]), self.stress(row["fu"]), 
+            E, nu, Unitweight, fc, fy, fu = row["E"], row["nu"], row["Unitweight"], row["fc"], row["fy"], row["fu"]
             G = E / (2 * (1 + nu))
             if mat_type == "Concrete":
                 materials[str(mat_name)] = Materials(
-                    name = str(mat_name),
+                    mat_name = str(mat_name),
                     mat_type = str(mat_type),
-                    E = float(E),
+                    E = float(self._to_internalunit_stress(E)),
                     nu = float(nu),
-                    G = float(G),
-                    unitweight = float(Unitweight),
-                    fc = float(fc),
+                    G = float(self._to_internalunit_stress(G)),
+                    unitweight = float(self._to_internalunit_unitweight(Unitweight)),
+                    fc = float(self._to_internalunit_stress(fc)),
                     fy = 0.0,
                     fu = 0.0,
                 )
             elif mat_type == "Rebar" or mat_type == "Steel":
                 materials[str(mat_name)] = Materials(
-                    name = str(mat_name),
+                    mat_name = str(mat_name),
                     mat_type = str(mat_type),
-                    E = float(E),
+                    E = float(self._to_internalunit_stress(E)),
                     nu = float(nu),
-                    G = float(G),
-                    unitweight = float(Unitweight),
+                    G = float(self._to_internalunit_stress(G)),
+                    unitweight = float(self._to_internalunit_unitweight(Unitweight)),
                     fc = 0.0,
-                    fy = float(fy),
-                    fu = float(fu),
+                    fy = float(self._to_internalunit_stress(fy)),
+                    fu = float(self._to_internalunit_stress(fu)),
                 )
         return materials
-    
-    def translate_mat_concrete04(self, materials):
-        data = self.reader.read_inputfile(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
+
+    def _translate_mat_concrete04(self, materials):
+        data = self.reader.read_excel(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
         mat_concrete04 = {}
         for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
-            fc, epsc, epscu, fct, et, beta = self.stress(row["fc"]), row["epsc"], row["epscu"], self.stress(row["fct"]), row["et"], row["beta"]
+            fc, epsc, epscu, fct, et, beta = row["fc"], row["epsc"], row["epscu"], row["fct"], row["et"], row["beta"]
             base_mat_data = materials[base_mat]
             E, nu, G, Unitweight = base_mat_data.E, base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
             Esec = fc / epsc
             et_default = fct / Esec
             mat_concrete04[str(mat_name)] = Mat_Concrete04(
-                name = str(mat_name),
+                mat_name = str(mat_name),
                 base_mat = str(base_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
@@ -342,22 +353,22 @@ class InputTranslator:
                 nu = float(nu),
                 G = float(G),
                 unitweight = float(Unitweight),
-                fc = float(-fc),
+                fc = float(self._to_internalunit_stress(-fc)),
                 epsc = float(-epsc),
                 epscu = float(-epscu),
-                fct = float(fct),
+                fct = float(self._to_internalunit_stress(fct)),
                 et = float(et if et != 0.0 else et_default),
                 beta = float(beta),
             ) # Defining dictionary for each material
         return mat_concrete04
-    
-    def translate_mat_steel02(self, materials):
-        data = self.reader.read_inputfile(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
+
+    def _translate_mat_steel02(self, materials):
+        data = self.reader.read_excel(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
         mat_steel02 = {}
         for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
-            fy, fu, eu, b, R0, cR1, cR2= self.stress(row["fy"]), self.stress(row["fu"]), row["eu"], row["b"], row["R0"], row["cR1"], row["cR2"]
-            a1, a2, a3, a4, f_init = row["a1"], row["a2"], row["a3"], row["a4"], self.stress(row['f_init'])
+            fy, fu, eu, b, R0, cR1, cR2 = row["fy"], row["fu"], row["eu"], row["b"], row["R0"], row["cR1"], row["cR2"]
+            a1, a2, a3, a4, f_init = row["a1"], row["a2"], row["a3"], row["a4"], row['f_init']
             base_mat_data = materials[base_mat]
             E, nu, G, Unitweight = base_mat_data.E, base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
             ey = fy / E
@@ -365,7 +376,7 @@ class InputTranslator:
             Epy = (fu - fy) / (eu - eoffset)
             b_default = Epy / E
             mat_steel02[str(mat_name)] = Mat_Steel02(
-                name = str(mat_name),
+                mat_name = str(mat_name),
                 base_mat = str(base_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
@@ -373,8 +384,8 @@ class InputTranslator:
                 nu = float(nu),
                 G = float(G),
                 unitweight = float(Unitweight),
-                fy = float(fy),
-                fu = float(fu),
+                fy = float(self._to_internalunit_stress(fy)),
+                fu = float(self._to_internalunit_stress(fu)),
                 ey = float(ey),
                 eu = float(eu),
                 b = float(b if b != 0.0 else b_default),
@@ -385,12 +396,12 @@ class InputTranslator:
                 a2 = float(a2),
                 a3 = float(a3),
                 a4 = float(a4),
-                f_init = float(f_init),
+                f_init = float(self._to_internalunit_stress(f_init)),
             ) # Defining dictionary for each material
         return mat_steel02
-    
-    def translate_mat_minmax(self, materials_list):
-        data = self.reader.read_inputfile(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
+
+    def _translate_mat_minmax(self, materials_list):
+        data = self.reader.read_excel(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
         mat_minmax = {}
         for row in data:
             mat_name, base_nl_mat, mat_type, mat_model = row["Material Name"], row["Base NL Material"], row["Material Type"], row["Material Model"]
@@ -402,8 +413,8 @@ class InputTranslator:
                 else:
                     continue
             mat_minmax[str(mat_name)] = Mat_MinMax(
-                name = str(mat_name),
-                base_nl_mat = str(base_nl_mat),
+                mat_name = str(mat_name),
+                base_nonlinear_mat = str(base_nl_mat),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
                 E = float(E),
@@ -415,28 +426,28 @@ class InputTranslator:
             ) # Defining dictionary for each material
         return mat_minmax
     
-    def translate_mat_imk(self):
-        data = self.reader.read_inputfile(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+    def _translate_mat_imk(self):
+        data = self.reader.read_excel(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
         mat_imk = {}
         for row in data:
             mat_name, mat_type, mat_model = row["Material Name"], row["Material Type"], row["Material Model"]
-            K0, as_pos, as_neg = self.moment(row["K0"]), row["as_Pos"], row["as_Neg"]
-            my_pos, my_neg, mu_pos, mu_neg = self.moment(row["My_Pos"]), self.moment(row["My_Neg"]), self.moment(row["Mu_Pos"]), self.moment(row["Mu_Neg"])
+            K0, as_pos, as_neg = row["K0"], row["as_Pos"], row["as_Neg"]
+            my_pos, my_neg, mu_pos, mu_neg = row["My_Pos"], row["My_Neg"], row["Mu_Pos"], row["Mu_Neg"]
             fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
             lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
             theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
             theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
             mat_imk[str(mat_name)] = Mat_IMK(
-                name = str(mat_name),
+                mat_name = str(mat_name),
                 mat_type = str(mat_type),
                 mat_model = str(mat_model),
-                K0 = float(K0),
+                K0 = float(self._to_internalunit_rotational_stiffness(K0)),
                 as_pos = float(as_pos),
                 as_neg = float(as_neg),
-                my_pos = float(my_pos),
-                my_neg = float(my_neg),
-                mu_pos = float(mu_pos),
-                mu_neg = float(mu_neg),
+                my_pos = float(self._to_internalunit_moment(my_pos)),
+                my_neg = float(self._to_internalunit_moment(my_neg)),
+                mu_pos = float(self._to_internalunit_moment(mu_pos)),
+                mu_neg = float(self._to_internalunit_moment(mu_neg)),
                 fpr_pos = float(fpr_pos),
                 fpr_neg = float(fpr_neg),
                 a_pinch = float(a_pinch),
@@ -462,22 +473,22 @@ class InputTranslator:
             ) # Defining dictionary for each material
         return mat_imk
     
-    def translate_frame_sections(self):
-        data = self.reader.read_inputfile(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
+    def _translate_frame_sections(self):
+        data = self.reader.read_excel(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
         frame_sections = {}
         for row in data:
             sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
-            h, b = self.length(row["h"]), self.length(row["b"])
-            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = SectionProperties(row)
+            h, b = row["h"], row["b"]
+            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = section_properties(row)
             k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
             frame_sections[str(sec_name)] = FrameSections(
-                name = str(sec_name),
+                sec_name = str(sec_name),
                 sec_shape = str (sec_shape),
                 base_mat = str(base_mat),
                 sec_model = str(sec_model),
                 element_type = str(element_type),
-                h = float(h),
-                b = float(b),
+                h = float(self._to_internalunit_length(h)),
+                b = float(self._to_internalunit_length(b)),
                 A = float(k_A * A),
                 Avy = float(k_Avy * Avy),
                 Avz = float(k_Avz * Avz),
@@ -489,22 +500,22 @@ class InputTranslator:
             ) # Defining dictionary for each frame section
         return frame_sections
     
-    def translate_sec_fiber(self, frame_sections, materials):
-        data = self.reader.read_inputfile(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
+    def _translate_sec_fiber(self, frame_sections, materials):
+        data = self.reader.read_excel(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
         sec_fiber = {}
         for row in data:
             sec_name, base_sec, integration_type = row["Section Name"], row["Base Section"], row["Integration Type"]
             mat_1, mat_2, mat_3, sec_model = row["Material 1"], row["Material 2"], row["Material 3"], row["Section Model"]
-            cover, nbars_top, nbars_bot, nbars_int = self.length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
-            bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int = self.length(row["barDiaHoop"]), self.length(row["barDiaTop"]), self.length(row["barDiaBot"]), self.length(row["barDiaInt"])
+            cover, nbars_top, nbars_bot, nbars_int = row["cover"], row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
+            bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int = row["barDiaHoop"], row["barDiaTop"], row["barDiaBot"], row["barDiaInt"]
             base_sec_data = frame_sections[base_sec]
             h, b, sec_shape, base_mat = base_sec_data.h, base_sec_data.b, base_sec_data.sec_shape, base_sec_data.base_mat
             base_mat_data = materials[base_mat]
             mat_type = base_mat_data.mat_type
             row["h"], row["b"], row["Section Shape"], row["Material Type"] = h, b, sec_shape, mat_type
-            A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int = FiberSectionProperties(row)
+            A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int = fibersection_properties(row)
             sec_fiber[str(sec_name)] = Sec_Fiber(
-                name = str(sec_name),
+                sec_name = str(sec_name),
                 base_sec = str(base_sec),
                 integration_type = str(integration_type),
                 mat_type = str(mat_type),
@@ -514,14 +525,14 @@ class InputTranslator:
                 sec_model = str(sec_model),
                 h = float(h),
                 b = float(b),
-                cover = float(cover),
+                cover = float(self._to_internalunit_length(cover)),
                 nbars_top = int(nbars_top),
                 nbars_bot = int(nbars_bot),
                 nbars_int = int(nbars_int),
-                bar_dia_hoop = float(bar_dia_hoop),
-                bar_dia_top = float(bar_dia_top),
-                bar_dia_bot = float(bar_dia_bot),
-                bar_dia_int = float(bar_dia_int),
+                bar_dia_hoop = float(self._to_internalunit_length(bar_dia_hoop)),
+                bar_dia_top = float(self._to_internalunit_length(bar_dia_top)),
+                bar_dia_bot = float(self._to_internalunit_length(bar_dia_bot)),
+                bar_dia_int = float(self._to_internalunit_length(bar_dia_int)),
                 A = float(A),
                 Avy = float(Avy),
                 Avz = float(Avz),
@@ -534,8 +545,8 @@ class InputTranslator:
             ) # Defining dictionary for each frame section
         return sec_fiber
     
-    def translate_sec_aggregator(self, sections_list):
-        data = self.reader.read_inputfile(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
+    def _translate_sec_aggregator(self, sections_list):
+        data = self.reader.read_excel(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
         sec_aggregator = {}
         for row in data:
             sec_name, aggregated_sec, base_mat, sec_model, aggregator_type = row["Section Name"], row["Aggregated Section"], row["Base Material"], row["Section Model"], row["Aggregator Type"]
@@ -546,7 +557,7 @@ class InputTranslator:
                 else:
                     continue
             sec_aggregator[str(sec_name)] = Sec_Aggregator(
-                name = str(sec_name),
+                sec_name = str(sec_name),
                 aggregated_sec = str(aggregated_sec),
                 base_mat = str(base_mat),
                 sec_model = str(sec_model),
@@ -562,19 +573,14 @@ class InputTranslator:
             ) # Defining dictionary for each frame section
         return sec_aggregator
     
-    def translate_slab_sections(self):
-        data = self.reader.read_inputfile(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
+    def _translate_slab_sections(self):
+        data = self.reader.read_excel(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
         slab_sections = {}
         for row in data:
-            sec_name, base_mat, t = row["Section Name"], row["Base Material"], self.length(row["t"])
+            sec_name, base_mat, t = row["Section Name"], row["Base Material"], row["t"]
             slab_sections[str(sec_name)] = SlabSections(
-                name = str(sec_name),
+                sec_name = str(sec_name),
                 base_mat = str(base_mat),
-                t = float(t),
+                t = float(self._to_internalunit_length(t)),
             ) # Defining dictionary for each slab section
         return slab_sections
-
-    def translate_nodes(self, point_coordinates):
-        data = point_coordinates
-        nodes = {}
-        for row in data:

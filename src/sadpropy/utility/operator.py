@@ -1,9 +1,9 @@
 from math import pi, sqrt
 
-__all__ = ["SignificantFigures", "CoordinateToLength", "RayleighDampingCoefficients", "RebarArea", "SectionProperties", "FiberSectionProperties"]
+__all__ = ["significant_figures", "rayleigh_damping_coefficients", "rebar_area", "section_properties", "fibersection_properties"]
 
 # NUMERICAL CORRECTION
-def SignificantFigures(x, tol=1e-12):
+def significant_figures(x, tol=1e-12):
     try:
         return [0.0 if abs(float(v)) < tol else float(v) for v in x]
     except TypeError:
@@ -16,26 +16,19 @@ def SignificantFigures(x, tol=1e-12):
         y = coords[:,1]
         return 0.5 * abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) # Defining formula to calculate polygon area (Shoelace formula)
 
-# COMPUTE LENGTH FROM COORDINATE DATA
-def CoordinateToLength(i_coord, j_coord):
-     i_x_coord, i_y_coord, i_z_coord = i_coord
-     j_x_coord, j_y_coord, j_z_coord = j_coord
-     length = sqrt((i_x_coord - j_x_coord)**2 + (i_y_coord - j_y_coord)**2 + (i_z_coord - j_z_coord)**2)
-     return length
-
 # COMPUTE RAYLEIGH DAMPING COEFFICIENTS
-def RayleighDampingCoefficients(damp_ratio1, damp_ratio2, omega1, omega2):
+def rayleigh_damping_coefficients(damp_ratio1, damp_ratio2, omega1, omega2):
      alpha = 2 * (damp_ratio2 * omega1**2 * omega2 - damp_ratio1 * omega1 * omega2**2) / (omega1**2 - omega2**2)
      beta = 2 * (damp_ratio1 * omega1 - damp_ratio2 * omega2) / (omega1**2 - omega2**2)
      return alpha, beta
 
 # COMPUTE REINFORCEMENT AREA
-def RebarArea(dia):
+def rebar_area(dia):
      A_rebar = pi * dia**2 /4
      return A_rebar
 
 # COMPUTE SECTION PROPERTIES
-def SectionProperties(section_data):
+def section_properties(section_data):
      row = section_data
      if row['Section Shape'] == 'Rectangular':
           h, b = row['h'], row['b'] # Section data
@@ -49,7 +42,7 @@ def SectionProperties(section_data):
           Jxx = h * b**3 * ((16/3) - 3.36 * (b / h) * (1 - b**4 / (12 * h**4))) / 16 # Torsional constant
      return A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ
 
-def FiberSectionProperties(fibersection_data):
+def fibersection_properties(fibersection_data):
      row = fibersection_data
      if row['Material Type'] == 'Concrete':
           if row['Section Shape'] == 'Rectangular':
@@ -57,7 +50,7 @@ def FiberSectionProperties(fibersection_data):
                h, b = row['h'], row['b']
                cover, nBars_top, nBars_bot, nBars_int = row['cover'], row['nBarsTop'], row['nBarsBot'], row['nBarsInt']
                barDia_hoop, barDia_top, barDia_bot, barDia_int = row['barDiaHoop'], row['barDiaTop'], row['barDiaBot'], row['barDiaInt']
-               Abar_hoop, Abar_top, Abar_bot, Abar_int = RebarArea(barDia_hoop), RebarArea(barDia_top), RebarArea(barDia_bot), RebarArea(barDia_int)
+               Abar_hoop, Abar_top, Abar_bot, Abar_int = rebar_area(barDia_hoop), rebar_area(barDia_top), rebar_area(barDia_bot), rebar_area(barDia_int)
                d_prime = cover + barDia_hoop + barDia_top / 2.0
                yCentroid, zCentroid = 0.0, 0.0 # Local axis coordinate of section centroid
                yCover, zCover = yCentroid + h / 2.0, yCentroid + b / 2.0 # Local axis coordinate of cover edge from centroid

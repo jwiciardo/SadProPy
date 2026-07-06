@@ -1,5 +1,5 @@
 from collections import defaultdict
-from .exceptions import ValidationError
+from ._exceptions import ValidationError
 
 __all__ = ["get_vertices_from_surface"]
 

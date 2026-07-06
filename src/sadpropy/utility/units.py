@@ -1,188 +1,166 @@
 from enum import Enum
 from math import pi
 from dataclasses import dataclass
-from .constants import GRAVITY_ACCELERATION
+from .constantvalues import GRAVITATIONAL_ACCELERATION
+from ._exceptions import ValidationError
 
 __all__ = ["UnitConverter", "UnitRegistry", "UnitSystem"]
 
-g = GRAVITY_ACCELERATION
-
-class Dimension(Enum):
-    FORCE = "force"
-    LENGTH = "length"
-    AREA = "area"
-    VOLUME = "volume"
-    LENGTH4 = "length4"
-    MASS = "mass"
-    VELOCITY = "velocity"
-    ACCELERATION = "acceleration"
-    STRESS = "stress"
-    MOMENT = "moment"
-    UNITWEIGHT = "unitweight"
-    SURFACE_LOAD = "surface_load"
-    DISTRIBUTED_LINE_LOAD = "distributed_line_load"
-    CONCENTRATED_LINE_LOAD = "concentrated_line_load"
-    FORCE_POINT_LOAD = "force_point_load"
-    MOMENT_POINT_LOAD = "moment_point_load"
-    TIME = "time"
-    ANGLE = "angle"
+g = GRAVITATIONAL_ACCELERATION
 
 class UnitRegistry:
     UNITS = {
         # Force
-        "N":   (Dimension.FORCE, 1.0),
-        "kN":  (Dimension.FORCE, 1e3),
-        "MN":  (Dimension.FORCE, 1e6),
-        "kgf": (Dimension.FORCE, 1.0 * g),
-        "tonf": (Dimension.FORCE, 1e3 * g),
-        "lbf":  (Dimension.FORCE, 4.44822),
-        "kipf":  (Dimension.FORCE, 4.44822e3),
+        # Concentrated Line Load = Force
+        # Force Point Load = Force
+        "N":    1.0,
+        "kN":   1e3,
+        "MN":   1e6,
+        "kgf":  1.0 * g,
+        "tonf": 1e3 * g,
+        "lbf":  4.44822,
+        "kipf": 4.44822e3,
             
         # Length
-        "m":   (Dimension.LENGTH, 1.0),
-        "mm":  (Dimension.LENGTH, 1e-3),
-        "cm":  (Dimension.LENGTH, 1e-2),
-        "ft":  (Dimension.LENGTH, 0.3048),
-        "in":  (Dimension.LENGTH, 0.0254),
+        "m":  1.0,
+        "mm": 1e-3,
+        "cm": 1e-2,
+        "ft": 0.3048,
+        "in": 0.0254,
 
         # Area = Length^2
-        "m2": (Dimension.AREA, 1.0**2),
-        "mm2":  (Dimension.AREA, 1e-3**2),
-        "cm2":  (Dimension.AREA, 1e-2**2),
-        "ft2":  (Dimension.AREA, 0.3048**2),
-        "in2":  (Dimension.AREA, 0.0254**2),
+        "m2":  1.0**2,
+        "mm2": 1e-3**2,
+        "cm2": 1e-2**2,
+        "ft2": 0.3048**2,
+        "in2": 0.0254**2,
 
         # Volume = Length^3
-        "m3": (Dimension.VOLUME, 1.0**3),
-        "mm3":  (Dimension.VOLUME, 1e-3**3),
-        "cm3":  (Dimension.VOLUME, 1e-2**3),
-        "ft3":  (Dimension.VOLUME, 0.3048**3),
-        "in3":  (Dimension.VOLUME, 0.0254**3),
+        "m3":  1.0**3,
+        "mm3": 1e-3**3,
+        "cm3": 1e-2**3,
+        "ft3": 0.3048**3,
+        "in3": 0.0254**3,
 
-        # Length4 = Length^4
-        "m4": (Dimension.LENGTH4, 1.0**4),
-        "mm4":  (Dimension.LENGTH4, 1e-3**4),
-        "cm4":  (Dimension.LENGTH4, 1e-2**4),
-        "ft4":  (Dimension.LENGTH4, 0.3048**4),
-        "in4":  (Dimension.LENGTH4, 0.0254**4),
+        # Second Moment of Area = Length^4
+        "m4":  1.0**4,
+        "mm4": 1e-3**4,
+        "cm4": 1e-2**4,
+        "ft4": 0.3048**4,
+        "in4": 0.0254**4,
 
         # Mass
-        "kg": (Dimension.MASS, 1.0),
-        "gr": (Dimension.MASS, 1e-3),
-        "ton": (Dimension.MASS, 1e3),
-        "lbs": (Dimension.MASS, 0.45359237),
-        "kip": (Dimension.MASS, 0.45359237e3),
+        "kg":  1.0,
+        "gr":  1e-3,
+        "ton": 1e3,
+        "lbs": 0.45359237,
+        "kip": 0.45359237e3,
         
         # Velocity = Length / Time
-        "m/s": (Dimension.VELOCITY, 1.0 / 1.0),
-        "mm/s": (Dimension.VELOCITY, 1e-3 / 1.0),
-        "cm/s": (Dimension.VELOCITY, 1e-2 / 1.0),
-        "ft/s": (Dimension.VELOCITY, 0.3048 / 1.0),
-        "in/s": (Dimension.VELOCITY, 0.0254 / 1.0),
+        "m/s":  1.0 / 1.0,
+        "mm/s": 1e-3 / 1.0,
+        "cm/s": 1e-2 / 1.0,
+        "ft/s": 0.3048 / 1.0,
+        "in/s": 0.0254 / 1.0,
 
         # Acceleration = Length / Time^2
-        "m/s2": (Dimension.ACCELERATION, 1.0 / 1.0**2),
-        "mm/s2": (Dimension.ACCELERATION, 1e-3 / 1.0**2),
-        "cm/s2": (Dimension.ACCELERATION, 1e-2 / 1.0**2),
-        "ft/s2": (Dimension.ACCELERATION, 0.3048 / 1.0**2),
-        "in/s2": (Dimension.ACCELERATION, 0.0254 / 1.0**2),
+        "m/s2":  1.0 / 1.0**2,
+        "mm/s2": 1e-3 / 1.0**2,
+        "cm/s2": 1e-2 / 1.0**2,
+        "ft/s2": 0.3048 / 1.0**2,
+        "in/s2": 0.0254 / 1.0**2,
 
         # Stress = Force / Area
-        "Pa":  (Dimension.STRESS, 1.0 / 1.0**2),
-        "kPa": (Dimension.STRESS, 1e3 / 1.0**2),
-        "MPa": (Dimension.STRESS, 1e6 / 1.0**2),
-        "GPa": (Dimension.STRESS, 1e9 / 1.0**2),
-        "psi": (Dimension.STRESS, 4.44822 / 0.0254**2),
-        "psf": (Dimension.STRESS, 4.44822 / 0.3048**2),
-        "ksi": (Dimension.STRESS, 4.44822e3 / 0.0254**2),
-        "ksf": (Dimension.STRESS, 4.44822e3 / 0.3048**2),
+        "Pa":  1.0 / 1.0**2,
+        "kPa": 1e3 / 1.0**2,
+        "MPa": 1e6 / 1.0**2,
+        "GPa": 1e9 / 1.0**2,
+        "psi": 4.44822 / 0.0254**2,
+        "psf": 4.44822 / 0.3048**2,
+        "ksi": 4.44822e3 / 0.0254**2,
+        "ksf": 4.44822e3 / 0.3048**2,
 
         # Moment = Force × Length
-        "N-m": (Dimension.MOMENT, 1.0 * 1.0),
-        "kN-m": (Dimension.MOMENT, 1e3 * 1.0),
-        "kN-mm": (Dimension.MOMENT, 1e3 * 1e-3),
-        "kgf-m": (Dimension.MOMENT, 1.0 * g * 1.0),
-        "kgf-mm": (Dimension.MOMENT, 1.0 * g * 1e-3),
-        "tonf-m": (Dimension.MOMENT, 1e3 * g * 1.0),
-        "tonf-mm": (Dimension.MOMENT, 1e3 * g * 1e-3),
-        "lbf-in": (Dimension.MOMENT, 4.44822 * 0.0254),
-        "lbf-ft": (Dimension.MOMENT, 4.44822 * 0.3048),
-        "kipf-in": (Dimension.MOMENT, 4.44822e3 * 0.0254),
-        "kipf-ft": (Dimension.MOMENT, 4.44822e3 * 0.3048),
+        # Moment Point Load = Force × Length
+        "N-m":     1.0 * 1.0,
+        "kN-m":    1e3 * 1.0,
+        "kN-mm":   1e3 * 1e-3,
+        "kgf-m":   1.0 * g * 1.0,
+        "kgf-mm":  1.0 * g * 1e-3,
+        "tonf-m":  1e3 * g * 1.0,
+        "tonf-mm": 1e3 * g * 1e-3,
+        "lbf-in":  4.44822 * 0.0254,
+        "lbf-ft":  4.44822 * 0.3048,
+        "kipf-in": 4.44822e3 * 0.0254,
+        "kipf-ft": 4.44822e3 * 0.3048,
 
         # Unitweight or Density = Force / Volume
-        "N/m3": (Dimension.UNITWEIGHT, 1.0 / 1.0**3),
-        "N/mm3": (Dimension.UNITWEIGHT, 1.0 / 1e3**3),
-        "kN/m3": (Dimension.UNITWEIGHT, 1e3 / 1.0**3),
-        "kN/mm3": (Dimension.UNITWEIGHT, 1e3 / 1e3**3),
-        "lbf/in3": (Dimension.UNITWEIGHT, 4.44822 / 0.0254**3),
-        "lbf/ft3": (Dimension.UNITWEIGHT, 4.44822 / 0.3048**3),
-        "kipf/in3": (Dimension.UNITWEIGHT, 4.44822e3 / 0.0254**3),
-        "kipf/ft3": (Dimension.UNITWEIGHT, 4.44822e3 / 0.3048**3),
+        "N/m3":     1.0 / 1.0**3,
+        "N/mm3":    1.0 / 1e3**3,
+        "kN/m3":    1e3 / 1.0**3,
+        "kN/mm3":   1e3 / 1e3**3,
+        "lbf/in3":  4.44822 / 0.0254**3,
+        "lbf/ft3":  4.44822 / 0.3048**3,
+        "kipf/in3": 4.44822e3 / 0.0254**3,
+        "kipf/ft3": 4.44822e3 / 0.3048**3,
             
         # Surface load = Force / Area
-        "N/m2": (Dimension.SURFACE_LOAD, 1.0 / 1.0**2),
-        "N/mm2": (Dimension.SURFACE_LOAD, 1.0 / 1e3**2),
-        "kN/m2": (Dimension.SURFACE_LOAD, 1e3 / 1.0**2),
-        "kN/mm2": (Dimension.SURFACE_LOAD, 1e3 / 1e3**2),
-        "lbf/in2": (Dimension.SURFACE_LOAD, 4.44822 / 0.0254**2),
-        "lbf/ft2": (Dimension.SURFACE_LOAD, 4.44822 / 0.3048**2),
-        "kipf/in2": (Dimension.SURFACE_LOAD, 4.44822e3 / 0.0254**2),
-        "kipf/ft2": (Dimension.SURFACE_LOAD, 4.44822e3 / 0.3048**2),
+        "N/m2":     1.0 / 1.0**2,
+        "N/mm2":    1.0 / 1e3**2,
+        "kN/m2":    1e3 / 1.0**2,
+        "kN/mm2":   1e3 / 1e3**2,
+        "lbf/in2":  4.44822 / 0.0254**2,
+        "lbf/ft2":  4.44822 / 0.3048**2,
+        "kipf/in2": 4.44822e3 / 0.0254**2,
+        "kipf/ft2": 4.44822e3 / 0.3048**2,
             
         # Distributed Line load = Force / Length
-        "N/m": (Dimension.DISTRIBUTED_LINE_LOAD, 1.0 / 1.0),
-        "N/mm": (Dimension.DISTRIBUTED_LINE_LOAD, 1.0 / 1e3),
-        "kN/m": (Dimension.DISTRIBUTED_LINE_LOAD, 1e3 / 1.0),
-        "kN/mm": (Dimension.DISTRIBUTED_LINE_LOAD, 1e3 / 1e3),
-        "lbf/in": (Dimension.DISTRIBUTED_LINE_LOAD, 4.44822 / 0.0254),
-        "lbf/ft": (Dimension.DISTRIBUTED_LINE_LOAD, 4.44822 / 0.3048),
-        "kipf/in": (Dimension.DISTRIBUTED_LINE_LOAD, 4.44822e3 / 0.0254),
-        "kipf/ft": (Dimension.DISTRIBUTED_LINE_LOAD, 4.44822e3 / 0.3048),
-            
-        # Concentrated Line load = Force
-        "N":   (Dimension.CONCENTRATED_LINE_LOAD, 1.0),
-        "kN":  (Dimension.CONCENTRATED_LINE_LOAD, 1e3),
-        "MN":  (Dimension.CONCENTRATED_LINE_LOAD, 1e6),
-        "kgf": (Dimension.CONCENTRATED_LINE_LOAD, 1.0 * g),
-        "tonf": (Dimension.CONCENTRATED_LINE_LOAD, 1e3 * g),
-        "lbf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822),
-        "kipf":  (Dimension.CONCENTRATED_LINE_LOAD, 4.44822e3),
-            
-        # Force Point load = Force
-        "N":   (Dimension.FORCE_POINT_LOAD, 1.0),
-        "kN":  (Dimension.FORCE_POINT_LOAD, 1e3),
-        "MN":  (Dimension.FORCE_POINT_LOAD, 1e6),
-        "kgf": (Dimension.FORCE_POINT_LOAD, 1.0 * g),
-        "tonf": (Dimension.FORCE_POINT_LOAD, 1e3 * g),
-        "lbf":  (Dimension.FORCE_POINT_LOAD, 4.44822),
-        "kipf":  (Dimension.FORCE_POINT_LOAD, 4.44822e3),
+        # Translational Stiffness = Force / Length
+        "N/m":     1.0 / 1.0,
+        "N/mm":    1.0 / 1e3,
+        "kN/m":    1e3 / 1.0,
+        "kN/mm":   1e3 / 1e3,
+        "lbf/in":  4.44822 / 0.0254,
+        "lbf/ft":  4.44822 / 0.3048,
+        "kipf/in": 4.44822e3 / 0.0254,
+        "kipf/ft": 4.44822e3 / 0.3048,
 
-        # Moment Point Load = Force × Length
-        "N-m": (Dimension.MOMENT_POINT_LOAD, 1.0 * 1.0),
-        "kN-m": (Dimension.MOMENT_POINT_LOAD, 1e3 * 1.0),
-        "kN-mm": (Dimension.MOMENT_POINT_LOAD, 1e3 * 1e-3),
-        "kgf-m": (Dimension.MOMENT_POINT_LOAD, 1.0 * g * 1.0),
-        "kgf-mm": (Dimension.MOMENT_POINT_LOAD, 1.0 * g * 1e-3),
-        "tonf-m": (Dimension.MOMENT_POINT_LOAD, 1e3 * g * 1.0),
-        "tonf-mm": (Dimension.MOMENT_POINT_LOAD, 1e3 * g * 1e-3),
-        "lbf-in": (Dimension.MOMENT_POINT_LOAD, 4.44822 * 0.0254),
-        "lbf-ft": (Dimension.MOMENT_POINT_LOAD, 4.44822 * 0.3048),
-        "kipf-in": (Dimension.MOMENT_POINT_LOAD, 4.44822e3 * 0.0254),
-        "kipf-ft": (Dimension.MOMENT_POINT_LOAD, 4.44822e3 * 0.3048),
-            
+        # Rotational Stiffness = Force × Length / Angle
+        "N-m/rad":     1.0 * 1.0 / 1.0,
+        "kN-m/rad":    1e3 * 1.0 / 1.0,
+        "kN-mm/rad":   1e3 * 1e-3 / 1.0,
+        "kgf-m/rad":   1.0 * g * 1.0 / 1.0,
+        "kgf-mm/rad":  1.0 * g * 1e-3 / 1.0,
+        "tonf-m/rad":  1e3 * g * 1.0 / 1.0,
+        "tonf-mm/rad": 1e3 * g * 1e-3 / 1.0,
+        "lbf-in/rad":  4.44822 * 0.0254 / 1.0,
+        "lbf-ft/rad":  4.44822 * 0.3048 / 1.0,
+        "kipf-in/rad": 4.44822e3 * 0.0254 / 1.0,
+        "kipf-ft/rad": 4.44822e3 * 0.3048 / 1.0,
+        "N-m/deg":     1.0 * 1.0 / (pi / 180),
+        "kN-m/deg":    1e3 * 1.0 / (pi / 180),
+        "kN-mm/deg":   1e3 * 1e-3 / (pi / 180),
+        "kgf-m/deg":   1.0 * g * 1.0 / (pi / 180),
+        "kgf-mm/deg":  1.0 * g * 1e-3 / (pi / 180),
+        "tonf-m/deg":  1e3 * g * 1.0 / (pi / 180),
+        "tonf-mm/deg": 1e3 * g * 1e-3 / (pi / 180),
+        "lbf-in/deg":  4.44822 * 0.0254 / (pi / 180),
+        "lbf-ft/deg":  4.44822 * 0.3048 / (pi / 180),
+        "kipf-in/deg": 4.44822e3 * 0.0254 / (pi / 180),
+        "kipf-ft/deg": 4.44822e3 * 0.3048 / (pi / 180),
+
         # Time
-        "s": (Dimension.TIME, 1.0),
-        "ms": (Dimension.TIME, 1e-3),
+        "s":  1.0,
+        "ms": 1e-3,
 
         # Angle
-        "rad": (Dimension.ANGLE, 1.0),
-        "deg": (Dimension.ANGLE, pi / 180),
+        "rad": 1.0,
+        "deg": pi / 180,
     }
 
-    def get(self, unit):
+    def _get(self, unit):
         if unit not in self.UNITS:
-            raise ValueError(f"Unit '{unit}' not defined")
+            raise ValidationError(f"Unit '{unit}' not found in the Unit Registry")
         return self.UNITS[unit]
     
 class UnitConverter:
@@ -190,11 +168,11 @@ class UnitConverter:
         self.registry = registry
     
     def to_internal_units(self, value, unit):
-        dimension, factor = self.registry.get(unit)
+        factor = self.registry._get(unit)
         return value * factor
     
     def from_internal_units(self, value, unit):
-        dimension, factor = self.registry.get(unit)
+        factor = self.registry._get(unit)
         return value / factor
 
 @dataclass(slots=True, frozen=True)   
@@ -212,7 +190,7 @@ class UnitSystem:
     def volume(self):
         return f'{self.length}3'
 
-    def length4(self):
+    def second_moment_of_area(self):
         return f'{self.length}4'
     
     def velocity(self):
@@ -241,3 +219,9 @@ class UnitSystem:
     
     def moment_point_load(self):
         return f'{self.force}-{self.length}'
+    
+    def translational_stiffness(self):
+        return f'{self.force}/{self.length}'
+    
+    def rotational_stiffness(self):
+        return f'{self.force}-{self.length}/{self.angle}'

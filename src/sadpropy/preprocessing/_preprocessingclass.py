@@ -1,15 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict
-from sadpropy.utility.units import UnitSystem
+from sadpropy.utility import UnitSystem
 
-__all__ = [
-    "ProjectInformation", "AnalysisPreferences", "PointCoordinates", "LineConnectivity", "SurfaceConnectivity", "StoreyData",
-    "Materials", "Mat_Concrete04", "Mat_Steel02", "Mat_MinMax", "Mat_IMK", "FrameSections", "Sec_Fiber", "Sec_Aggregator", "SlabSections",
-    "Nodes", "BeamColumnElements", "Slabs",
-    "ModelData"
-    ]
-
-# Project
+# PROJECT
 @dataclass(slots=True, frozen=True)
 class ProjectInformation:
     name: str
@@ -18,24 +11,24 @@ class ProjectInformation:
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
     nonlinear_analysis: str
-    auto_zero_length: str
+    autogenerate_zero_length_elements: str
     pdelta: str
     liveload_mass_factor: float
 
-# Structure Data
+# STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
 class PointCoordinates:
-    id: int
+    unique_id: int
     x: float
     y: float
     z: float
 
 @dataclass(slots=True, frozen=True)
 class LineConnectivity:
-    id: int
-    i_end: int
-    j_end: int
-    end_offset: str
+    unique_id: int
+    i_end_point: int
+    j_end_point: int
+    end_offset_option: str
     i_end_offset: float
     j_end_offset: float
     length: float
@@ -45,7 +38,7 @@ class LineConnectivity:
 
 @dataclass(slots=True, frozen=True)
 class SurfaceConnectivity:
-    id: int
+    unique_id: int
     n_edges: int
     edges: tuple[int, ...]
     vertices: tuple[int, ...]
@@ -56,10 +49,10 @@ class StoreyData:
     height: float
     elevation: float
 
-# Properties: Materials
+# PROPERTIES: MATERIALS
 @dataclass(slots=True, frozen=True)
 class Materials:
-    name: str
+    mat_name: str
     mat_type: str
     E: float
     nu: float
@@ -71,7 +64,7 @@ class Materials:
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
-    name: str
+    mat_name: str
     base_mat: str
     mat_type: str
     mat_model: str
@@ -88,7 +81,7 @@ class Mat_Concrete04:
 
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:
-    name: str
+    mat_name: str
     base_mat: str
     mat_type: str
     mat_model: str
@@ -112,8 +105,8 @@ class Mat_Steel02:
 
 @dataclass(slots=True, frozen=True)
 class Mat_MinMax:
-    name: str
-    base_nl_mat: str
+    mat_name: str
+    base_nonlinear_mat: str
     mat_type: str
     mat_model: str
     E: float
@@ -125,7 +118,7 @@ class Mat_MinMax:
 
 @dataclass(slots=True, frozen=True)
 class Mat_IMK:
-    name: str
+    mat_name: str
     mat_type: str
     mat_model: str
     K0: float
@@ -158,10 +151,10 @@ class Mat_IMK:
     d_pos: float
     d_neg: float
 
-# Properties: Frame Sections
+# PROPERTIES: FRAME SECTIONS
 @dataclass(slots=True, frozen=True)
 class FrameSections:
-    name: str
+    sec_name: str
     sec_shape: str
     base_mat: str
     sec_model: str
@@ -179,7 +172,7 @@ class FrameSections:
 
 @dataclass(slots=True, frozen=True)
 class Sec_Fiber:
-    name: str
+    sec_name: str
     base_sec: str
     integration_type: str
     mat_type: str
@@ -209,7 +202,7 @@ class Sec_Fiber:
 
 @dataclass(slots=True, frozen=True)
 class Sec_Aggregator:
-    name: str
+    sec_name: str
     aggregated_sec: str
     base_mat: str
     sec_model: str
@@ -223,14 +216,14 @@ class Sec_Aggregator:
     Iy: float
     Jxx: float
 
-# Properties: Slab Sections
+# PROPERTIES: SLAB SECTIONS
 @dataclass(slots=True, frozen=True)
 class SlabSections:
-    name: str
+    sec_name: str
     base_mat: str
     t: float
 
-# Structural Objects
+# STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
 class Nodes:
     tag: int
@@ -251,7 +244,7 @@ class Slabs:
     elements: tuple[int, ...]
     nodes: tuple[int, ...]
 
-# Model Data
+# MODEL DATA
 @dataclass
 class ModelData:
     project_information: ProjectInformation

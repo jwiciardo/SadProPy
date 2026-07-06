@@ -1,0 +1,4 @@
+__all__ = ["GRAVITATIONAL_ACCELERATION"]
+
+# CONSTANT VALUES
+GRAVITATIONAL_ACCELERATION = 9.80665 # in internal unit system (m/s2)

@@ -1,4 +1,4 @@
-from .exceptions import ValidationError
+from ._exceptions import ValidationError
 
 __all__ = ["TagManager"]
 

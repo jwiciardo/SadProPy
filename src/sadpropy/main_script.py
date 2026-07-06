@@ -1,7 +1,6 @@
-from sadpropy import FilePath, ModelDataStorer
+from sadpropy import *
 
-paths = FilePath()
-modeldata = ModelDataStorer(paths).store_model_data()
+modeldata = store_model_data()
 project_information = modeldata.project_information
 system_units = modeldata.user_unitsystem
 analysis_preferences = modeldata.analysis_preferences
