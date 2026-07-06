@@ -1,7 +1,7 @@
 import warnings
 from openpyxl import load_workbook
 from math import sqrt
-from .data_class import (
+from .preprocessing_class import (
     ProjectInformation,
     AnalysisPreferences,
     PointCoordinates,
@@ -21,7 +21,6 @@ from .data_class import (
     )
 from sadpropy.utility.units import UnitConverter, UnitRegistry, UnitSystem
 from sadpropy.utility.exceptions import ValidationError
-from sadpropy.utility.helper import create_storeys
 from sadpropy.utility.operator import CoordinateToLength, SectionProperties, FiberSectionProperties
 from sadpropy.utility.tagmanager import TagManager
 

@@ -1,4 +1,4 @@
-from .data_class import ModelData
+from .preprocessing_class import ModelData
 from .input_translator import InputTranslator
 
 __all__ = ["ModelDataStorer"]
