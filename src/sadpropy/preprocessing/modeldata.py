@@ -1,5 +1,5 @@
-from .dataclasses import ModelData
-from sadpropy.utility.input_translator import InputTranslator
+from .data_class import ModelData
+from .input_translator import InputTranslator
 
 __all__ = ["ModelDataStorer"]
 
@@ -15,7 +15,7 @@ class ModelDataStorer:
         # TRANSLATE AND VALIDATE INPUTFILE
         self.translator = InputTranslator(self.inputfile_path)
     
-    # CENTRAL FUNCTION: MODEL DATA STORER
+    # MAIN FUNCTION: MODEL DATA STORER
     def store_model_data(self):
         # TRANSLATE INPUTFILE AND STORE TO MODELDATA
         data = self.translator.translate_inputfile()

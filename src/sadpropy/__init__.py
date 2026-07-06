@@ -15,7 +15,7 @@ from .utility import (
     UnitSystem,
     ValidationError,
 )
-from .model import (
+from .preprocessing import (
     AnalysisPreferences,
     BeamColumnElements,
     LineConnectivity,
@@ -36,8 +36,8 @@ from .utility.helper import (
     get_vertices_from_surface,
 )
 from .utility.model_validator import ModelValidator
-from .utility.input_translator import InputTranslator
-from .model.modeldata import ModelDataStorer
+from .preprocessing.input_translator import InputTranslator
+from .preprocessing.modeldata import ModelDataStorer
 
 __all__ = [
     "UnitConverter", "UnitRegistry", "UnitSystem", "FilePath", "ValidationError", "InputReader", "GroundMotionReader", "GRAVITY_ACCELERATION",

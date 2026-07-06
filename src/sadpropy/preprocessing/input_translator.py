@@ -1,10 +1,13 @@
+import warnings
+from openpyxl import load_workbook
 from math import sqrt
-from sadpropy.model.dataclasses import (
+from .data_class import (
     ProjectInformation,
     AnalysisPreferences,
     PointCoordinates,
     LineConnectivity,
     SurfaceConnectivity,
+    StoreyData,
     Materials,
     Mat_Concrete04,
     Mat_Steel02,
@@ -16,14 +19,35 @@ from sadpropy.model.dataclasses import (
     SlabSections,
     Nodes,
     )
-from .units import UnitConverter, UnitRegistry, UnitSystem
-from .exceptions import ValidationError
-from .input_reader import InputReader
-from .helper import create_storeys
-from .operator import CoordinateToLength, SectionProperties, FiberSectionProperties
-from .tagmanager import TagManager
+from sadpropy.utility.units import UnitConverter, UnitRegistry, UnitSystem
+from sadpropy.utility.exceptions import ValidationError
+from sadpropy.utility.helper import create_storeys
+from sadpropy.utility.operator import CoordinateToLength, SectionProperties, FiberSectionProperties
+from sadpropy.utility.tagmanager import TagManager
 
-__all__ = ["InputTranslator"]
+class InputReader:
+    def __init__(self, inputfile_path):
+        self.inputfile_path = inputfile_path
+        if not self.inputfile_path.exists():
+            raise FileNotFoundError(f"File not found: {self.inputfile_path}")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Data Validation extension is not supported*")
+            self.workbook = load_workbook(inputfile_path, data_only=True)
+    
+    # MAIN FUNCTION: READER
+    def read_inputfile(self, sheet_name: str, start_row: int = 1):
+        if sheet_name not in self.workbook.sheetnames:
+            raise ValueError(f"Sheet '{sheet_name}' not found. Available: {self.workbook.sheetnames}")
+        worksheet = self.workbook[sheet_name]
+        rows = list(worksheet.values)
+        headers = rows[start_row - 1]
+        records = []
+        for row in rows[start_row:]:
+            record = dict(zip(headers, row))
+            if all(v is None for v in record.values()): # Skip completely empty rows
+                continue
+            records.append(record)
+        return records
 
 class InputTranslator:
     def __init__(self, inputfile_path):
@@ -78,7 +102,7 @@ class InputTranslator:
     def point_load(self, value):
         return self.unitconverter.to_internal_units(value, self.units.point_load())
     
-    # CENTRAL FUNCTION: TRANSLATOR
+    # MAIN FUNCTION: TRANSLATOR
     def translate_inputfile(self):
         project_information = self.translate_project_information()
         user_unitsystem = self.translate_user_unitsystem()
@@ -120,7 +144,24 @@ class InputTranslator:
             "Nodes": nodes,
         }
 
-    # TRANSLATE FUNCTION
+    # HELPER FUNCTION
+    def create_storeys(storey_elevations): # Create Storey data
+        storey_data = {}
+        for i, elev in enumerate(storey_elevations):
+            if i == 0:
+                storey_name = "Base"
+                height = 0.0
+            else:
+                storey_name = f"Storey{i}"
+                height = elev - storey_elevations[i - 1]
+            storey_data[storey_name] = StoreyData(
+                name = storey_name,
+                height = height,
+                elevation = elev,
+            )
+        return dict(reversed(storey_data.items()))
+    
+    # SUPPORTING FUNCTIONS
     def translate_project_information(self):
         data = self.reader.read_inputfile(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
@@ -529,5 +570,3 @@ class InputTranslator:
         data = point_coordinates
         nodes = {}
         for row in data:
-
-

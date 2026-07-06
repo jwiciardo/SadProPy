@@ -1,5 +1,5 @@
 import warnings
-from sadpropy.model.dataclasses import ModelData
+from sadpropy.preprocessing.data_class import ModelData
     
 __all__ = ["ModelValidator"]
 

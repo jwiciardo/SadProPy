@@ -1,25 +1,7 @@
 from collections import defaultdict
-from sadpropy.model.dataclasses import StoreyData
 from .exceptions import ValidationError
 
-__all__ = ["create_storeys", "get_vertices_from_surface"]
-
-# CREATE STOREY DATA
-def create_storeys(storey_elevations):
-    storey_data = {}
-    for i, elev in enumerate(storey_elevations):
-        if i == 0:
-            storey_name = "Base"
-            height = 0.0
-        else:
-            storey_name = f"Storey{i}"
-            height = elev - storey_elevations[i - 1]
-        storey_data[storey_name] = StoreyData(
-            name = storey_name,
-            height = height,
-            elevation = elev,
-        )
-    return dict(reversed(storey_data.items()))
+__all__ = ["get_vertices_from_surface"]
 
 # GET VERTICES FROM SURFACE
 def get_vertices_from_surface(edges, line_connectivity):
