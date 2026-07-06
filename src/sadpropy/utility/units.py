@@ -14,6 +14,8 @@ class Dimension(Enum):
     VOLUME = "volume"
     LENGTH4 = "length4"
     MASS = "mass"
+    VELOCITY = "velocity"
+    ACCELERATION = "acceleration"
     STRESS = "stress"
     MOMENT = "moment"
     UNITWEIGHT = "unitweight"
@@ -71,6 +73,20 @@ class UnitRegistry:
         "lbs": (Dimension.MASS, 0.45359237),
         "kip": (Dimension.MASS, 0.45359237e3),
         
+        # Velocity = Length / Time
+        "m/s": (Dimension.VELOCITY, 1.0 / 1.0),
+        "mm/s": (Dimension.VELOCITY, 1e-3 / 1.0),
+        "cm/s": (Dimension.VELOCITY, 1e-2 / 1.0),
+        "ft/s": (Dimension.VELOCITY, 0.3048 / 1.0),
+        "in/s": (Dimension.VELOCITY, 0.0254 / 1.0),
+
+        # Acceleration = Length / Time^2
+        "m/s2": (Dimension.ACCELERATION, 1.0 / 1.0**2),
+        "mm/s2": (Dimension.ACCELERATION, 1e-3 / 1.0**2),
+        "cm/s2": (Dimension.ACCELERATION, 1e-2 / 1.0**2),
+        "ft/s2": (Dimension.ACCELERATION, 0.3048 / 1.0**2),
+        "in/s2": (Dimension.ACCELERATION, 0.0254 / 1.0**2),
+
         # Stress = Force / Area
         "Pa":  (Dimension.STRESS, 1.0 / 1.0**2),
         "kPa": (Dimension.STRESS, 1e3 / 1.0**2),
@@ -199,6 +215,12 @@ class UnitSystem:
     def length4(self):
         return f'{self.length}4'
     
+    def velocity(self):
+        return f'{self.length}/{self.time}'
+        
+    def acceleration(self):
+        return f'{self.length}/{self.time}2'
+
     def moment(self):
         return f'{self.force}-{self.length}'
     

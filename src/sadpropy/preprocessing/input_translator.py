@@ -65,6 +65,12 @@ class InputTranslator:
     def mass(self, value):
         return self.unitconverter.to_internal_units(value, self.units.mass)
         
+    def velocity(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.velocity)
+        
+    def acceleration(self, value):
+        return self.unitconverter.to_internal_units(value, self.units.acceleration)
+        
     def stress(self, value):
         return self.unitconverter.to_internal_units(value, self.units.stress)
         
