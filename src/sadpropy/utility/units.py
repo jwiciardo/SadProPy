@@ -10,9 +10,7 @@ g = GRAVITATIONAL_ACCELERATION
 
 class UnitRegistry:
     UNITS = {
-        # Force
-        # Concentrated Line Load = Force
-        # Force Point Load = Force
+        # Concentrated Line Load = Force Point Load = Force
         "N":    1.0,
         "kN":   1e3,
         "MN":   1e6,
@@ -80,8 +78,7 @@ class UnitRegistry:
         "ksi": 4.44822e3 / 0.0254**2,
         "ksf": 4.44822e3 / 0.3048**2,
 
-        # Moment = Force × Length
-        # Moment Point Load = Force × Length
+        # Moment = Moment Point Load = Force × Length
         "N-m":     1.0 * 1.0,
         "kN-m":    1e3 * 1.0,
         "kN-mm":   1e3 * 1e-3,
@@ -114,8 +111,7 @@ class UnitRegistry:
         "kipf/in2": 4.44822e3 / 0.0254**2,
         "kipf/ft2": 4.44822e3 / 0.3048**2,
             
-        # Distributed Line load = Force / Length
-        # Translational Stiffness = Force / Length
+        # Distributed Line load = Translational Stiffness = Force / Length
         "N/m":     1.0 / 1.0,
         "N/mm":    1.0 / 1e3,
         "kN/m":    1e3 / 1.0,

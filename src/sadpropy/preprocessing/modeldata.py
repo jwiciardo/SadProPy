@@ -2,19 +2,22 @@ from ._preprocessingclass import ModelData
 from ._exceltranslator import ExcelTranslator
 from sadpropy.utility._filepath import get_filepath
 
-__all__ = ["Model", "retrieve_model_data"]
+__all__ = ["Model"]
 
 class Model:
     def __init__(self):
         # FILE PATH
-        _, _, _, self.inputfile_path, _ = get_filepath()
-        self.model = self._store_model_data()
+        parent_path, input_path, output_path, inputfile_path, logfile_path = get_filepath()
+        self.parent_path = parent_path
+        self.input_path = input_path
+        self.output_path = output_path
+        self.inputfile_path = inputfile_path
+        self.logfile_path = logfile_path
 
-    def _store_model_data(self):
         # TRANSLATE INPUTFILE AND STORE TO MODEL DATA
-        translator = ExcelTranslator(self.inputfile_path)
-        data = translator.translate_excel()
-        return ModelData(
+        translator = ExcelTranslator(inputfile_path)
+        data = translator.translate()
+        self.data = ModelData(
             project_information = data["Project Information"],
             user_unitsystem = data["User Specified Unitsystem"],
             analysis_preferences = data["Analysis Preferences"],
@@ -33,6 +36,3 @@ class Model:
             slab_sections = data["Slab Sections"],
             nodes = data["Nodes"],
         )
-
-    def retrieve_model_data(self):
-        return self.model

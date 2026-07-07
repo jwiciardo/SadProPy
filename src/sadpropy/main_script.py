@@ -1,7 +1,7 @@
 from sadpropy import *
 
 model = Model()
-modeldata = model.retrieve_model_data()
+modeldata = model.data
 project_information = modeldata.project_information
 system_units = modeldata.user_unitsystem
 analysis_preferences = modeldata.analysis_preferences

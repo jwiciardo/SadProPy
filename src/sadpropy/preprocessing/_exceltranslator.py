@@ -31,18 +31,17 @@ from sadpropy.utility._exceptions import ValidationError
 
 class ExcelReader:
     def __init__(self, inputfile_path):
-        self.inputfile_path = inputfile_path
-        if not self.inputfile_path.exists():
-            raise FileNotFoundError(f"File not found: {self.inputfile_path}")
+        if not inputfile_path.exists():
+            raise FileNotFoundError(f"File not found: {inputfile_path}")
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Data Validation extension is not supported*")
-            self.workbook = load_workbook(inputfile_path, data_only=True)
+            self._workbook = load_workbook(inputfile_path, data_only=True)
     
     # MAIN METHOD: EXCELREADER
-    def read_excel(self, sheet_name="", start_row=1):
-        if sheet_name not in self.workbook.sheetnames:
+    def read(self, sheet_name="", start_row=1):
+        if sheet_name not in self._workbook.sheetnames:
             raise ValidationError(f"Sheet '{sheet_name}' not found in Excel file")
-        worksheet = self.workbook[sheet_name]
+        worksheet = self._workbook[sheet_name]
         rows = list(worksheet.values)
         headers = rows[start_row - 1]
         data = []
@@ -55,77 +54,77 @@ class ExcelReader:
 
 class ExcelTranslator:
     def __init__(self, inputfile_path):
-        self.reader = ExcelReader(inputfile_path)
-        self.units = None
-        self.unitregistry = UnitRegistry()
-        self.unitconverter = UnitConverter(self.unitregistry)
+        self._reader = ExcelReader(inputfile_path)
+        self._units = None
+        self._unitregistry = UnitRegistry()
+        self._unitconverter = UnitConverter(self._unitregistry)
 
     # UNIT CONVERTER METHODS TO INTERNAL UNITS
     def _to_internalunit_length(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.length)
+        return self._unitconverter.to_internal_units(value, self._units.length)
 
     def _to_internalunit_force(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.force)
+        return self._unitconverter.to_internal_units(value, self._units.force)
         
     def _to_internalunit_mass(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.mass)
+        return self._unitconverter.to_internal_units(value, self._units.mass)
         
     def _to_internalunit_velocity(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.velocity())
+        return self._unitconverter.to_internal_units(value, self._units.velocity())
         
     def _to_internalunit_acceleration(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.acceleration())
+        return self._unitconverter.to_internal_units(value, self.units._acceleration())
         
     def _to_internalunit_stress(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.stress)
+        return self._unitconverter.to_internal_units(value, self._units.stress)
         
     def _to_internalunit_time(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.time)
+        return self._unitconverter.to_internal_units(value, self._units.time)
         
     def _to_internalunit_angle(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.angle)
+        return self._unitconverter.to_internal_units(value, self._units.angle)
         
     def _to_internalunit_area(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.area())
+        return self._unitconverter.to_internal_units(value, self._units.area())
         
     def _to_internalunit_volume(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.volume())
+        return self._unitconverter.to_internal_units(value, self._units.volume())
         
     def _to_internalunit_second_moment_of_area(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.second_moment_of_area())
+        return self._unitconverter.to_internal_units(value, self._units.second_moment_of_area())
         
     def _to_internalunit_moment(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.moment())
+        return self._unitconverter.to_internal_units(value, self._units.moment())
         
     def _to_internalunit_unitweight(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.unitweight())
+        return self._unitconverter.to_internal_units(value, self._units.unitweight())
         
     def _to_internalunit_surfaceload(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.surface_load())
+        return self._unitconverter.to_internal_units(value, self._units.surface_load())
         
     def _to_internalunit_distributed_lineload(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.distributed_line_load())
+        return self._unitconverter.to_internal_units(value, self._units.distributed_line_load())
         
     def _to_internalunit_concentrated_lineload(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.concentrated_line_load())
+        return self._unitconverter.to_internal_units(value, self._units.concentrated_line_load())
         
     def _to_internalunit_force_pointload(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.force_point_load())
+        return self._unitconverter.to_internal_units(value, self._units.force_point_load())
 
     def _to_internalunit_moment_pointload(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.moment_point_load())
+        return self._unitconverter.to_internal_units(value, self._units.moment_point_load())
     
     def _to_internalunit_translational_stiffness(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.translational_stiffness())
+        return self._unitconverter.to_internal_units(value, self._units.translational_stiffness())
     
     def _to_internalunit_rotational_stiffness(self, value):
-        return self.unitconverter.to_internal_units(value, self.units.rotational_stiffness())
+        return self._unitconverter.to_internal_units(value, self._units.rotational_stiffness())
     
     # MAIN METHOD: EXCEL TRANSLATOR
-    def translate_excel(self):
+    def translate(self):
         project_information = self._translate_project_information()
         user_unitsystem = self._translate_user_unitsystem()
-        self.units = user_unitsystem
+        self._units = user_unitsystem
         analysis_preferences = self._translate_analysis_preferences()
         point_coordinates, storey_data = self._translate_point_objects()
         line_connectivity = self._translate_line_objects(point_coordinates)
@@ -181,7 +180,7 @@ class ExcelTranslator:
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
-        data = self.reader.read_excel(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
+        data = self._reader.read(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         project_information = ProjectInformation(
                 name = str(row["Project Name"]),
@@ -191,7 +190,7 @@ class ExcelTranslator:
         return project_information
     
     def _translate_user_unitsystem(self):
-        data = self.reader.read_excel(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
+        data = self._reader.read(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         user_unitsystem = UnitSystem(
                 force = str(row["Force"]),
@@ -204,7 +203,7 @@ class ExcelTranslator:
         return user_unitsystem
 
     def _translate_analysis_preferences(self):
-        data = self.reader.read_excel(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
+        data = self._reader.read(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         analysis_preferences = AnalysisPreferences(
                 nonlinear_analysis = str(row["Nonlinear Analysis"]),
@@ -215,7 +214,7 @@ class ExcelTranslator:
         return analysis_preferences
 
     def _translate_point_objects(self):
-        data = self.reader.read_excel(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
         ids = [int(row["Point ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
@@ -234,7 +233,7 @@ class ExcelTranslator:
         return point_coordinates, storey_data
 
     def _translate_line_objects(self, point_coordinates):
-        data = self.reader.read_excel(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
+        data = self._reader.read(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
         ids = [int(row["Line ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
@@ -265,7 +264,7 @@ class ExcelTranslator:
         return line_connectivity
 
     def _translate_surface_objects(self, line_connectivity):
-        data = self.reader.read_excel(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
+        data = self._reader.read(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
         ids = [int(row["Surface ID"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
@@ -303,7 +302,7 @@ class ExcelTranslator:
         return surface_connectivity
 
     def _translate_materials(self):
-        data = self.reader.read_excel(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
+        data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
         materials = {}
         for row in data: # Defining dictionary for each material
             mat_name, mat_type = row["Material Name"], row["Material Type"]
@@ -336,7 +335,7 @@ class ExcelTranslator:
         return materials
 
     def _translate_mat_concrete04(self, materials):
-        data = self.reader.read_excel(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
+        data = self._reader.read(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
         mat_concrete04 = {}
         for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
@@ -364,7 +363,7 @@ class ExcelTranslator:
         return mat_concrete04
 
     def _translate_mat_steel02(self, materials):
-        data = self.reader.read_excel(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
+        data = self._reader.read(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
         mat_steel02 = {}
         for row in data:
             mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
@@ -402,7 +401,7 @@ class ExcelTranslator:
         return mat_steel02
 
     def _translate_mat_minmax(self, materials_list):
-        data = self.reader.read_excel(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
+        data = self._reader.read(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
         mat_minmax = {}
         for row in data:
             mat_name, base_nl_mat, mat_type, mat_model = row["Material Name"], row["Base NL Material"], row["Material Type"], row["Material Model"]
@@ -428,7 +427,7 @@ class ExcelTranslator:
         return mat_minmax
     
     def _translate_mat_imk(self):
-        data = self.reader.read_excel(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+        data = self._reader.read(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
         mat_imk = {}
         for row in data:
             mat_name, mat_type, mat_model = row["Material Name"], row["Material Type"], row["Material Model"]
@@ -475,7 +474,7 @@ class ExcelTranslator:
         return mat_imk
     
     def _translate_frame_sections(self):
-        data = self.reader.read_excel(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        data = self._reader.read(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
         frame_sections = {}
         for row in data:
             sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
@@ -502,7 +501,7 @@ class ExcelTranslator:
         return frame_sections
     
     def _translate_sec_fiber(self, frame_sections, materials):
-        data = self.reader.read_excel(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
+        data = self._reader.read(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
         sec_fiber = {}
         for row in data:
             sec_name, base_sec, integration_type = row["Section Name"], row["Base Section"], row["Integration Type"]
@@ -547,7 +546,7 @@ class ExcelTranslator:
         return sec_fiber
     
     def _translate_sec_aggregator(self, sections_list):
-        data = self.reader.read_excel(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
+        data = self._reader.read(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
         sec_aggregator = {}
         for row in data:
             sec_name, aggregated_sec, base_mat, sec_model, aggregator_type = row["Section Name"], row["Aggregated Section"], row["Base Material"], row["Section Model"], row["Aggregator Type"]
@@ -575,7 +574,7 @@ class ExcelTranslator:
         return sec_aggregator
     
     def _translate_slab_sections(self):
-        data = self.reader.read_excel(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
+        data = self._reader.read(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
         slab_sections = {}
         for row in data:
             sec_name, base_mat, t = row["Section Name"], row["Base Material"], row["t"]
