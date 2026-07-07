@@ -1,6 +1,7 @@
 from sadpropy import *
 
-modeldata = generate_model_data()
+model = Model()
+modeldata = model.retrieve_model_data()
 project_information = modeldata.project_information
 system_units = modeldata.user_unitsystem
 analysis_preferences = modeldata.analysis_preferences
