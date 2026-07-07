@@ -186,6 +186,7 @@ class ExcelTranslator:
         project_information = ProjectInformation(
                 name = str(row["Project Name"]),
                 desc = str(row["Project Description"]),
+                ndim = int(row["Model Dimensional Space"]),
         ) # Defining dictionary for project information
         return project_information
     

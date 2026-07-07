@@ -7,6 +7,7 @@ from sadpropy.utility import UnitSystem
 class ProjectInformation:
     name: str
     desc: str
+    ndim: int
 
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
