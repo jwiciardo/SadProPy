@@ -20,7 +20,7 @@ class TagManager:
         self.map_def_to_tag = {key: {} for key in self.counters}
         self.map_tag_to_def = {key: {} for key in self.counters}
 
-    # CORE: STORE TAG
+    # MAIN METHOD: STORE TAG
     def store_tag(self, category, name, tag):
         if name in self.map_def_to_tag[category]:
             raise ValueError(f"{category} name '{name}' already exists")

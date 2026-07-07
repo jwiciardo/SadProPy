@@ -4,7 +4,7 @@ from sadpropy.preprocessing._preprocessingclass import ModelData
 __all__ = ["ModelValidator"]
 
 class ModelValidator:
-    # CENTRAL FUNCTION: TRANSLATOR
+    # MAIN METHOD: MODEL VALIDATOR
     def validate_model(self, modeldata: ModelData):
         self._validate_materials(modeldata)
         self._validate_mat_concrete04(modeldata)

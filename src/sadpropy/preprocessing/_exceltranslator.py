@@ -38,7 +38,7 @@ class ExcelReader:
             warnings.filterwarnings("ignore", message="Data Validation extension is not supported*")
             self.workbook = load_workbook(inputfile_path, data_only=True)
     
-    # MAIN METHOD: READER
+    # MAIN METHOD: EXCELREADER
     def read_excel(self, sheet_name="", start_row=1):
         if sheet_name not in self.workbook.sheetnames:
             raise ValidationError(f"Sheet '{sheet_name}' not found in Excel file")
@@ -121,7 +121,7 @@ class ExcelTranslator:
     def _to_internalunit_rotational_stiffness(self, value):
         return self.unitconverter.to_internal_units(value, self.units.rotational_stiffness())
     
-    # MAIN FUNCTION: TRANSLATOR
+    # MAIN METHOD: EXCEL TRANSLATOR
     def translate_excel(self):
         project_information = self._translate_project_information()
         user_unitsystem = self._translate_user_unitsystem()
@@ -162,7 +162,7 @@ class ExcelTranslator:
             "Nodes": nodes,
         }
 
-    # HELPER FUNCTION
+    # HELPER METHOD
     def _generate_storeys(self, storey_elevations): # Create Storey data
         storey_data = {}
         for i, elev in enumerate(storey_elevations):
@@ -179,7 +179,7 @@ class ExcelTranslator:
             )
         return dict(reversed(storey_data.items()))
     
-    # SUPPORTING FUNCTIONS
+    # SUPPORTING METHODS
     def _translate_project_information(self):
         data = self.reader.read_excel(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
