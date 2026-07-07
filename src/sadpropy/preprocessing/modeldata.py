@@ -16,23 +16,23 @@ class Model:
 
         # TRANSLATE INPUTFILE AND STORE TO MODEL DATA
         translator = ExcelTranslator(inputfile_path)
-        data = translator.translate()
+        modeldata = translator.translate()
         self.data = ModelData(
-            project_information = data["Project Information"],
-            user_unitsystem = data["User Specified Unitsystem"],
-            analysis_preferences = data["Analysis Preferences"],
-            point_coordinates = data["Point Coordinates"],
-            storey_data = data["Storey Data"],
-            line_connectivity = data["Line Connectivity"],
-            surface_connectivity = data["Surface Connectivity"],
-            materials = data["Materials"],
-            mat_concrete04 = data["Mat: Concrete04"],
-            mat_steel02 = data["Mat: Steel02"],
-            mat_minmax = data["Mat: MinMax"],
-            mat_imk = data["Mat: IMK Hinge"],
-            frame_sections = data["Frame Sections"],
-            sec_fiber = data["Sec: Fiber"],
-            sec_aggregator = data["Sec: Aggregator"],
-            slab_sections = data["Slab Sections"],
-            nodes = data["Nodes"],
+            project_information = modeldata["Project Information"],
+            user_unitsystem = modeldata["User Specified Unitsystem"],
+            analysis_preferences = modeldata["Analysis Preferences"],
+            point_coordinates = modeldata["Point Coordinates"],
+            storey_data = modeldata["Storey Data"],
+            line_connectivity = modeldata["Line Connectivity"],
+            surface_connectivity = modeldata["Surface Connectivity"],
+            materials = modeldata["Materials"],
+            mat_concrete04 = modeldata["Mat: Concrete04"],
+            mat_steel02 = modeldata["Mat: Steel02"],
+            mat_minmax = modeldata["Mat: MinMax"],
+            mat_imk = modeldata["Mat: IMK Hinge"],
+            frame_sections = modeldata["Frame Sections"],
+            sec_fiber = modeldata["Sec: Fiber"],
+            sec_aggregator = modeldata["Sec: Aggregator"],
+            slab_sections = modeldata["Slab Sections"],
+            nodes = modeldata["Nodes"],
         )
