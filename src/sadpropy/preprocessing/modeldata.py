@@ -1,4 +1,4 @@
-from ._preprocessingclass import ModelData
+from ._preproc_dataclass import ModelData
 from ._exceltranslator import ExcelTranslator
 from sadpropy.utility._filepath import get_filepath
 

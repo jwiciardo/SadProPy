@@ -1,7 +1,7 @@
 import warnings
 from openpyxl import load_workbook
 from math import sqrt
-from ._preprocessingclass import (
+from ._preproc_dataclass import (
     ProjectInformation,
     AnalysisPreferences,
     PointCoordinates,
