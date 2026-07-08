@@ -140,7 +140,6 @@ class ExcelTranslator:
         sections_list = (frame_sections, sec_fiber)
         sec_aggregator = self._translate_sec_aggregator(sections_list)
         slab_sections = self._translate_slab_sections()
-        nodes = self._translate_nodes(point_coordinates)
         return {
             "Project Information": project_information,
             "User Specified Unitsystem": user_unitsystem,
@@ -158,7 +157,6 @@ class ExcelTranslator:
             "Sec: Fiber": sec_fiber,
             "Sec: Aggregator": sec_aggregator,
             "Slab Sections": slab_sections,
-            "Nodes": nodes,
         }
 
     # HELPER METHOD
@@ -203,11 +201,10 @@ class ExcelTranslator:
         return user_unitsystem
 
     def _translate_analysis_preferences(self):
-        data = self._reader.read(sheet_name="Analysis Preferences", start_row=7) # Reading Sheet "Analysis Preferences" in the Input file
+        data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         analysis_preferences = AnalysisPreferences(
                 nonlinear_analysis = str(row["Nonlinear Analysis"]),
-                autogenerate_zero_length_elements = str(row["Zero Length Element (Auto)"]),
                 pdelta = str(row["P-Delta"]),
                 liveload_mass_factor = float(row["LL Mass Factor"]),
         ) # Defining dictionary for analysis preferences
@@ -275,19 +272,19 @@ class ExcelTranslator:
             edges = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"]) if edge is not None]
             n_edges = len(edges)
             edge_1, edge_2 = line_connectivity[edges[0]], line_connectivity[edges[1]]
-            if edge_1.j_end in (edge_2.i_end, edge_2.j_end):
-                vertices = [edge_1.i_end, edge_1.j_end]
-            elif edge_1.i_end in (edge_2.i_end, edge_2.j_end):
-                vertices = [edge_1.j_end, edge_1.i_end]
+            if edge_1.j_end_point in (edge_2.i_end_point, edge_2.j_end_point):
+                vertices = [edge_1.i_end_point, edge_1.j_end_point]
+            elif edge_1.i_end_point in (edge_2.i_end_point, edge_2.j_end_point):
+                vertices = [edge_1.j_end_point, edge_1.i_end_point]
             else:
                 raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
             for edge_id in edges[1:]:
                 edge = line_connectivity[edge_id]
                 current_vertex = vertices[-1]
-                if edge.i_end == current_vertex:
-                    vertices.append(edge.j_end)
-                elif edge.j_end == current_vertex:
-                    vertices.append(edge.i_end)
+                if edge.i_end_point == current_vertex:
+                    vertices.append(edge.j_end_point)
+                elif edge.j_end_point == current_vertex:
+                    vertices.append(edge.i_end_point)
                 else:
                     raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
             if vertices[0] != vertices[-1]:

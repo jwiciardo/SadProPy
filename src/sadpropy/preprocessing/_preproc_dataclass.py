@@ -12,7 +12,6 @@ class ProjectInformation:
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
     nonlinear_analysis: str
-    autogenerate_zero_length_elements: str
     pdelta: str
     liveload_mass_factor: float
 
@@ -224,27 +223,6 @@ class SlabSections:
     base_mat: str
     t: float
 
-# STRUCTURAL OBJECTS
-@dataclass(slots=True, frozen=True)
-class Nodes:
-    tag: int
-    point_id: int
-    x: float
-    y: float
-    z: float
-
-@dataclass(slots=True, frozen=True)
-class BeamColumnElements:
-    tag: int
-    iend_node: int
-    jend_node: int
-
-@dataclass(slots=True, frozen=True)
-class Slabs:
-    tag: int
-    elements: tuple[int, ...]
-    nodes: tuple[int, ...]
-
 # MODEL DATA
 @dataclass
 class ModelData:
@@ -264,4 +242,26 @@ class ModelData:
     sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
     sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)
     slab_sections: Dict[str, SlabSections] = field(default_factory=dict)
-    nodes: Dict[int, Nodes] = field(default_factory=dict)
+
+# STRUCTURAL OBJECTS
+@dataclass(slots=True, frozen=True)
+class Nodes:
+    tag: int
+    point_id: int
+    index: int
+    x: float
+    y: float
+    z: float
+
+@dataclass(slots=True, frozen=True)
+class BeamColumnElements:
+    tag: int
+    iend_node: int
+    jend_node: int
+
+@dataclass(slots=True, frozen=True)
+class Slabs:
+    tag: int
+    elements: tuple[int, ...]
+    nodes: tuple[int, ...]
+

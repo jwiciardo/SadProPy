@@ -34,5 +34,4 @@ class Model:
             sec_fiber = modeldata["Sec: Fiber"],
             sec_aggregator = modeldata["Sec: Aggregator"],
             slab_sections = modeldata["Slab Sections"],
-            nodes = modeldata["Nodes"],
         )
