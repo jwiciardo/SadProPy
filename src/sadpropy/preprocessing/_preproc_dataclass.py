@@ -18,7 +18,7 @@ class AnalysisPreferences:
 # STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
 class PointCoordinates:
-    unique_id: int
+    unique_name: str
     x: float
     y: float
     z: float

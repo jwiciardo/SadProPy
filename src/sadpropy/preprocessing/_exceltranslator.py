@@ -178,12 +178,12 @@ class ExcelTranslator:
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
-        data = self._reader.read(sheet_name="Project Information", start_row=5) # Reading Sheet "Project Information" in the Input file
+        data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
         row = {r["Item"]: r["Value"] for r in data}
         project_information = ProjectInformation(
                 name = str(row["Project Name"]),
                 desc = str(row["Project Description"]),
-                ndim = int(row["Model Dimensional Space"]),
+                ndim = int(3 if row["Model Dimensional Space"] == "3-Dimensional" else 2),
         ) # Defining dictionary for project information
         return project_information
     
@@ -212,15 +212,15 @@ class ExcelTranslator:
 
     def _translate_point_objects(self):
         data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
-        ids = [int(row["Point ID"]) for row in data]
+        ids = [int(row["Point Name"]) for row in data]
         duplicates = {id for id in ids if ids.count(id) > 1}
         if duplicates:
-            raise ValidationError(f"Duplicate Point IDs found: {sorted(duplicates)}")
+            raise ValidationError(f"Duplicate Point found: {sorted(duplicates)}")
         point_coordinates = {}
         for row in data:
-            point_id, x_coord, y_coord, z_coord = row["Point ID"], row["X"], row["Y"], row["Z"]
-            point_coordinates[int(point_id)] = PointCoordinates(
-                unique_id = int(point_id),
+            point_name, x_coord, y_coord, z_coord = row["Point Name"], row["X"], row["Y"], row["Z"]
+            point_coordinates[int(point_name)] = PointCoordinates(
+                unique_name = int(point_name),
                 x = float(self._to_internalunit_length(x_coord)),
                 y = float(self._to_internalunit_length(y_coord)),
                 z = float(self._to_internalunit_length(z_coord)),
