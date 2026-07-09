@@ -19,6 +19,10 @@ from ._preproc_dataclass import (
     Storeys,
     Nodes,
     )
+from ._indicesclass import (
+    MaterialIndex,
+    Concrete04Index,
+)
 from sadpropy.utility import (
     UnitConverter,
     UnitRegistry,
@@ -220,70 +224,95 @@ class ExcelTranslator:
         data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
         n = len(data)
         ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U15")
+        mat_names = np.empty(n, dtype="U32")
         mat_types = np.empty(n, dtype="U15")
-        E = np.empty(n, dtype=np.float64)
-        nu = np.empty(n, dtype=np.float64)
-        G = np.empty(n, dtype=np.float64)
-        Unitweight = np.empty(n, dtype=np.float64)
-        strengths = np.zeros((n, 3), dtype=np.float64)
+        properties = np.zeros((n, 7), dtype=np.float64)
         name_to_id = {}
-        materials = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
             if name in name_to_id:
                 raise ValidationError(f"Duplicate Material's name: {name}")
             name_to_id[name] = ids[i]
             mat_names[i] = name
-            mat_types[i] = str(row["Material Type"])
-            E[i] = self._to_internalunit_stress(row["E"])
-            nu[i] = row["nu"]
-            Unitweight[i] = self._to_internalunit_unitweight(row["Unitweight"])
-            strengths[i] = (
-                self._to_internalunit_stress(0.0 if row["Material Type"] == "Rebar" or row["Material Type"] == "Steel" else row["fc"]),
-                self._to_internalunit_stress(0.0 if row["Material Type"] == "Concrete" else row["fy"]),
-                self._to_internalunit_stress(0.0 if row["Material Type"] == "Concrete" else row["fu"]),
+            mat_type = str(row["Material Type"])
+            mat_types[i] = mat_type
+            Unitweight = self._to_internalunit_unitweight(row["Unitweight"])
+            E = self._to_internalunit_stress(row["E"])
+            nu = row["nu"]
+            fc = self._to_internalunit_stress(row["fc"]) if mat_type == "Concrete" else 0.0
+            fy = self._to_internalunit_stress(row["fy"]) if mat_type in ("Rebar", "Steel") else 0.0
+            fu = self._to_internalunit_stress(row["fu"]) if mat_type in ("Rebar", "Steel") else 0.0
+            properties[i] = (
+                Unitweight,
+                E,
+                nu,
+                0.0,
+                fc,
+                fy,
+                fu,
             )
-        G = E / (2 * (1 + nu))
+        properties[:, MaterialIndex.G] = properties[:, MaterialIndex.E] / (2 * (1 + properties[:, MaterialIndex.NU]))
         materials = Materials(
             ids = ids,
             mat_names = mat_names,
             mat_types = mat_types,
-            E = E,
-            nu = nu,
-            G = G,
-            unitweight = Unitweight,
-            strengths = strengths,
+            properties = properties,
             name_to_id = name_to_id,
         ) # Defining dataclass for each material
         return materials
     
     def _translate_mat_concrete04(self, materials):
         data = self._reader.read(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
-        mat_concrete04 = {}
-        for row in data:
-            mat_name, base_mat, mat_type, mat_model = row["Material Name"], row["Base Material"], row["Material Type"], row["Material Model"]
-            fc, epsc, epscu, fct, et, beta = row["fc"], row["epsc"], row["epscu"], row["fct"], row["et"], row["beta"]
-            base_mat_data = materials[base_mat]
-            E, nu, G, Unitweight = base_mat_data.E, base_mat_data.nu, base_mat_data.G, base_mat_data.unitweight
-            Esec = fc / epsc
-            et_default = fct / Esec
-            mat_concrete04[str(mat_name)] = Mat_Concrete04(
-                mat_name = str(mat_name),
-                base_mat = str(base_mat),
-                mat_type = str(mat_type),
-                mat_model = str(mat_model),
-                E = float(E),
-                nu = float(nu),
-                G = float(G),
-                unitweight = float(Unitweight),
-                fc = float(self._to_internalunit_stress(-fc)),
-                epsc = float(-epsc),
-                epscu = float(-epscu),
-                fct = float(self._to_internalunit_stress(fct)),
-                et = float(et if et != 0.0 else et_default),
-                beta = float(beta),
-            ) # Defining dictionary for each material
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        mat_names = np.empty(n, dtype="U32")
+        base_mat_ids = np.empty(n, dtype=np.int32)
+        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        properties = np.zeros((n, 10), dtype=np.float64)
+        name_to_id = {}
+        for i, row in enumerate(data):
+            name = str(row["Material Name"])
+            if name in name_to_id:
+                raise ValidationError(f"Duplicate Material's name: {name}")
+            name_to_id[name] = ids[i]
+            mat_names[i] = name
+            base_mat = str(row["Base Material"])
+            base_mat_ids[i] = materials.name_to_id[base_mat]
+            mat_type_model[i] = (
+                str(row["Material Type"]),
+                str(row["Material Model"]),
+            )
+            fc = self._to_internalunit_stress(row["fc"])
+            epsc = row["epsc"]
+            epscu = row["epscu"]
+            fct = self._to_internalunit_stress(row["fct"])
+            et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
+            beta = row["beta"]
+            properties[i] = (
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -fc,
+                -epsc,
+                -epscu,
+                fct,
+                et, 
+                beta,
+            )
+        properties[:, Concrete04Index.UNITWEIGHT] = materials.properties[base_mat_ids[:] - 1, MaterialIndex.UNITWEIGHT]
+        properties[:, Concrete04Index.E] = materials.properties[base_mat_ids[:] - 1, MaterialIndex.E]
+        properties[:, Concrete04Index.NU] = materials.properties[base_mat_ids[:] - 1, MaterialIndex.NU]
+        properties[:, Concrete04Index.G] = materials.properties[base_mat_ids[:] - 1, MaterialIndex.G]
+        mat_concrete04 = Mat_Concrete04(
+            ids = ids,
+            mat_names = mat_names,
+            base_mat_ids = base_mat_ids,
+            mat_type_model = mat_type_model,
+            properties = properties,
+            name_to_id = name_to_id,
+        ) # Defining dictionary for each material
+        print(mat_concrete04)
         return mat_concrete04
 
     def _translate_mat_steel02(self, materials):

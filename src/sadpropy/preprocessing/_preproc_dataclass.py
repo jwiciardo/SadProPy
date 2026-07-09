@@ -55,29 +55,17 @@ class Materials:
     ids: np.ndarray                     # int32, shape (N,)
     mat_names: np.ndarray               # str, shape (N,)
     mat_types: np.ndarray               # str, shape (N,)
-    E: np.ndarray                       # float64, shape (N,)
-    nu: np.ndarray                      # float64, shape (N,)
-    G: np.ndarray                       # float64, shape (N,)
-    unitweight: np.ndarray              # float64, shape (N,)
-    strengths: np.ndarray               # float64, shape (N,3) --> fc, fy, fu
+    properties: np.ndarray              # float64, shape (N,7)
     name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
-    mat_name: str
-    base_mat: str
-    mat_type: str
-    mat_model: str
-    E: float
-    nu: float
-    G: float
-    unitweight: float
-    fc: float
-    epsc: float
-    epscu: float
-    fct: float
-    et: float
-    beta: float
+    ids: np.ndarray                     # int32, shape (N,)
+    mat_names: np.ndarray               # str, shape (N,)
+    base_mat_ids: np.ndarray            # int32, shape (N,)
+    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    properties: np.ndarray              # float64, shape (N,10)
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:
