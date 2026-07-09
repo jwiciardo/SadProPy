@@ -23,6 +23,8 @@ from ._indicesclass import (
     MaterialIndex,
     Concrete04Index,
     Steel02Index,
+    MinMaxIndex,
+    IMKIndex,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -186,6 +188,13 @@ class ExcelTranslator:
     
     def _retrieve_unique_name(self, ids, objects): # Retrieve Unique name of the objects
         return objects.unique_names[ids - 1]
+    
+    def _find_material(self, mat_name, materials_list):
+        for mats in materials_list:
+            mat_id = mats.name_to_id.get(mat_name)
+            if mat_id is not None:
+                return mats, mat_id
+        raise ValidationError(f"Material '{mat_name}' not found.")
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
@@ -386,75 +395,122 @@ class ExcelTranslator:
 
     def _translate_mat_minmax(self, materials_list):
         data = self._reader.read(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
-        mat_minmax = {}
-        for row in data:
-            mat_name, base_nl_mat, mat_type, mat_model = row["Material Name"], row["Base NL Material"], row["Material Type"], row["Material Model"]
-            ec_max, et_max = row["ecmax"], row["etmax"]
-            for mats in materials_list:
-                if base_nl_mat in mats:
-                    base_nl_mat_data = mats[base_nl_mat]
-                    E, nu, G, Unitweight = base_nl_mat_data.E, base_nl_mat_data.nu, base_nl_mat_data.G, base_nl_mat_data.unitweight
-                else:
-                    continue
-            mat_minmax[str(mat_name)] = Mat_MinMax(
-                mat_name = str(mat_name),
-                base_nonlinear_mat = str(base_nl_mat),
-                mat_type = str(mat_type),
-                mat_model = str(mat_model),
-                E = float(E),
-                nu = float(nu),
-                G = float(G),
-                unitweight = float(Unitweight),
-                ec_max = float(-ec_max),
-                et_max = float(et_max),
-            ) # Defining dictionary for each material
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        mat_names = np.empty(n, dtype="U32")
+        base_nonlinear_mat = np.empty(n, dtype="U32")
+        base_nonlinear_mat_ids = np.empty(n, dtype=np.int32)
+        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        properties = np.zeros((n, 6), dtype=np.float64)
+        name_to_id = {}
+        for i, row in enumerate(data):
+            name = str(row["Material Name"])
+            if name in name_to_id:
+                raise ValidationError(f"Duplicate Material's name: {name}")
+            name_to_id[name] = ids[i]
+            mat_names[i] = name
+            base_nl_mat = str(row["Base NL Material"])
+            base_nonlinear_mat[i] = base_nl_mat
+            mats, base_mat_id = self._find_material(base_nl_mat, materials_list)
+            base_nonlinear_mat_ids[i] = base_mat_id
+            base_mat_props = mats.properties[base_mat_id - 1]
+            Unitweight, E, nu, G = base_mat_props[:4]
+            mat_type_model[i] = (
+                str(row["Material Type"]),
+                str(row["Material Model"]),
+            )
+            ec_max = row["ecmax"]
+            et_max = row["etmax"]
+            properties[i] = (
+                Unitweight,
+                E,
+                nu,
+                G,
+                ec_max,
+                et_max,
+            )
+        mat_minmax = Mat_MinMax(
+            ids = ids,
+            mat_names = mat_names,
+            base_nonlinear_mat = base_nonlinear_mat,
+            base_nonlinear_mat_ids = base_nonlinear_mat_ids,
+            mat_type_model = mat_type_model,
+            properties = properties,
+            name_to_id = name_to_id
+        ) # Defining dictionary for each material
         return mat_minmax
     
     def _translate_mat_imk(self):
         data = self._reader.read(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
-        mat_imk = {}
-        for row in data:
-            mat_name, mat_type, mat_model = row["Material Name"], row["Material Type"], row["Material Model"]
-            K0, as_pos, as_neg = row["K0"], row["as_Pos"], row["as_Neg"]
-            my_pos, my_neg, mu_pos, mu_neg = row["My_Pos"], row["My_Neg"], row["Mu_Pos"], row["Mu_Neg"]
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        mat_names = np.empty(n, dtype="U32")
+        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        properties = np.zeros((n, 27), dtype=np.float64)
+        name_to_id = {}
+        mu_pos = np.zeros(n, dtype=np.float64)
+        mu_neg = np.zeros(n, dtype=np.float64)
+        for i, row in enumerate(data):
+            name = str(row["Material Name"])
+            if name in name_to_id:
+                raise ValidationError(f"Duplicate Material's name: {name}")
+            name_to_id[name] = ids[i]
+            mat_names[i] = name
+            mat_type_model[i] = (
+                str(row["Material Type"]),
+                str(row["Material Model"]),
+            )
+            K0 = self._to_internalunit_rotational_stiffness(row["K0"])
+            my_pos = self._to_internalunit_moment(row["My_Pos"])
+            my_neg = self._to_internalunit_moment(row["My_Neg"])
+            mu_pos[i] = self._to_internalunit_moment(row["Mu_Pos"])
+            mu_neg[i] = self._to_internalunit_moment(row["Mu_Neg"])
             fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
             lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
             theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
             theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
-            mat_imk[str(mat_name)] = Mat_IMK(
-                mat_name = str(mat_name),
-                mat_type = str(mat_type),
-                mat_model = str(mat_model),
-                K0 = float(self._to_internalunit_rotational_stiffness(K0)),
-                as_pos = float(as_pos),
-                as_neg = float(as_neg),
-                my_pos = float(self._to_internalunit_moment(my_pos)),
-                my_neg = float(self._to_internalunit_moment(my_neg)),
-                mu_pos = float(self._to_internalunit_moment(mu_pos)),
-                mu_neg = float(self._to_internalunit_moment(mu_neg)),
-                fpr_pos = float(fpr_pos),
-                fpr_neg = float(fpr_neg),
-                a_pinch = float(a_pinch),
-                nfactor = float(nfactor),
-                lamda_s = float(lamda_s),
-                lamda_c = float(lamda_c),
-                lamda_a = float(lamda_a),
-                lamda_k = float(lamda_k),
-                c_s = float (c_s),
-                c_c = float(c_c),
-                c_a = float(c_a),
-                c_k = float(c_k),
-                theta_p_pos = float(theta_p_pos),
-                theta_p_neg = float(theta_p_neg),
-                theta_pc_pos = float(theta_pc_pos),
-                theta_pc_neg = float(theta_pc_neg),
-                res_pos = float(res_pos),
-                res_neg = float(res_neg),
-                theta_u_pos = float(theta_u_pos),
-                theta_u_neg = float(theta_u_neg),
-                d_pos = float(d_pos),
-                d_neg = float(d_neg),
-            ) # Defining dictionary for each material
+            properties[i] = (
+                K0,
+                0.0,
+                0.0,
+                my_pos,
+                my_neg,
+                fpr_pos,
+                fpr_neg,
+                a_pinch,
+                nfactor,
+                lamda_s,
+                lamda_c,
+                lamda_a,
+                lamda_k,
+                c_s,
+                c_c,
+                c_a,
+                c_k,
+                theta_p_pos,
+                theta_p_neg,
+                theta_pc_pos,
+                theta_pc_neg,
+                res_pos,
+                res_neg,
+                theta_u_pos,
+                theta_u_neg,
+                d_pos,
+                d_neg,
+            )
+        theta_e_pos = properties[:, IMKIndex.MYPOS] / properties[:, IMKIndex.K0]
+        theta_e_neg = properties[:, IMKIndex.MYNEG] / properties[:, IMKIndex.K0]
+        Kpy_pos = (mu_pos - properties[:, IMKIndex.MYPOS]) / (properties[:, IMKIndex.THETAPPOS] - theta_e_pos)
+        Kpy_neg = (mu_neg - properties[:, IMKIndex.MYNEG]) / (properties[:, IMKIndex.THETAPNEG] - theta_e_neg)
+        properties[:, IMKIndex.ASPOS] = properties[:, IMKIndex.K0] / Kpy_pos
+        properties[:, IMKIndex.ASNEG] = properties[:, IMKIndex.K0] / Kpy_neg
+        mat_imk = Mat_IMK(
+            ids = ids,
+            mat_names = mat_names,
+            mat_type_model = mat_type_model,
+            properties = properties,
+            name_to_id = name_to_id,
+        ) # Defining dictionary for each material
         return mat_imk
     
     def _translate_frame_sections(self):

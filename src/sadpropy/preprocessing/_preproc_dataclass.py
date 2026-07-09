@@ -78,51 +78,21 @@ class Mat_Steel02:
 
 @dataclass(slots=True, frozen=True)
 class Mat_MinMax:
-    mat_name: str
-    base_nonlinear_mat: str
-    mat_type: str
-    mat_model: str
-    E: float
-    nu: float
-    G: float
-    unitweight: float
-    ec_max: float
-    et_max: float
+    ids: np.ndarray                     # int32, shape (N,)
+    mat_names: np.ndarray               # str, shape (N,)
+    base_nonlinear_mat: np.ndarray      # str, shape (N,)
+    base_nonlinear_mat_ids: np.ndarray  # int32, shape (N,)
+    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    properties: np.ndarray              # float64, shape (N,6)
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_IMK:
-    mat_name: str
-    mat_type: str
-    mat_model: str
-    K0: float
-    as_pos: float
-    as_neg: float
-    my_pos: float
-    my_neg: float
-    mu_pos: float
-    mu_neg: float
-    fpr_pos: float
-    fpr_neg: float
-    a_pinch: float
-    nfactor: float
-    lamda_s: float
-    lamda_c: float
-    lamda_a: float
-    lamda_k: float
-    c_s: float
-    c_c: float
-    c_a: float
-    c_k: float
-    theta_p_pos: float
-    theta_p_neg: float
-    theta_pc_pos: float
-    theta_pc_neg: float
-    res_pos: float
-    res_neg: float
-    theta_u_pos: float
-    theta_u_neg: float
-    d_pos: float
-    d_neg: float
+    ids: np.ndarray                     # int32, shape (N,)
+    mat_names: np.ndarray               # str, shape (N,)
+    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    properties: np.ndarray              # float64, shape (N,27)
+    name_to_id: dict[str, np.int32]
 
 # PROPERTIES: FRAME SECTIONS
 @dataclass(slots=True, frozen=True)
