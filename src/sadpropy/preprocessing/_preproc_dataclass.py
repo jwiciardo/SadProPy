@@ -22,7 +22,7 @@ class PointObjects:
     ids: np.ndarray                     # int32, shape (N,)
     unique_names: np.ndarray            # str, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
-    uname_to_id: dict[str, np.int32]
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class LineObjects:
@@ -33,7 +33,7 @@ class LineObjects:
     end_offsets: np.ndarray             # float64, shape (N,2)
     length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
-    uname_to_id: dict[str, np.int32]
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class SurfaceObjects:
@@ -41,7 +41,7 @@ class SurfaceObjects:
     unique_names: np.ndarray            # str, shape (N,)
     edge_ids: np.ndarray                # int32, shape (N,4)
     vertex_ids: np.ndarray              # int32, shape (N,4)
-    uname_to_id: dict[str, np.int32]
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Storeys:
@@ -52,15 +52,15 @@ class Storeys:
 # PROPERTIES: MATERIALS
 @dataclass(slots=True, frozen=True)
 class Materials:
-    mat_name: str
-    mat_type: str
-    E: float
-    nu: float
-    G: float
-    unitweight: float
-    fc: float
-    fy: float
-    fu: float
+    ids: np.ndarray                     # int32, shape (N,)
+    mat_names: np.ndarray               # str, shape (N,)
+    mat_types: np.ndarray               # str, shape (N,)
+    E: np.ndarray                       # float64, shape (N,)
+    nu: np.ndarray                      # float64, shape (N,)
+    G: np.ndarray                       # float64, shape (N,)
+    unitweight: np.ndarray              # float64, shape (N,)
+    strengths: np.ndarray               # float64, shape (N,3) --> fc, fy, fu
+    name_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
@@ -224,24 +224,24 @@ class SlabSections:
     t: float
 
 # MODEL DATA
-@dataclass
+@dataclass(slots=True)
 class ModelData:
     project_information: ProjectInformation
     user_unitsystem: UnitSystem
     analysis_preferences: AnalysisPreferences
-    materials: Dict[str, Materials] = field(default_factory=dict)
-    frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
-    slab_sections: Dict[str, SlabSections] = field(default_factory=dict)
-    storeys: Dict[str, Storeys] = field(default_factory=dict)
-    point_objects: Dict[int, PointObjects] = field(default_factory=dict)
-    line_objects: Dict[int, LineObjects] = field(default_factory=dict)
-    surface_objects: Dict[int, SurfaceObjects] = field(default_factory=dict)
-    mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
-    mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
-    mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
-    mat_imk: Dict[str, Mat_IMK] = field(default_factory=dict)
-    sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
-    sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)
+    materials: Materials
+    mat_concrete04: Mat_Concrete04
+    mat_steel02: Mat_Steel02
+    mat_minmax: Mat_MinMax
+    mat_imk: Mat_IMK
+    frame_sections: FrameSections
+    sec_fiber: Sec_Fiber
+    sec_aggregator: Sec_Aggregator
+    slab_sections: SlabSections
+    storeys: Storeys
+    point_objects: PointObjects
+    line_objects: LineObjects
+    surface_objects: SurfaceObjects
 
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
