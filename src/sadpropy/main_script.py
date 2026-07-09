@@ -5,10 +5,10 @@ modeldata = model.data
 project_information = modeldata.project_information
 system_units = modeldata.user_unitsystem
 analysis_preferences = modeldata.analysis_preferences
-storey_data = modeldata.storey_data
-point_coordinates = modeldata.point_coordinates
-line_connectivity = modeldata.line_connectivity
-surface_connectivity = modeldata.surface_connectivity
+storeys = modeldata.storeys
+point_objects = modeldata.point_objects
+line_objects = modeldata.line_objects
+surface_objects = modeldata.surface_objects
 materials = modeldata.materials
 mat_concrete04 = modeldata.mat_concrete04
 mat_steel02 = modeldata.mat_steel02
@@ -18,4 +18,4 @@ frame_sections = modeldata.frame_sections
 sec_fiber = modeldata.sec_fiber
 sec_aggregator = modeldata.sec_aggregator
 slab_sections = modeldata.slab_sections
-print(project_information)
+print(line_objects)

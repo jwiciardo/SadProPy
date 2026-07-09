@@ -1,22 +1,22 @@
 import warnings
+import numpy as np
 from openpyxl import load_workbook
-from math import sqrt
 from ._preproc_dataclass import (
     ProjectInformation,
     AnalysisPreferences,
-    PointCoordinates,
-    LineConnectivity,
-    SurfaceConnectivity,
-    StoreyData,
     Materials,
+    FrameSections,
+    SlabSections,
+    PointObjects,
+    LineObjects,
+    SurfaceObjects,
+    Storeys,
     Mat_Concrete04,
     Mat_Steel02,
     Mat_MinMax,
     Mat_IMK,
-    FrameSections,
     Sec_Fiber,
     Sec_Aggregator,
-    SlabSections,
     Nodes,
     )
 from sadpropy.utility import (
@@ -43,9 +43,12 @@ class ExcelReader:
             raise ValidationError(f"Sheet '{sheet_name}' not found in Excel file")
         worksheet = self._workbook[sheet_name]
         rows = list(worksheet.values)
-        headers = rows[start_row - 1]
+        headers = list(rows[start_row - 1])
+        while headers and headers[-1] is None:
+            headers.pop()
         data = []
         for row in rows[start_row:]:
+            row = row[:len(headers)]
             record = dict(zip(headers, row))
             if all(v is None for v in record.values()): # Skip completely empty rows
                 continue
@@ -126,177 +129,92 @@ class ExcelTranslator:
         user_unitsystem = self._translate_user_unitsystem()
         self._units = user_unitsystem
         analysis_preferences = self._translate_analysis_preferences()
-        point_coordinates, storey_data = self._translate_point_objects()
-        line_connectivity = self._translate_line_objects(point_coordinates)
-        surface_connectivity = self._translate_surface_objects(line_connectivity)
         materials = self._translate_materials()
+        frame_sections = self._translate_frame_sections()
+        slab_sections = self._translate_slab_sections()
+        point_objects, storeys = self._translate_point_objects()
+        line_objects = self._translate_line_objects(point_objects)
+        surface_objects = self._translate_surface_objects(line_objects)
         mat_concrete04 = self._translate_mat_concrete04(materials)
         mat_steel02 = self._translate_mat_steel02(materials)
         materials_list = (materials, mat_concrete04, mat_steel02)
         mat_minmax = self._translate_mat_minmax(materials_list)
         mat_imk = self._translate_mat_imk()
-        frame_sections = self._translate_frame_sections()
         sec_fiber = self._translate_sec_fiber(frame_sections, materials)
         sections_list = (frame_sections, sec_fiber)
         sec_aggregator = self._translate_sec_aggregator(sections_list)
-        slab_sections = self._translate_slab_sections()
         return {
-            "Project Information": project_information,
-            "User Specified Unitsystem": user_unitsystem,
-            "Analysis Preferences": analysis_preferences,
-            "Storey Data": storey_data,
-            "Point Coordinates": point_coordinates,
-            "Line Connectivity": line_connectivity,
-            "Surface Connectivity": surface_connectivity,
-            "Materials": materials,
-            "Mat: Concrete04": mat_concrete04,
-            "Mat: Steel02": mat_steel02,
-            "Mat: MinMax": mat_minmax,
-            "Mat: IMK Hinge": mat_imk,
-            "Frame Sections": frame_sections,
-            "Sec: Fiber": sec_fiber,
-            "Sec: Aggregator": sec_aggregator,
-            "Slab Sections": slab_sections,
+            "project_information": project_information,
+            "user_unitsystem": user_unitsystem,
+            "analysis_preferences": analysis_preferences,
+            "materials": materials,
+            "frame_sections": frame_sections,
+            "slab_sections": slab_sections,
+            "storeys": storeys,
+            "point_objects": point_objects,
+            "line_objects": line_objects,
+            "surface_objects": surface_objects,
+            "mat_concrete04": mat_concrete04,
+            "mat_steel02": mat_steel02,
+            "mat_minmax": mat_minmax,
+            "mat_imk": mat_imk,
+            "sec_fiber": sec_fiber,
+            "sec_aggregator": sec_aggregator,
         }
 
     # HELPER METHOD
     def _generate_storeys(self, storey_elevations): # Create Storey data
-        storey_data = {}
-        for i, elev in enumerate(storey_elevations):
+        storeys = {}
+        for i, elev in reversed(list(enumerate(storey_elevations))):
             if i == 0:
                 storey_name = "Base"
                 height = 0.0
             else:
                 storey_name = f"Storey{i}"
                 height = elev - storey_elevations[i - 1]
-            storey_data[storey_name] = StoreyData(
+            storeys[storey_name] = Storeys(
                 name = storey_name,
                 height = height,
                 elevation = elev,
             )
-        return dict(reversed(storey_data.items()))
+        return storeys
+    
+    def _retrieve_unique_name(self, ids, objects): # Retrieve Unique name of the objects
+        return objects.unique_names[ids - 1]
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
         data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
-        row = {r["Item"]: r["Value"] for r in data}
+        values = {row["Item"]: row["Value"] for row in data}
         project_information = ProjectInformation(
-                name = str(row["Project Name"]),
-                desc = str(row["Project Description"]),
-                ndim = int(3 if row["Model Dimensional Space"] == "3-Dimensional" else 2),
+                name = str(values["Project Name"]),
+                desc = str(values["Project Description"]),
+                ndim = int(3 if values["Model Dimensional Space"] == "3-Dimensional" else 2),
         ) # Defining dictionary for project information
         return project_information
     
     def _translate_user_unitsystem(self):
         data = self._reader.read(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
-        row = {r["Item"]: r["Value"] for r in data}
+        values = {row["Item"]: row["Value"] for row in data}
         user_unitsystem = UnitSystem(
-                force = str(row["Force"]),
-                length = str(row["Length"]),
-                mass = str(row["Mass"]),
-                stress = str(row["Stress"]),
-                time = str(row["Time"]),
-                angle = str(row["Angle"]),
+                force = str(values["Force"]),
+                length = str(values["Length"]),
+                mass = str(values["Mass"]),
+                stress = str(values["Stress"]),
+                time = str(values["Time"]),
+                angle = str(values["Angle"]),
         ) # Defining dictionary for units
         return user_unitsystem
 
     def _translate_analysis_preferences(self):
         data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
-        row = {r["Item"]: r["Value"] for r in data}
+        values = {row["Item"]: row["Value"] for row in data}
         analysis_preferences = AnalysisPreferences(
-                nonlinear_analysis = str(row["Nonlinear Analysis"]),
-                pdelta = str(row["P-Delta"]),
-                liveload_mass_factor = float(row["LL Mass Factor"]),
+                nonlinear_analysis = str(values["Nonlinear Analysis"]),
+                pdelta = str(values["P-Delta"]),
+                liveload_mass_factor = float(values["LL Mass Factor"]),
         ) # Defining dictionary for analysis preferences
         return analysis_preferences
-
-    def _translate_point_objects(self):
-        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
-        ids = [int(row["Point Name"]) for row in data]
-        duplicates = {id for id in ids if ids.count(id) > 1}
-        if duplicates:
-            raise ValidationError(f"Duplicate Point found: {sorted(duplicates)}")
-        point_coordinates = {}
-        for row in data:
-            point_name, x_coord, y_coord, z_coord = row["Point Name"], row["X"], row["Y"], row["Z"]
-            point_coordinates[int(point_name)] = PointCoordinates(
-                unique_name = int(point_name),
-                x = float(self._to_internalunit_length(x_coord)),
-                y = float(self._to_internalunit_length(y_coord)),
-                z = float(self._to_internalunit_length(z_coord)),
-            ) # Defining dictionary for each point object
-        storey_elevations = sorted({self._to_internalunit_length(row["Z"]) for row in data}) # Retrieving Storey elevation from point coordinates data
-        storey_data = self._generate_storeys(storey_elevations) # Generating Storey data from storey elevations
-        return point_coordinates, storey_data
-
-    def _translate_line_objects(self, point_coordinates):
-        data = self._reader.read(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
-        ids = [int(row["Line ID"]) for row in data]
-        duplicates = {id for id in ids if ids.count(id) > 1}
-        if duplicates:
-            raise ValidationError(f"Duplicate Line IDs found: {sorted(duplicates)}")
-        line_connectivity = {}
-        for row in data:
-            line_id, i_end_point, j_end_point = row["Line ID"], row["I-End"], row["J-End"]
-            end_offset_option, i_end_offset, j_end_offset = row["End Offset"], row["I-End Offset Length"], row["J-End Offset Length"]
-            dx = point_coordinates[j_end_point].x - point_coordinates[i_end_point].x # Vector x of the element
-            dy = point_coordinates[j_end_point].y - point_coordinates[i_end_point].y # Vector y of the element
-            dz = point_coordinates[j_end_point].z - point_coordinates[i_end_point].z # Vector z of the element
-            length = sqrt(dx**2 + dy**2 + dz**2)
-            centroid_x = (point_coordinates[i_end_point].x + point_coordinates[j_end_point].x) / 2.0
-            centroid_y = (point_coordinates[i_end_point].y + point_coordinates[j_end_point].y) / 2.0
-            centroid_z = (point_coordinates[i_end_point].z + point_coordinates[j_end_point].z) / 2.0
-            line_connectivity[int(line_id)] = LineConnectivity(
-                unique_id = int(line_id),
-                i_end_point = int(i_end_point),
-                j_end_point = int(j_end_point),
-                end_offset_option = str(end_offset_option),
-                i_end_offset = float(self._to_internalunit_length(i_end_offset)),
-                j_end_offset = float(self._to_internalunit_length(j_end_offset)),
-                length = float(length),
-                centroid_x = float(centroid_x),
-                centroid_y = float(centroid_y),
-                centroid_z = float(centroid_z),
-            ) # Defining dictionary for each line object
-        return line_connectivity
-
-    def _translate_surface_objects(self, line_connectivity):
-        data = self._reader.read(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
-        ids = [int(row["Surface ID"]) for row in data]
-        duplicates = {id for id in ids if ids.count(id) > 1}
-        if duplicates:
-            raise ValidationError(f"Duplicate Surface IDs found: {sorted(duplicates)}")
-        surface_connectivity = {}
-        for row in data:
-            surface_id = row["Surface ID"]
-            edges = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"]) if edge is not None]
-            n_edges = len(edges)
-            edge_1, edge_2 = line_connectivity[edges[0]], line_connectivity[edges[1]]
-            if edge_1.j_end_point in (edge_2.i_end_point, edge_2.j_end_point):
-                vertices = [edge_1.i_end_point, edge_1.j_end_point]
-            elif edge_1.i_end_point in (edge_2.i_end_point, edge_2.j_end_point):
-                vertices = [edge_1.j_end_point, edge_1.i_end_point]
-            else:
-                raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
-            for edge_id in edges[1:]:
-                edge = line_connectivity[edge_id]
-                current_vertex = vertices[-1]
-                if edge.i_end_point == current_vertex:
-                    vertices.append(edge.j_end_point)
-                elif edge.j_end_point == current_vertex:
-                    vertices.append(edge.i_end_point)
-                else:
-                    raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
-            if vertices[0] != vertices[-1]:
-                    raise ValidationError(f"Surface {surface_id} has connection edges that are not closed")
-            vertices.pop()
-            surface_connectivity[int(surface_id)] = SurfaceConnectivity(
-                unique_id = int(surface_id),
-                n_edges = int(n_edges),
-                edges = tuple(edges),
-                vertices = tuple(vertices),
-            ) # Defining dictionary for each surface object
-        return surface_connectivity
 
     def _translate_materials(self):
         data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
@@ -330,6 +248,189 @@ class ExcelTranslator:
                     fu = float(self._to_internalunit_stress(fu)),
                 )
         return materials
+    
+    def _translate_frame_sections(self):
+        data = self._reader.read(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        frame_sections = {}
+        for row in data:
+            sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
+            h, b = row["h"], row["b"]
+            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = section_properties(row)
+            k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
+            frame_sections[str(sec_name)] = FrameSections(
+                sec_name = str(sec_name),
+                sec_shape = str (sec_shape),
+                base_mat = str(base_mat),
+                sec_model = str(sec_model),
+                element_type = str(element_type),
+                h = float(self._to_internalunit_length(h)),
+                b = float(self._to_internalunit_length(b)),
+                A = float(k_A * A),
+                Avy = float(k_Avy * Avy),
+                Avz = float(k_Avz * Avz),
+                Iz = float(k_Iz * Iz),
+                Iy = float(k_Iy * Iy),
+                Jxx = float(k_Jxx * Jxx),
+                alphaY = float(alphaY),
+                alphaZ = float(alphaZ),
+            ) # Defining dictionary for each frame section
+        return frame_sections
+    
+    def _translate_slab_sections(self):
+        data = self._reader.read(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
+        slab_sections = {}
+        for row in data:
+            sec_name, base_mat, t = row["Section Name"], row["Base Material"], row["t"]
+            slab_sections[str(sec_name)] = SlabSections(
+                sec_name = str(sec_name),
+                base_mat = str(base_mat),
+                t = float(self._to_internalunit_length(t)),
+            ) # Defining dictionary for each slab section
+        return slab_sections
+    
+    def _translate_point_objects(self):
+        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        unique_names = np.empty(n, dtype="U15")
+        coords = np.empty((n, 3), dtype=np.float64)
+        uname_to_id = {}
+        point_objects = {}
+        for i, row in enumerate(data):
+            uname = str(row["Unique Name"])
+            if uname in uname_to_id:
+                raise ValidationError(f"Duplicate Point object's name: {uname}")
+            uname_to_id[uname] = ids[i]
+            unique_names[i] = uname
+            coords[i] = (
+                self._to_internalunit_length(row["X"]),
+                self._to_internalunit_length(row["Y"]),
+                self._to_internalunit_length(row["Z"]),
+            )
+        point_objects = PointObjects(
+            ids = ids,
+            unique_names = unique_names,
+            coords = coords,
+            uname_to_id = uname_to_id,
+        ) # Defining dictionary for each point object
+        storeys = self._generate_storeys(np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
+        return point_objects, storeys
+
+    def _translate_line_objects(self, point_objects):
+        data = self._reader.read(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        unique_names = np.empty(n, dtype="U15")
+        end_point_ids = np.empty((n, 2), dtype=np.int32)
+        end_offset_option = np.empty(n, dtype="U22")
+        end_offsets = np.empty((n, 2), dtype=np.float64)
+        length = np.empty(n, dtype=np.float64)
+        centroids = np.empty((n, 3), dtype=np.float64)
+        uname_to_id = {}
+        line_objects = {}
+        for i, row in enumerate(data):
+            uname = str(row["Unique Name"])
+            if uname in uname_to_id:
+                raise ValidationError(f"Duplicate Line object's name: {uname}")
+            uname_to_id[uname] = ids[i]
+            unique_names[i] = uname
+            end_point_ids[i] = (point_objects.uname_to_id[str(row["I-End"])], point_objects.uname_to_id[str(row["J-End"])],)
+            end_offset_option[i] = str(row["End Offset"])
+            end_offsets[i] = (
+                self._to_internalunit_length(0.0 if row["I-End Offset Length"] is None else row["I-End Offset Length"]),
+                self._to_internalunit_length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
+            )
+        i_coords = point_objects.coords[end_point_ids[:, 0] - 1]
+        j_coords = point_objects.coords[end_point_ids[:, 1] - 1]
+        d_vectors = j_coords - i_coords # Calculate direction vectors of the elements
+        length = np.linalg.norm(d_vectors, axis=1) # Calculate full length of the elements
+        centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of the elements
+        line_objects = LineObjects(
+            ids = ids,
+            unique_names = unique_names,
+            end_point_ids = end_point_ids,
+            end_offset_option = end_offset_option,
+            end_offsets = end_offsets,
+            length = length,
+            centroids = centroids,
+            uname_to_id = uname_to_id,
+        ) # Defining dictionary for each line object
+        return line_objects
+
+    def _translate_surface_objects(self, line_objects):
+        data = self._reader.read(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
+        n = len(data)
+        ids = np.arange(1, n + 1, dtype=np.int32)
+        unique_names = np.empty(n, dtype="U15")
+        edge_ids = np.zeros((n, 4), dtype=np.int32)
+        vertex_ids = np.zeros((n, 4), dtype=np.int32)
+        uname_to_id = {}
+        surface_objects = {}
+        for i, row in enumerate(data):
+            uname = str(row["Unique Name"])
+            if uname in uname_to_id:
+                raise ValidationError(f"Duplicate Surface object's name: {uname}")
+            uname_to_id[uname] = ids[i]
+            unique_names[i] = uname
+            edge_names = [
+                edge
+                for edge in (
+                    row["Edge 1"],
+                    row["Edge 2"],
+                    row["Edge 3"],
+                    row["Edge 4"],
+                )
+                if edge is not None
+            ]
+
+            for j, edge_name in enumerate(edge_names):
+                try:
+                    edge_ids[i, j] = line_objects.uname_to_id[str(edge_name)]
+                except KeyError:
+                    raise ValidationError(
+                        f"Surface '{uname}' references undefined line '{edge_name}'."
+                    )
+            current_edges = edge_ids[i, :len(edge_names)]
+
+            e1 = line_objects.end_point_ids[current_edges[0] - 1]
+            e2 = line_objects.end_point_ids[current_edges[1] - 1]
+
+            if e1[1] in e2:
+                vertices = [e1[0], e1[1]]
+            elif e1[0] in e2:
+                vertices = [e1[1], e1[0]]
+            else:
+                raise ValidationError(
+                    f"Surface '{uname}' has connection edges that are not closed."
+                )
+
+            for edge_id in current_edges[1:]:
+                edge = line_objects.end_point_ids[edge_id - 1]
+                current_vertex = vertices[-1]
+                if edge[0] == current_vertex:
+                    vertices.append(edge[1])
+                elif edge[1] == current_vertex:
+                    vertices.append(edge[0])
+                else:
+                    raise ValidationError(
+                        f"Surface '{uname}' has connection edges that are not closed."
+                    )
+
+            if vertices[0] != vertices[-1]:
+                raise ValidationError(
+                    f"Surface '{uname}' has connection edges that are not closed."
+                )
+            vertices.pop()
+            vertex_ids[i, :len(vertices)] = vertices
+
+            surface_objects = SurfaceObjects(
+                ids = ids,
+                unique_names = unique_names,
+                edge_ids = edge_ids,
+                vertex_ids = vertex_ids,
+                uname_to_id = uname_to_id,
+            ) # Defining dictionary for each surface object
+        return surface_objects
 
     def _translate_mat_concrete04(self, materials):
         data = self._reader.read(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
@@ -470,33 +571,6 @@ class ExcelTranslator:
             ) # Defining dictionary for each material
         return mat_imk
     
-    def _translate_frame_sections(self):
-        data = self._reader.read(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
-        frame_sections = {}
-        for row in data:
-            sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
-            h, b = row["h"], row["b"]
-            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = section_properties(row)
-            k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
-            frame_sections[str(sec_name)] = FrameSections(
-                sec_name = str(sec_name),
-                sec_shape = str (sec_shape),
-                base_mat = str(base_mat),
-                sec_model = str(sec_model),
-                element_type = str(element_type),
-                h = float(self._to_internalunit_length(h)),
-                b = float(self._to_internalunit_length(b)),
-                A = float(k_A * A),
-                Avy = float(k_Avy * Avy),
-                Avz = float(k_Avz * Avz),
-                Iz = float(k_Iz * Iz),
-                Iy = float(k_Iy * Iy),
-                Jxx = float(k_Jxx * Jxx),
-                alphaY = float(alphaY),
-                alphaZ = float(alphaZ),
-            ) # Defining dictionary for each frame section
-        return frame_sections
-    
     def _translate_sec_fiber(self, frame_sections, materials):
         data = self._reader.read(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
         sec_fiber = {}
@@ -569,15 +643,3 @@ class ExcelTranslator:
                 Jxx = float(Jxx),
             ) # Defining dictionary for each frame section
         return sec_aggregator
-    
-    def _translate_slab_sections(self):
-        data = self._reader.read(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
-        slab_sections = {}
-        for row in data:
-            sec_name, base_mat, t = row["Section Name"], row["Base Material"], row["t"]
-            slab_sections[str(sec_name)] = SlabSections(
-                sec_name = str(sec_name),
-                base_mat = str(base_mat),
-                t = float(self._to_internalunit_length(t)),
-            ) # Defining dictionary for each slab section
-        return slab_sections

@@ -1,3 +1,4 @@
+import numpy as np
 from dataclasses import dataclass, field
 from typing import Dict
 from sadpropy.utility import UnitSystem
@@ -17,34 +18,33 @@ class AnalysisPreferences:
 
 # STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
-class PointCoordinates:
-    unique_name: str
-    x: float
-    y: float
-    z: float
+class PointObjects:
+    ids: np.ndarray                     # int32, shape (N,)
+    unique_names: np.ndarray            # str, shape (N,)
+    coords: np.ndarray                  # float64, shape (N,3)
+    uname_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
-class LineConnectivity:
-    unique_id: int
-    i_end_point: int
-    j_end_point: int
-    end_offset_option: str
-    i_end_offset: float
-    j_end_offset: float
-    length: float
-    centroid_x: float
-    centroid_y: float
-    centroid_z: float
+class LineObjects:
+    ids: np.ndarray                     # int32, shape (N,)
+    unique_names: np.ndarray            # str, shape (N,)
+    end_point_ids: np.ndarray           # int32, shape (N,2)
+    end_offset_option: np.ndarray       # str, shape (N,)
+    end_offsets: np.ndarray             # float64, shape (N,2)
+    length: np.ndarray                  # float64, shape (N,)
+    centroids: np.ndarray               # float64, shape (N,3)
+    uname_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
-class SurfaceConnectivity:
-    unique_id: int
-    n_edges: int
-    edges: tuple[int, ...]
-    vertices: tuple[int, ...]
+class SurfaceObjects:
+    ids: np.ndarray                     # int32, shape (N,)
+    unique_names: np.ndarray            # str, shape (N,)
+    edge_ids: np.ndarray                # int32, shape (N,4)
+    vertex_ids: np.ndarray              # int32, shape (N,4)
+    uname_to_id: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
-class StoreyData:
+class Storeys:
     name: str
     height: float
     elevation: float
@@ -229,19 +229,19 @@ class ModelData:
     project_information: ProjectInformation
     user_unitsystem: UnitSystem
     analysis_preferences: AnalysisPreferences
-    storey_data: Dict[str, StoreyData] = field(default_factory=dict)
-    point_coordinates: Dict[int, PointCoordinates] = field(default_factory=dict)
-    line_connectivity: Dict[int, LineConnectivity] = field(default_factory=dict)
-    surface_connectivity: Dict[int, SurfaceConnectivity] = field(default_factory=dict)
     materials: Dict[str, Materials] = field(default_factory=dict)
+    frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
+    slab_sections: Dict[str, SlabSections] = field(default_factory=dict)
+    storeys: Dict[str, Storeys] = field(default_factory=dict)
+    point_objects: Dict[int, PointObjects] = field(default_factory=dict)
+    line_objects: Dict[int, LineObjects] = field(default_factory=dict)
+    surface_objects: Dict[int, SurfaceObjects] = field(default_factory=dict)
     mat_concrete04: Dict[str, Mat_Concrete04] = field(default_factory=dict)
     mat_steel02: Dict[str, Mat_Steel02] = field(default_factory=dict)
     mat_minmax: Dict[str, Mat_MinMax] = field(default_factory=dict)
     mat_imk: Dict[str, Mat_IMK] = field(default_factory=dict)
-    frame_sections: Dict[str, FrameSections] = field(default_factory=dict)
     sec_fiber: Dict[str, Sec_Fiber] = field(default_factory=dict)
     sec_aggregator: Dict[str, Sec_Aggregator] = field(default_factory=dict)
-    slab_sections: Dict[str, SlabSections] = field(default_factory=dict)
 
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)

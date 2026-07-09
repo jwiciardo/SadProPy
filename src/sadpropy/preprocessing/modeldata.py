@@ -17,21 +17,4 @@ class Model:
         # TRANSLATE INPUTFILE AND STORE TO MODEL DATA
         translator = ExcelTranslator(inputfile_path)
         modeldata = translator.translate()
-        self.data = ModelData(
-            project_information = modeldata["Project Information"],
-            user_unitsystem = modeldata["User Specified Unitsystem"],
-            analysis_preferences = modeldata["Analysis Preferences"],
-            point_coordinates = modeldata["Point Coordinates"],
-            storey_data = modeldata["Storey Data"],
-            line_connectivity = modeldata["Line Connectivity"],
-            surface_connectivity = modeldata["Surface Connectivity"],
-            materials = modeldata["Materials"],
-            mat_concrete04 = modeldata["Mat: Concrete04"],
-            mat_steel02 = modeldata["Mat: Steel02"],
-            mat_minmax = modeldata["Mat: MinMax"],
-            mat_imk = modeldata["Mat: IMK Hinge"],
-            frame_sections = modeldata["Frame Sections"],
-            sec_fiber = modeldata["Sec: Fiber"],
-            sec_aggregator = modeldata["Sec: Aggregator"],
-            slab_sections = modeldata["Slab Sections"],
-        )
+        self.data = ModelData(**modeldata)
