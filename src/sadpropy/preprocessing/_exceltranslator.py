@@ -709,16 +709,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Surface object's name: {name}")
             name_to_id[name] = ids[i]
             unique_names[i] = name
-            edge_names = [
-                edge
-                for edge in (
-                    row["Edge 1"],
-                    row["Edge 2"],
-                    row["Edge 3"],
-                    row["Edge 4"],
-                )
-                if edge is not None
-            ]
+            edge_names = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"],) if edge is not None]
 
             for j, edge_name in enumerate(edge_names):
                 try:
