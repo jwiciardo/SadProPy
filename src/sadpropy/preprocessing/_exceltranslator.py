@@ -236,7 +236,7 @@ class ExcelTranslator:
         ids = np.arange(1, n + 1, dtype=np.int32)
         mat_names = np.empty(n, dtype="U32")
         mat_types = np.empty(n, dtype="U15")
-        properties = np.zeros((n, 7), dtype=np.float64)
+        properties = np.zeros((n, len(MaterialIndex)), dtype=np.float64)
         name_to_id = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
@@ -278,7 +278,7 @@ class ExcelTranslator:
         mat_names = np.empty(n, dtype="U32")
         base_mat_ids = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, 10), dtype=np.float64)
+        properties = np.zeros((n, len(Concrete04Index)), dtype=np.float64)
         name_to_id = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
@@ -329,7 +329,7 @@ class ExcelTranslator:
         mat_names = np.empty(n, dtype="U32")
         base_mat_ids = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, 14), dtype=np.float64)
+        properties = np.zeros((n, len(Steel02Index)), dtype=np.float64)
         name_to_id = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
@@ -401,7 +401,7 @@ class ExcelTranslator:
         base_nonlinear_mat = np.empty(n, dtype="U32")
         base_nonlinear_mat_ids = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, 6), dtype=np.float64)
+        properties = np.zeros((n, len(MinMaxIndex)), dtype=np.float64)
         name_to_id = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
@@ -446,7 +446,7 @@ class ExcelTranslator:
         ids = np.arange(1, n + 1, dtype=np.int32)
         mat_names = np.empty(n, dtype="U32")
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, 27), dtype=np.float64)
+        properties = np.zeros((n, len(IMKIndex)), dtype=np.float64)
         name_to_id = {}
         mu_pos = np.zeros(n, dtype=np.float64)
         mu_neg = np.zeros(n, dtype=np.float64)
