@@ -1,6 +1,5 @@
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Dict
+from dataclasses import dataclass
 from sadpropy.utility import UnitSystem
 
 # PROJECT
@@ -19,29 +18,29 @@ class AnalysisPreferences:
 # STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
 class PointObjects:
-    ids: np.ndarray                     # int32, shape (N,)
-    unique_names: np.ndarray            # str, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class LineObjects:
-    ids: np.ndarray                     # int32, shape (N,)
-    unique_names: np.ndarray            # str, shape (N,)
-    end_point_ids: np.ndarray           # int32, shape (N,2)
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    end_points_idx: np.ndarray          # int32, shape (N,2)
     end_offset_option: np.ndarray       # str, shape (N,)
     end_offsets: np.ndarray             # float64, shape (N,2)
     length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class SurfaceObjects:
-    ids: np.ndarray                     # int32, shape (N,)
-    unique_names: np.ndarray            # str, shape (N,)
-    edge_ids: np.ndarray                # int32, shape (N,4)
-    vertex_ids: np.ndarray              # int32, shape (N,4)
-    name_to_id: dict[str, np.int32]
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    edges_idx: np.ndarray               # int32, shape (N,4)
+    vertices_idx: np.ndarray            # int32, shape (N,4)
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Storeys:
@@ -52,56 +51,58 @@ class Storeys:
 # PROPERTIES: MATERIALS
 @dataclass(slots=True, frozen=True)
 class Materials:
-    ids: np.ndarray                     # int32, shape (N,)
-    mat_names: np.ndarray               # str, shape (N,)
-    mat_types: np.ndarray               # str, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    mat_name: np.ndarray                # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,7)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:
-    ids: np.ndarray                     # int32, shape (N,)
-    mat_names: np.ndarray               # str, shape (N,)
-    base_mat_ids: np.ndarray            # int32, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    mat_name: np.ndarray                # str, shape (N,)
+    base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
     properties: np.ndarray              # float64, shape (N,10)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:
-    ids: np.ndarray                     # int32, shape (N,)
-    mat_names: np.ndarray               # str, shape (N,)
-    base_mat_ids: np.ndarray            # int32, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    mat_name: np.ndarray                # str, shape (N,)
+    base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
     properties: np.ndarray              # float64, shape (N,14)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_MinMax:
-    ids: np.ndarray                     # int32, shape (N,)
-    mat_names: np.ndarray               # str, shape (N,)
-    base_nonlinear_mat: np.ndarray      # str, shape (N,)
-    base_nonlinear_mat_ids: np.ndarray  # int32, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    mat_name: np.ndarray                # str, shape (N,)
+    base_nl_mat: np.ndarray             # str, shape (N,)
+    base_nl_mat_idx: np.ndarray         # int32, shape (N,)
     mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
     properties: np.ndarray              # float64, shape (N,6)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Mat_IMK:
-    ids: np.ndarray                     # int32, shape (N,)
-    mat_names: np.ndarray               # str, shape (N,)
+    index: np.ndarray                   # int32, shape (N,)
+    mat_name: np.ndarray                # str, shape (N,)
     mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
     properties: np.ndarray              # float64, shape (N,27)
-    name_to_id: dict[str, np.int32]
+    name_to_idx: dict[str, np.int32]
 
 # PROPERTIES: FRAME SECTIONS
 @dataclass(slots=True, frozen=True)
 class FrameSections:
-    sec_name: str
-    sec_shape: str
-    base_mat: str
-    sec_model: str
-    element_type: str
+    index: np.ndarray                   # int32, shape (N,)
+    sec_name: np.ndarray                # str, shape (N,)
+    sec_shape_model: np.ndarray         # str, shape (N,2) --> sec_shape, sec_model
+    base_mat_idx: np.ndarray
+    element_type: np.ndarray            # str, 
+    properties: np.ndarray              # float64, shape (N,27)
+    name_to_idx: dict[str, np.int32]
     h: float
     b: float
     A: float

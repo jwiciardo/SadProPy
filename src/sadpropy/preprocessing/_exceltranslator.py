@@ -19,12 +19,12 @@ from ._preproc_dataclass import (
     Storeys,
     Nodes,
     )
-from ._indicesclass import (
-    MaterialIndex,
-    Concrete04Index,
-    Steel02Index,
-    MinMaxIndex,
-    IMKIndex,
+from ._propertiesclass import (
+    MaterialProperties,
+    Concrete04Properties,
+    Steel02Properties,
+    MinMaxProperties,
+    IMKProperties,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -191,7 +191,7 @@ class ExcelTranslator:
     
     def _find_material(self, mat_name, materials_list):
         for mats in materials_list:
-            mat_id = mats.name_to_id.get(mat_name)
+            mat_id = mats.name_to_idx.get(mat_name)
             if mat_id is not None:
                 return mats, mat_id
         raise ValidationError(f"Material '{mat_name}' not found.")
@@ -233,128 +233,101 @@ class ExcelTranslator:
     def _translate_materials(self):
         data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U32")
-        mat_types = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(MaterialIndex)), dtype=np.float64)
-        name_to_id = {}
+        index = np.arange(n, dtype=np.int32)
+        mat_name = np.empty(n, dtype="U32")
+        mat_type = np.empty(n, dtype="U15")
+        properties = np.zeros((n, len(MaterialProperties)), dtype=np.float64)
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Material's name: {name}")
-            name_to_id[name] = ids[i]
-            mat_names[i] = name
-            mat_type = str(row["Material Type"])
-            mat_types[i] = mat_type
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Material name '{name}'")
+            name_to_idx[name] = index[i]
+            mat_name[i] = name
+            mtype = str(row["Material Type"])
+            mat_type[i] = mtype
             Unitweight = self._to_internalunit_unitweight(row["Unitweight"])
             E = self._to_internalunit_stress(row["E"])
             nu = row["nu"]
-            fc = self._to_internalunit_stress(row["fc"]) if mat_type == "Concrete" else 0.0
-            fy = self._to_internalunit_stress(row["fy"]) if mat_type in ("Rebar", "Steel") else 0.0
-            fu = self._to_internalunit_stress(row["fu"]) if mat_type in ("Rebar", "Steel") else 0.0
-            properties[i] = (
-                Unitweight,
-                E,
-                nu,
-                0.0,
-                fc,
-                fy,
-                fu,
-            )
-        properties[:, MaterialIndex.G] = properties[:, MaterialIndex.E] / (2 * (1 + properties[:, MaterialIndex.NU]))
+            fc = self._to_internalunit_stress(row["fc"]) if mtype == "Concrete" else 0.0
+            fy = self._to_internalunit_stress(row["fy"]) if mtype in ("Rebar", "Steel") else 0.0
+            fu = self._to_internalunit_stress(row["fu"]) if mtype in ("Rebar", "Steel") else 0.0
+            properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
+        E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.NU] # Recall E and nu arrays
+        properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
         materials = Materials(
-            ids = ids,
-            mat_names = mat_names,
-            mat_types = mat_types,
+            index = index,
+            mat_name = mat_name,
+            mat_type = mat_type,
             properties = properties,
-            name_to_id = name_to_id,
-        ) # Defining dataclass for each material
+            name_to_idx = name_to_idx,
+        ) # Storing material data to dataclass
         return materials
     
     def _translate_mat_concrete04(self, materials):
         data = self._reader.read(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U32")
-        base_mat_ids = np.empty(n, dtype=np.int32)
+        index = np.arange(n, dtype=np.int32)
+        mat_name = np.empty(n, dtype="U32")
+        base_mat_idx = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, len(Concrete04Index)), dtype=np.float64)
-        name_to_id = {}
+        properties = np.zeros((n, len(Concrete04Properties)), dtype=np.float64)
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Material's name: {name}")
-            name_to_id[name] = ids[i]
-            mat_names[i] = name
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Material name '{name}'")
+            name_to_idx[name] = index[i]
+            mat_name[i] = name
             base_mat = str(row["Base Material"])
-            base_mat_ids[i] = materials.name_to_id[base_mat]
-            mat_type_model[i] = (
-                str(row["Material Type"]),
-                str(row["Material Model"]),
-            )
+            base_mat_idx[i] = materials.name_to_idx[base_mat]
+            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
             fc = self._to_internalunit_stress(row["fc"])
             epsc = row["epsc"]
             epscu = row["epscu"]
             fct = self._to_internalunit_stress(row["fct"])
             et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
             beta = row["beta"]
-            properties[i] = (
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -fc,
-                -epsc,
-                -epscu,
-                fct,
-                et, 
-                beta,
-            )
-        base_mat_props = materials.properties[base_mat_ids - 1]
-        properties[:, Concrete04Index.UNITWEIGHT:Concrete04Index.G+1] = base_mat_props[:, MaterialIndex.UNITWEIGHT:Concrete04Index.G+1]
+            properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
+        base_mat_props = materials.properties[base_mat_idx]
+        properties[:, Concrete04Properties.UNITWEIGHT:Concrete04Properties.G+1] = base_mat_props[:, MaterialProperties.UNITWEIGHT:MaterialProperties.G+1]
         mat_concrete04 = Mat_Concrete04(
-            ids = ids,
-            mat_names = mat_names,
-            base_mat_ids = base_mat_ids,
+            index = index,
+            mat_name = mat_name,
+            base_mat_idx = base_mat_idx,
             mat_type_model = mat_type_model,
             properties = properties,
-            name_to_id = name_to_id,
-        ) # Defining dictionary for each material
+            name_to_idx = name_to_idx,
+        ) # Storing material data to dataclass
         return mat_concrete04
 
     def _translate_mat_steel02(self, materials):
         data = self._reader.read(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U32")
-        base_mat_ids = np.empty(n, dtype=np.int32)
+        index = np.arange(n, dtype=np.int32)
+        mat_name = np.empty(n, dtype="U32")
+        base_mat_idx = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, len(Steel02Index)), dtype=np.float64)
-        name_to_id = {}
+        properties = np.zeros((n, len(Steel02Properties)), dtype=np.float64)
+        name_to_idx = {}
+        fy = np.zeros(n, dtype=np.float64)
+        b = np.zeros(n, dtype=np.float64)
+        fu = np.zeros(n, dtype=np.float64)
+        eu= np.zeros(n, dtype=np.float64)
         for i, row in enumerate(data):
             name = str(row["Material Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Material's name: {name}")
-            name_to_id[name] = ids[i]
-            mat_names[i] = name
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Material name '{name}'")
+            name_to_idx[name] = index[i]
+            mat_name[i] = name
             base_mat = str(row["Base Material"])
-            base_mat_id = materials.name_to_id[base_mat]
-            base_mat_ids[i] = base_mat_id
-            mat_type_model[i] = (
-                str(row["Material Type"]),
-                str(row["Material Model"]),
-            )
-            E = materials.properties[base_mat_id - 1, MaterialIndex.E]
-            fy = self._to_internalunit_stress(row["fy"])
-            if row["b"] == 0.0:
-                ey = fy / E
-                eoffset = ey + 0.002
-                fu = self._to_internalunit_stress(row["fu"])
-                eu = row["eu"]
-                Epy = (fu - fy)/(eu - eoffset)
-                b = Epy / E
-            else:
-                b = row["b"]
+            mat_idx = materials.name_to_idx[base_mat]
+            base_mat_idx[i] = mat_idx
+            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
+            fy[i] = self._to_internalunit_stress(row["fy"])
+            b[i] = row["b"]
+            fu[i] = self._to_internalunit_stress(row["fu"])
+            eu[i] = row["eu"]
             R0 = row["R0"]
             cR1 = row["cR1"]
             cR2 = row["cR2"]
@@ -363,103 +336,83 @@ class ExcelTranslator:
             a3 = row["a3"]
             a4 = row["a4"]
             f_init = self._to_internalunit_stress(row["f_init"])
-            properties[i] = (
-                0.0,
-                E,
-                0.0,
-                0.0,
-                fy,
-                b,
-                R0,
-                cR1,
-                cR2, 
-                a1,
-                a2,
-                a3,
-                a4,
-                f_init,
-            )
-        base_mat_props = materials.properties[base_mat_ids - 1]
-        properties[:, Steel02Index.UNITWEIGHT] = base_mat_props[:, MaterialIndex.UNITWEIGHT]
-        properties[:, Steel02Index.NU] = base_mat_props[:, MaterialIndex.NU]
-        properties[:, Steel02Index.G] = base_mat_props[:, MaterialIndex.G]
+            properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R0, cR1, cR2, a1, a2, a3, a4, f_init,) # Look at Steel02Properties class in _propertiesclass.py to find definition of variables
+        base_mat_props = materials.properties[base_mat_idx]
+        E = base_mat_props[:, MaterialProperties.E] # Recall E arrays
+        if b == 0.0:
+            ey = fy / E
+            eoffset = ey + 0.002
+            Epy = (fu - fy)/(eu - eoffset)
+            b = Epy / E
+        else:
+            return b
+        properties[:, Steel02Properties.UNITWEIGHT:Steel02Properties.G+1] = base_mat_props[:, MaterialProperties.UNITWEIGHT:MaterialProperties.G+1]
+        properties[:, Steel02Properties.FY] = fy
+        properties[:, Steel02Properties.B] = b
         mat_steel02 = Mat_Steel02(
-            ids = ids,
-            mat_names = mat_names,
-            base_mat_ids = base_mat_ids,
+            index = index,
+            mat_name = mat_name,
+            base_mat_idx = base_mat_idx,
             mat_type_model = mat_type_model,
             properties = properties,
-            name_to_id = name_to_id,
-        ) # Defining dictionary for each material
+            name_to_idx = name_to_idx,
+        ) # Storing material data to dataclass
         return mat_steel02
 
     def _translate_mat_minmax(self, materials_list):
         data = self._reader.read(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U32")
-        base_nonlinear_mat = np.empty(n, dtype="U32")
-        base_nonlinear_mat_ids = np.empty(n, dtype=np.int32)
+        index = np.arange(n, dtype=np.int32)
+        mat_name = np.empty(n, dtype="U32")
+        base_nl_mat = np.empty(n, dtype="U32")
+        base_nl_mat_idx = np.empty(n, dtype=np.int32)
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, len(MinMaxIndex)), dtype=np.float64)
-        name_to_id = {}
+        properties = np.zeros((n, len(MinMaxProperties)), dtype=np.float64)
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Material Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Material's name: {name}")
-            name_to_id[name] = ids[i]
-            mat_names[i] = name
-            base_nl_mat = str(row["Base NL Material"])
-            base_nonlinear_mat[i] = base_nl_mat
-            mats, base_mat_id = self._find_material(base_nl_mat, materials_list)
-            base_nonlinear_mat_ids[i] = base_mat_id
-            base_mat_props = mats.properties[base_mat_id - 1]
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Material name '{name}'")
+            name_to_idx[name] = index[i]
+            mat_name[i] = name
+            nl_mat = str(row["Base NL Material"])
+            base_nl_mat[i] = nl_mat
+            mats, mat_idx = self._find_material(nl_mat, materials_list)
+            base_nl_mat_idx[i] = mat_idx
+            base_mat_props = mats.properties[mat_idx]
             Unitweight, E, nu, G = base_mat_props[:4]
-            mat_type_model[i] = (
-                str(row["Material Type"]),
-                str(row["Material Model"]),
-            )
+            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
             ec_max = row["ecmax"]
             et_max = row["etmax"]
-            properties[i] = (
-                Unitweight,
-                E,
-                nu,
-                G,
-                ec_max,
-                et_max,
-            )
+            properties[i] = (Unitweight, E, nu, G, ec_max, et_max,) # Look at MinMaxProperties class in _propertiesclass.py to find definition of variables
         mat_minmax = Mat_MinMax(
-            ids = ids,
-            mat_names = mat_names,
-            base_nonlinear_mat = base_nonlinear_mat,
-            base_nonlinear_mat_ids = base_nonlinear_mat_ids,
+            index = index,
+            mat_name = mat_name,
+            base_nl_mat = base_nl_mat,
+            base_nl_mat_idx = base_nl_mat_idx,
             mat_type_model = mat_type_model,
             properties = properties,
-            name_to_id = name_to_id
-        ) # Defining dictionary for each material
+            name_to_idx = name_to_idx
+        ) # Storing material data to dataclass
         return mat_minmax
     
     def _translate_mat_imk(self):
         data = self._reader.read(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        mat_names = np.empty(n, dtype="U32")
+        index = np.arange(n, dtype=np.int32)
+        mat_name = np.empty(n, dtype="U32")
         mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
-        properties = np.zeros((n, len(IMKIndex)), dtype=np.float64)
-        name_to_id = {}
+        properties = np.zeros((n, len(IMKProperties)), dtype=np.float64)
+        name_to_idx = {}
         mu_pos = np.zeros(n, dtype=np.float64)
         mu_neg = np.zeros(n, dtype=np.float64)
         for i, row in enumerate(data):
             name = str(row["Material Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Material's name: {name}")
-            name_to_id[name] = ids[i]
-            mat_names[i] = name
-            mat_type_model[i] = (
-                str(row["Material Type"]),
-                str(row["Material Model"]),
-            )
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Material name '{name}'")
+            name_to_idx[name] = index[i]
+            mat_name[i] = name
+            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
             K0 = self._to_internalunit_rotational_stiffness(row["K0"])
             my_pos = self._to_internalunit_moment(row["My_Pos"])
             my_neg = self._to_internalunit_moment(row["My_Neg"])
@@ -470,47 +423,23 @@ class ExcelTranslator:
             theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
             theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
             properties[i] = (
-                K0,
-                0.0,
-                0.0,
-                my_pos,
-                my_neg,
-                fpr_pos,
-                fpr_neg,
-                a_pinch,
-                nfactor,
-                lamda_s,
-                lamda_c,
-                lamda_a,
-                lamda_k,
-                c_s,
-                c_c,
-                c_a,
-                c_k,
-                theta_p_pos,
-                theta_p_neg,
-                theta_pc_pos,
-                theta_pc_neg,
-                res_pos,
-                res_neg,
-                theta_u_pos,
-                theta_u_neg,
-                d_pos,
-                d_neg,
-            )
-        theta_e_pos = properties[:, IMKIndex.MYPOS] / properties[:, IMKIndex.K0]
-        theta_e_neg = properties[:, IMKIndex.MYNEG] / properties[:, IMKIndex.K0]
-        Kpy_pos = (mu_pos - properties[:, IMKIndex.MYPOS]) / (properties[:, IMKIndex.THETAPPOS] - theta_e_pos)
-        Kpy_neg = (mu_neg - properties[:, IMKIndex.MYNEG]) / (properties[:, IMKIndex.THETAPNEG] - theta_e_neg)
-        properties[:, IMKIndex.ASPOS] = properties[:, IMKIndex.K0] / Kpy_pos
-        properties[:, IMKIndex.ASNEG] = properties[:, IMKIndex.K0] / Kpy_neg
+                K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
+                theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
+            ) # Look at IMKProperties class in _propertiesclass.py to find definition of variables
+        K0, my_pos, my_neg, theta_p_pos, theta_p_neg = properties[:, IMKProperties.K0], properties[:, IMKProperties.MYPOS], properties[:, IMKProperties.MYNEG], properties[:, IMKProperties.THETAPPOS], properties[:, IMKProperties.THETAPPOS] # Recal K0, my_pos, my_neg, theta_p_pos and theta_p_neg arrays
+        theta_e_pos = my_pos / K0
+        theta_e_neg = my_neg / K0
+        Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
+        Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
+        properties[:, IMKProperties.ASPOS] = K0 / Kpy_pos
+        properties[:, IMKProperties.ASNEG] = K0 / Kpy_neg
         mat_imk = Mat_IMK(
-            ids = ids,
-            mat_names = mat_names,
+            index = index,
+            mat_name = mat_name,
             mat_type_model = mat_type_model,
             properties = properties,
-            name_to_id = name_to_id,
-        ) # Defining dictionary for each material
+            name_to_idx = name_to_idx,
+        ) # Storing material data to dataclass
         return mat_imk
     
     def _translate_frame_sections(self):

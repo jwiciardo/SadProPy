@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-class MaterialIndex(IntEnum):
+class MaterialProperties(IntEnum):
     UNITWEIGHT = 0
     E = 1
     NU = 2
@@ -9,7 +9,7 @@ class MaterialIndex(IntEnum):
     FY = 5
     FU = 6
  
-class Concrete04Index(IntEnum):
+class Concrete04Properties(IntEnum):
     UNITWEIGHT = 0
     E = 1
     NU = 2
@@ -21,7 +21,7 @@ class Concrete04Index(IntEnum):
     ET = 8
     BETA = 9
 
-class Steel02Index(IntEnum):
+class Steel02Properties(IntEnum):
     UNITWEIGHT = 0
     E = 1
     NU = 2
@@ -37,7 +37,7 @@ class Steel02Index(IntEnum):
     A4 = 12
     FINIT = 13
 
-class MinMaxIndex(IntEnum):
+class MinMaxProperties(IntEnum):
     UNITWEIGHT = 0
     E = 1
     NU = 2
@@ -45,7 +45,7 @@ class MinMaxIndex(IntEnum):
     ECMAX = 4
     ETMAX = 5
 
-class IMKIndex(IntEnum):
+class IMKProperties(IntEnum):
     K0 = 0
     ASPOS = 1
     ASNEG = 2
