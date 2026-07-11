@@ -62,7 +62,7 @@ class Mat_Concrete04:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
-    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
     name_to_idx: dict[str, np.int32]
 
@@ -71,7 +71,7 @@ class Mat_Steel02:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
-    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,14)
     name_to_idx: dict[str, np.int32]
 
@@ -81,7 +81,7 @@ class Mat_MinMax:
     mat_name: np.ndarray                # str, shape (N,)
     base_nl_mat: np.ndarray             # str, shape (N,)
     base_nl_mat_idx: np.ndarray         # int32, shape (N,)
-    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,6)
     name_to_idx: dict[str, np.int32]
 
@@ -106,14 +106,15 @@ class FrameSections:
 
 @dataclass(slots=True, frozen=True)
 class Sec_Fiber:
-    sec_name: str
-    base_sec: str
-    integration_type: str
-    mat_type: str
-    mat_1: str
-    mat_2: str
-    mat_3: str
-    sec_model: str
+    index: np.ndarray                   # int32, shape (N,)
+    sec_name: np.ndarray                # str, shape (N,)
+    base_sec_idx: np.ndarray            # int32, shape (N,)
+    integration_type: np.ndarray        # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
+    mat_idx: np.ndarray                 # float64, shape (N,3) --> mat_1, mat_2, mat_3
+    sec_model: np.ndarray               # str, shape (N,)
+    properties: np.ndarray              # float64, shape (N,19)
+    name_to_idx: dict[str, np.int32]
     h: float
     b: float
     cover: float

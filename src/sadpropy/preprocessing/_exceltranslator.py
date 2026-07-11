@@ -266,12 +266,12 @@ class ExcelTranslator:
         return materials
     
     def _translate_mat_concrete04(self, materials):
-        data = self._reader.read(sheet_name="Mat_Concrete04", start_row=13) # Reading Sheet "Mat_Concrete04" in the Input file
+        data = self._reader.read(sheet_name="Mat_Concrete04", start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
         base_mat_idx = np.empty(n, dtype=np.int32)
-        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        mat_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(Concrete04Properties)), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
@@ -282,7 +282,7 @@ class ExcelTranslator:
             mat_name[i] = name
             base_mat = str(row["Base Material"])
             base_mat_idx[i] = materials.name_to_idx[base_mat]
-            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
+            mat_model[i] = str(row["Material Model"])
             fc = self._to_internalunit_stress(row["fc"])
             epsc = row["epsc"]
             epscu = row["epscu"]
@@ -296,19 +296,19 @@ class ExcelTranslator:
             index = index,
             mat_name = mat_name,
             base_mat_idx = base_mat_idx,
-            mat_type_model = mat_type_model,
+            mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
         return mat_concrete04
 
     def _translate_mat_steel02(self, materials):
-        data = self._reader.read(sheet_name="Mat_Steel02", start_row=19) # Reading Sheet "Mat_Steel02" in the Input file
+        data = self._reader.read(sheet_name="Mat_Steel02", start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
         base_mat_idx = np.empty(n, dtype=np.int32)
-        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        mat_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(Steel02Properties)), dtype=np.float64)
         name_to_idx = {}
         fy = np.zeros(n, dtype=np.float64)
@@ -324,7 +324,7 @@ class ExcelTranslator:
             base_mat = str(row["Base Material"])
             mat_idx = materials.name_to_idx[base_mat]
             base_mat_idx[i] = mat_idx
-            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
+            mat_model[i] = str(row["Material Model"])
             fy[i] = self._to_internalunit_stress(row["fy"])
             b[i] = row["b"]
             fu[i] = self._to_internalunit_stress(row["fu"])
@@ -354,20 +354,20 @@ class ExcelTranslator:
             index = index,
             mat_name = mat_name,
             base_mat_idx = base_mat_idx,
-            mat_type_model = mat_type_model,
+            mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
         return mat_steel02
 
     def _translate_mat_minmax(self, materials_list):
-        data = self._reader.read(sheet_name="Mat_MinMax", start_row=9) # Reading Sheet "Mat_MinMax" in the Input file
+        data = self._reader.read(sheet_name="Mat_MinMax", start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
         base_nl_mat = np.empty(n, dtype="U32")
         base_nl_mat_idx = np.empty(n, dtype=np.int32)
-        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        mat_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(MinMaxProperties)), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
@@ -382,7 +382,7 @@ class ExcelTranslator:
             base_nl_mat_idx[i] = mat_idx
             base_mat_props = mats.properties[mat_idx]
             Unitweight, E, nu, G = base_mat_props[:4]
-            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
+            mat_model[i] = str(row["Material Model"])
             ec_max = row["ecmax"]
             et_max = row["etmax"]
             properties[i] = (Unitweight, E, nu, G, ec_max, et_max,) # Look at MinMaxProperties class in _propertiesclass.py to find definition of variables
@@ -391,10 +391,11 @@ class ExcelTranslator:
             mat_name = mat_name,
             base_nl_mat = base_nl_mat,
             base_nl_mat_idx = base_nl_mat_idx,
-            mat_type_model = mat_type_model,
+            mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing material data to dataclass
+        print(mat_minmax)
         return mat_minmax
     
     def _translate_mat_imk(self):
