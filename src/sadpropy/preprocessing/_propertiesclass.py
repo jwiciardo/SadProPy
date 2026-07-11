@@ -73,3 +73,15 @@ class IMKProperties(IntEnum):
     THETAUNEG = 24
     DPOS = 25
     DNEG = 26
+
+class FrameSectionProperties(IntEnum):
+    H = 0
+    B = 1
+    A = 2
+    AVY = 3
+    AVZ = 4
+    IZ = 5
+    IY = 6
+    JXX = 7
+    ALPHAY = 8
+    ALPHAZ = 9

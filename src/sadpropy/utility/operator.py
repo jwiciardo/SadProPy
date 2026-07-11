@@ -1,4 +1,7 @@
+import numpy as np
 from math import pi, sqrt
+from sadpropy.preprocessing._propertiesclass import FrameSectionProperties
+from ._exceptions import ValidationError
 
 __all__ = ["significant_figures", "rayleigh_damping_coefficients", "rebar_area", "section_properties", "fibersection_properties"]
 
@@ -28,19 +31,53 @@ def rebar_area(dia):
      return A_rebar
 
 # COMPUTE SECTION PROPERTIES
-def section_properties(section_data):
-     row = section_data
-     if row['Section Shape'] == 'Rectangular':
-          h, b = row['h'], row['b'] # Section data
+def _rectangular_section(properties):
+    h = properties[:, FrameSectionProperties.H]
+    b = properties[:, FrameSectionProperties.B]
 
-          # Section properties
-          alphaY = alphaZ = 5/6 # Shear shape factor
-          A = h * b # Area of section
-          Avy = Avz = alphaY * A # Shear area of section
-          Iz = b * h**3 / 12 # Second moment of area of section about local z axis
-          Iy = h * b**3 / 12 # Second moment of area of section about local y axis
-          Jxx = h * b**3 * ((16/3) - 3.36 * (b / h) * (1 - b**4 / (12 * h**4))) / 16 # Torsional constant
-     return A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ
+    alphaY = np.full(len(h), 5.0 / 6.0) # Shear shape factor
+    alphaZ = np.full(len(b), 5.0 / 6.0) # Shear shape factor
+
+    A = h * b # Cross-sectional area
+    Avy = alphaY * A # Shear area of section
+    Avz = alphaZ * A # Shear area of section
+    Iz = b * h**3 / 12.0 # Second moment of area of section about local z axis
+    Iy = h * b**3 / 12.0 # Second moment of area of section about local y axis
+    Jxx = h * b**3 * ((16.0/3.0) - 3.36 * (b / h) * (1.0 - b**4 / (12.0 * h**4))) / 16.0 # Torsional constant
+    return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
+
+SECTION_FUNCTIONS = {
+    "Rectangular": _rectangular_section,
+    #"Circle": _circle_section,
+}
+
+def section_properties(sec_shape, properties):
+     n = len(sec_shape)
+     A = np.zeros(n)
+     Avy = np.zeros(n)
+     Avz = np.zeros(n)
+     Iz = np.zeros(n)
+     Iy = np.zeros(n)
+     Jxx = np.zeros(n)
+     alphaY = np.zeros(n)
+     alphaZ = np.zeros(n)
+     for shape in np.unique(sec_shape):
+        mask = sec_shape == shape
+        try:
+             section_func = SECTION_FUNCTIONS[shape]
+        except KeyError:
+            raise ValidationError(f"Unsupported section shape '{shape}'")
+        (
+             A[mask],
+             Avy[mask],
+             Avz[mask],
+             Iz[mask],
+             Iy[mask],
+             Jxx[mask],
+             alphaY[mask],
+             alphaZ[mask],
+        ) = section_func(properties[mask])
+     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
 
 def fibersection_properties(fibersection_data):
      row = fibersection_data

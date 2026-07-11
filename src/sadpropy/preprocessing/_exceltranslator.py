@@ -25,6 +25,7 @@ from ._propertiesclass import (
     Steel02Properties,
     MinMaxProperties,
     IMKProperties,
+    FrameSectionProperties,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -142,7 +143,7 @@ class ExcelTranslator:
         materials_list = (materials, mat_concrete04, mat_steel02)
         mat_minmax = self._translate_mat_minmax(materials_list)
         mat_imk = self._translate_mat_imk()
-        frame_sections = self._translate_frame_sections()
+        frame_sections = self._translate_frame_sections(materials)
         sec_fiber = self._translate_sec_fiber(frame_sections, materials)
         sections_list = (frame_sections, sec_fiber)
         sec_aggregator = self._translate_sec_aggregator(sections_list)
@@ -442,31 +443,60 @@ class ExcelTranslator:
         ) # Storing material data to dataclass
         return mat_imk
     
-    def _translate_frame_sections(self):
+    def _translate_frame_sections(self, materials):
         data = self._reader.read(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
-        frame_sections = {}
-        for row in data:
-            sec_name, sec_shape, base_mat, sec_model, element_type = row["Section Name"], row["Section Shape"], row["Base Material"], row["Section Model"], row["Element Type"]
-            h, b = row["h"], row["b"]
-            A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ = section_properties(row)
-            k_A, k_Avy, k_Avz, k_Iz, k_Iy, k_Jxx = row["k_A"], row["k_Avy"], row["k_Avz"], row["k_Iz"], row["k_Iy"], row["k_Jxx"]
-            frame_sections[str(sec_name)] = FrameSections(
-                sec_name = str(sec_name),
-                sec_shape = str (sec_shape),
-                base_mat = str(base_mat),
-                sec_model = str(sec_model),
-                element_type = str(element_type),
-                h = float(self._to_internalunit_length(h)),
-                b = float(self._to_internalunit_length(b)),
-                A = float(k_A * A),
-                Avy = float(k_Avy * Avy),
-                Avz = float(k_Avz * Avz),
-                Iz = float(k_Iz * Iz),
-                Iy = float(k_Iy * Iy),
-                Jxx = float(k_Jxx * Jxx),
-                alphaY = float(alphaY),
-                alphaZ = float(alphaZ),
-            ) # Defining dataclass for each frame section
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        sec_name = np.empty(n, dtype="U32")
+        sec_shape_model = np.empty((n, 2), dtype="U15") # sec_shape, Sec_model
+        base_mat_idx = np.empty(n, dtype=np.int32)
+        element_type = np.empty(n, dtype="U15")
+        properties = np.zeros((n, len(FrameSectionProperties)), dtype=np.float64)
+        name_to_idx = {}
+        kA = np.zeros(n, dtype=np.float64)
+        kAvy = np.zeros(n, dtype=np.float64)
+        kAvz = np.zeros(n, dtype=np.float64)
+        kIz = np.zeros(n, dtype=np.float64)
+        kIy = np.zeros(n, dtype=np.float64)
+        kJxx = np.zeros(n, dtype=np.float64)
+        for i, row in enumerate(data):
+            name = str(row["Section Name"])
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Section name '{name}'")
+            name_to_idx[name] = index[i]
+            sec_name[i] = name
+            sec_shape_model[i] = (str(row["Section Shape"]), str(row["Section Model"]),)
+            base_mat_idx[i] = materials.name_to_idx[str(row["Base Material"])]
+            element_type[i] = (str(row["Element Type"]))
+
+            h = self._to_internalunit_length(row["h"])
+            b = self._to_internalunit_length(row["b"])
+            kA[i] = row["k_A"]
+            kAvy[i] = row["k_Avy"]
+            kAvz[i] = row["k_Avz"]
+            kIz[i] = row["k_Iz"]
+            kIy[i] = row["k_Iy"]
+            kJxx[i] = row["k_Jxx"]
+            properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(sec_shape_model[:, 0], properties)
+        properties[:, FrameSectionProperties.A] = kA * A
+        properties[:, FrameSectionProperties.AVY] = kAvy * Avy
+        properties[:, FrameSectionProperties.AVZ] = kAvz * Avz
+        properties[:, FrameSectionProperties.IZ] = kIz * Iz
+        properties[:, FrameSectionProperties.IY] = kIy * Iy
+        properties[:, FrameSectionProperties.JXX] = kJxx * Jxx
+        properties[:, FrameSectionProperties.ALPHAY] = alphaY
+        properties[:, FrameSectionProperties.ALPHAZ] = alphaZ
+        frame_sections = FrameSections(
+            index = index,
+            sec_name = sec_name,
+            sec_shape_model = sec_shape_model,
+            base_mat_idx = base_mat_idx,
+            element_type = element_type,
+            properties = properties,
+            name_to_idx = name_to_idx
+        ) # Defining dataclass for each frame section
+        print(frame_sections)
         return frame_sections
     
     def _translate_sec_fiber(self, frame_sections, materials):

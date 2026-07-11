@@ -99,20 +99,10 @@ class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape_model: np.ndarray         # str, shape (N,2) --> sec_shape, sec_model
-    base_mat_idx: np.ndarray
-    element_type: np.ndarray            # str, 
-    properties: np.ndarray              # float64, shape (N,27)
+    base_mat_idx: np.ndarray            # int32, shape (N,)
+    element_type: np.ndarray            # str, shape (N,)
+    properties: np.ndarray              # float64, shape (N,10)
     name_to_idx: dict[str, np.int32]
-    h: float
-    b: float
-    A: float
-    Avy: float
-    Avz: float
-    Iz: float
-    Iy: float
-    Jxx: float
-    alphaY: float
-    alphaZ: float
 
 @dataclass(slots=True, frozen=True)
 class Sec_Fiber:
