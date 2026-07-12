@@ -61,15 +61,18 @@ class Materials:
 class Mat_Concrete04:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
     name_to_idx: dict[str, np.int32]
 
+
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    base_mat_table_idx: np.ndarray      # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,14)
@@ -79,7 +82,7 @@ class Mat_Steel02:
 class Mat_MinMax:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
-    base_nl_mat: np.ndarray             # str, shape (N,)
+    base_nl_mat_table_idx: np.ndarray   # str, shape (N,)
     base_nl_mat_idx: np.ndarray         # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,6)
@@ -89,7 +92,7 @@ class Mat_MinMax:
 class Mat_IMK:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
-    mat_type_model: np.ndarray          # str, shape (N,2) --> mat_type, mat_model
+    mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,27)
     name_to_idx: dict[str, np.int32]
 

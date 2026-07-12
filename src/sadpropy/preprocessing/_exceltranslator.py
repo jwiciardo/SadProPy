@@ -26,6 +26,8 @@ from ._propertiesclass import (
     MinMaxProperties,
     IMKProperties,
     FrameSectionProperties,
+    PropertiesRegistry,
+    MaterialClass,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -69,6 +71,7 @@ class ExcelTranslator:
         self._units = None
         self._unitregistry = UnitRegistry()
         self._unitconverter = UnitConverter(self._unitregistry)
+        self._mat_lists = []
 
     # UNIT CONVERTER METHODS TO INTERNAL UNITS
     def _to_internalunit_length(self, value):
@@ -138,9 +141,10 @@ class ExcelTranslator:
         self._units = user_unitsystem
         analysis_preferences = self._translate_analysis_preferences()
         materials = self._translate_materials()
-        mat_concrete04 = self._translate_mat_concrete04(materials)
+        mat_concrete04 = self._translate_mat_concrete04()
+        materials_list = (materials, mat_concrete04)
+        print(materials_list)
         mat_steel02 = self._translate_mat_steel02(materials)
-        materials_list = (materials, mat_concrete04, mat_steel02)
         mat_minmax = self._translate_mat_minmax(materials_list)
         mat_imk = self._translate_mat_imk()
         frame_sections = self._translate_frame_sections(materials)
@@ -186,20 +190,30 @@ class ExcelTranslator:
                 elevation = elev,
             )
         return storeys
-    
-    def _retrieve_unique_name(self, ids, objects): # Retrieve Unique name of the objects
-        return objects.unique_names[ids - 1]
-    
-    def _find_material(self, mat_name, materials_list):
-        for mats in materials_list:
-            mat_id = mats.name_to_idx.get(mat_name)
-            if mat_id is not None:
-                return mats, mat_id
+
+    def _find_material_index(self, mat_name):
+        for mat_class, mats in enumerate(self._mat_lists):
+            mat_idx = mats.name_to_idx.get(mat_name)
+            if mat_idx is not None:
+                return mat_class, mats, mat_idx
         raise ValidationError(f"Material '{mat_name}' not found.")
+    
+    def _find_material_indices(self, mat_name):
+        n = len(mat_name)
+        mat_class = np.empty(n, dtype=np.int32)
+        mat_idx = np.empty(n, dtype=np.int32)
+        mats = np.empty(n, dtype=object)
+        for i, name in enumerate(mat_name):
+            cls, mat, idx = self._find_material_index(name)
+            mat_class[i] = cls
+            mats[i] = mat
+            mat_idx[i] = idx
+        return mat_class, mats, mat_idx
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
-        data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
+        sheet_name = "Project Information"
+        data = self._reader.read(sheet_name=sheet_name, start_row=6) # Reading Sheet "Project Information" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
         project_information = ProjectInformation(
                 name = str(values["Project Name"]),
@@ -209,7 +223,8 @@ class ExcelTranslator:
         return project_information
     
     def _translate_user_unitsystem(self):
-        data = self._reader.read(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
+        sheet_name = "User Specified Unitsystem"
+        data = self._reader.read(sheet_name=sheet_name, start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
         user_unitsystem = UnitSystem(
                 force = str(values["Force"]),
@@ -222,7 +237,8 @@ class ExcelTranslator:
         return user_unitsystem
 
     def _translate_analysis_preferences(self):
-        data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
+        sheet_name = "Analysis Preferences"
+        data = self._reader.read(sheet_name=sheet_name, start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
         analysis_preferences = AnalysisPreferences(
                 nonlinear_analysis = str(values["Nonlinear Analysis"]),
@@ -232,7 +248,8 @@ class ExcelTranslator:
         return analysis_preferences
 
     def _translate_materials(self):
-        data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
+        sheet_name = "Materials"
+        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Materials" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -254,8 +271,10 @@ class ExcelTranslator:
             fy = self._to_internalunit_stress(row["fy"]) if mtype in ("Rebar", "Steel") else 0.0
             fu = self._to_internalunit_stress(row["fu"]) if mtype in ("Rebar", "Steel") else 0.0
             properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
-        E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.NU] # Recall E and nu arrays
-        properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
+        mat_class = MaterialClass.Materials
+        propsclass = PropertiesRegistry._get_materialproperties(mat_class)
+        E, nu = properties[:, propsclass.E], properties[:, propsclass.nu] # Recall E and nu arrays
+        properties[:, propsclass.G] = E / (2 * (1 + nu))
         materials = Materials(
             index = index,
             mat_name = mat_name,
@@ -263,13 +282,17 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
+        self._mat_lists.append(materials)
+        print(self._mat_lists[0])
         return materials
     
-    def _translate_mat_concrete04(self, materials):
-        data = self._reader.read(sheet_name="Mat_Concrete04", start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
+    def _translate_mat_concrete04(self):
+        sheet_name = "Mat_Concrete04"
+        data = self._reader.read(sheet_name=sheet_name, start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
+        base_mat_class = np.empty(n, dtype=np.int32)
         base_mat_idx = np.empty(n, dtype=np.int32)
         mat_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(Concrete04Properties)), dtype=np.float64)
@@ -280,8 +303,9 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            base_mat = str(row["Base Material"])
-            base_mat_idx[i] = materials.name_to_idx[base_mat]
+            mat_class, mats, mat_idx = self._find_material_index(str(row["Base Material"]))
+            base_mat_class[i] = mat_class
+            base_mat_idx[i] = mat_idx
             mat_model[i] = str(row["Material Model"])
             fc = self._to_internalunit_stress(row["fc"])
             epsc = row["epsc"]
@@ -290,8 +314,8 @@ class ExcelTranslator:
             et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
             beta = row["beta"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
-        base_mat_props = materials.properties[base_mat_idx]
-        properties[:, Concrete04Properties.UNITWEIGHT:Concrete04Properties.G+1] = base_mat_props[:, MaterialProperties.UNITWEIGHT:MaterialProperties.G+1]
+        base_mat_props = self._mat_lists[base_mat_class].properties[base_mat_idx]
+        properties[:, Concrete04Properties.Unitweight:Concrete04Properties.G+1] = base_mat_props[:, MaterialProperties.Unitweight:MaterialProperties.G+1]
         mat_concrete04 = Mat_Concrete04(
             index = index,
             mat_name = mat_name,
@@ -300,10 +324,13 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
+        self._mat_lists.append(mat_concrete04)
+        print(self._mat_lists)
         return mat_concrete04
 
     def _translate_mat_steel02(self, materials):
-        data = self._reader.read(sheet_name="Mat_Steel02", start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
+        sheet_name = "Mat_Steel02"
+        data = self._reader.read(sheet_name=sheet_name, start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -347,9 +374,9 @@ class ExcelTranslator:
             b = Epy / E
         else:
             return b
-        properties[:, Steel02Properties.UNITWEIGHT:Steel02Properties.G+1] = base_mat_props[:, MaterialProperties.UNITWEIGHT:MaterialProperties.G+1]
-        properties[:, Steel02Properties.FY] = fy
-        properties[:, Steel02Properties.B] = b
+        properties[:, Steel02Properties.Unitweight:Steel02Properties.G+1] = base_mat_props[:, MaterialProperties.Unitweight:MaterialProperties.G+1]
+        properties[:, Steel02Properties.fy] = fy
+        properties[:, Steel02Properties.b] = b
         mat_steel02 = Mat_Steel02(
             index = index,
             mat_name = mat_name,
@@ -361,7 +388,8 @@ class ExcelTranslator:
         return mat_steel02
 
     def _translate_mat_minmax(self, materials_list):
-        data = self._reader.read(sheet_name="Mat_MinMax", start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
+        sheet_name = "Mat_MinMax"
+        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -395,15 +423,15 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing material data to dataclass
-        print(mat_minmax)
         return mat_minmax
     
     def _translate_mat_imk(self):
-        data = self._reader.read(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+        sheet_name = "Mat_IMK"
+        data = self._reader.read(sheet_name=sheet_name, start_row=19) # Reading Sheet "Mat_IMK" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
-        mat_type_model = np.empty((n, 2), dtype="U15") # mat_type, mat_model
+        mat_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(IMKProperties)), dtype=np.float64)
         name_to_idx = {}
         mu_pos = np.zeros(n, dtype=np.float64)
@@ -414,7 +442,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_type_model[i] = (str(row["Material Type"]), str(row["Material Model"]),)
+            mat_model[i] = str(row["Material Model"])
             K0 = self._to_internalunit_rotational_stiffness(row["K0"])
             my_pos = self._to_internalunit_moment(row["My_Pos"])
             my_neg = self._to_internalunit_moment(row["My_Neg"])
@@ -428,20 +456,21 @@ class ExcelTranslator:
                 K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
                 theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
             ) # Look at IMKProperties class in _propertiesclass.py to find definition of variables
-        K0, my_pos, my_neg, theta_p_pos, theta_p_neg = properties[:, IMKProperties.K0], properties[:, IMKProperties.MYPOS], properties[:, IMKProperties.MYNEG], properties[:, IMKProperties.THETAPPOS], properties[:, IMKProperties.THETAPPOS] # Recal K0, my_pos, my_neg, theta_p_pos and theta_p_neg arrays
+        K0, my_pos, my_neg, theta_p_pos, theta_p_neg = properties[:, IMKProperties.K0], properties[:, IMKProperties.My_pos], properties[:, IMKProperties.My_neg], properties[:, IMKProperties.theta_p_pos], properties[:, IMKProperties.theta_p_neg] # Recal K0, my_pos, my_neg, theta_p_pos and theta_p_neg arrays
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
         Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
         Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
-        properties[:, IMKProperties.ASPOS] = K0 / Kpy_pos
-        properties[:, IMKProperties.ASNEG] = K0 / Kpy_neg
+        properties[:, IMKProperties.as_pos] = K0 / Kpy_pos
+        properties[:, IMKProperties.as_neg] = K0 / Kpy_neg
         mat_imk = Mat_IMK(
             index = index,
             mat_name = mat_name,
-            mat_type_model = mat_type_model,
+            mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
+        print(mat_imk)
         return mat_imk
     
     def _translate_frame_sections(self, materials):

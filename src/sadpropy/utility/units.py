@@ -1,4 +1,3 @@
-from enum import Enum
 from math import pi
 from dataclasses import dataclass
 from .constantvalues import GRAVITATIONAL_ACCELERATION
