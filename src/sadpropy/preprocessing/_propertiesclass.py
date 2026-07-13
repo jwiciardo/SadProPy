@@ -118,6 +118,9 @@ class SectionAggregatorProperties(IntEnum):
     Iy = 6
     Jxx = 7
 
+class SlabSectionProperties(IntEnum):
+    t = 0
+
 class PropertiesClassRegistry:
     MATERIALS = np.array([
         MaterialProperties, # Index 0

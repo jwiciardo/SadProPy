@@ -145,9 +145,12 @@ class Sec_Aggregator:
 # PROPERTIES: SLAB SECTIONS
 @dataclass(slots=True, frozen=True)
 class SlabSections:
-    sec_name: str
-    base_mat: str
-    t: float
+    index: np.ndarray                   # int32, shape (N,)
+    sec_name: np.ndarray                # str, shape (N,)
+    base_mat_class: np.ndarray          # int32, shape (N,)
+    base_mat_idx: np.ndarray            # int32, shape (N,)
+    properties: np.ndarray              # float64, shape (N,)
+    name_to_idx: dict[str, np.int32]
 
 # MODEL DATA
 @dataclass(slots=True)

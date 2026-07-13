@@ -28,6 +28,7 @@ from ._propertiesclass import (
     FrameSectionProperties,
     FiberSectionProperties,
     SectionAggregatorProperties,
+    SlabSectionProperties,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -677,14 +678,32 @@ class ExcelTranslator:
 
     def _translate_slab_sections(self):
         data = self._reader.read(sheet_name="Slab Sections", start_row=6) # Reading Sheet "Slab Sections" in the Input file
-        slab_sections = {}
-        for row in data:
-            sec_name, base_mat, t = row["Section Name"], row["Base Material"], row["t"]
-            slab_sections[str(sec_name)] = SlabSections(
-                sec_name = str(sec_name),
-                base_mat = str(base_mat),
-                t = float(self._to_internalunit_length(t)),
-            ) # Defining dataclass for each slab section
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        sec_name = np.empty(n, dtype="U32")
+        base_mat_class = np.empty(n, dtype=np.int32)
+        base_mat_idx = np.empty(n, dtype=np.int32)
+        properties = np.zeros((n, len(SlabSectionProperties)), dtype=np.float64)
+        name_to_idx = {}
+        for i, row in enumerate(data):
+            name = str(row["Section Name"])
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Section name '{name}'")
+            name_to_idx[name] = index[i]
+            sec_name[i] = name
+            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            base_mat_class[i] = mat_class
+            base_mat_idx[i] = mat_idx
+            t = self._to_internalunit_length(row["t"])
+            properties[i] = (t)
+        slab_sections = SlabSections(
+            index = index,
+            sec_name = sec_name,
+            base_mat_class = base_mat_class,
+            base_mat_idx = base_mat_idx,
+            properties = properties,
+            name_to_idx = name_to_idx,
+        ) # Defining dataclass for each slab section
         return slab_sections
     
     def _translate_point_objects(self):
