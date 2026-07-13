@@ -118,6 +118,7 @@ class Sec_Fiber:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
+    element_type: np.ndarray            # str, shape (N,)
     base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
     integration_type: np.ndarray        # str, shape (N,)
@@ -125,24 +126,21 @@ class Sec_Fiber:
     mats_idx: np.ndarray                # float64, shape (N,3) --> mat_1, mat_2, mat_3
     mat_type: np.ndarray                # str, shape (N,)
     sec_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,22)
+    properties: np.ndarray              # float64, shape (N,19)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Sec_Aggregator:
-    sec_name: str
-    aggregated_sec: str
-    base_mat: str
-    sec_model: str
-    aggregator_type: str
-    h: float
-    b: float
-    A: float
-    Avy: float
-    Avz: float
-    Iz: float
-    Iy: float
-    Jxx: float
+    index: np.ndarray                   # int32, shape (N,)
+    sec_name: np.ndarray                # str, shape (N,)
+    aggregator_type: str                # str, shape (N,)
+    aggregated_sec_class: np.ndarray    # int32, shape (N,)
+    aggregated_sec_idx: np.ndarray      # int32, shape (N,)
+    base_mat_class: np.ndarray          # int32, shape (N,)
+    base_mat_idx: np.ndarray            # int32, shape (N,)
+    sec_model: str                      # str, shape (N,)
+    properties: np.ndarray              # float64, shape (N,8)
+    name_to_idx: dict[str, np.int32]
 
 # PROPERTIES: SLAB SECTIONS
 @dataclass(slots=True, frozen=True)

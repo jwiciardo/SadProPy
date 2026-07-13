@@ -10,13 +10,15 @@ mat_concrete04 = modeldata.mat_concrete04
 mat_steel02 = modeldata.mat_steel02
 mat_minmax = modeldata.mat_minmax
 mat_imk = modeldata.mat_imk
-mat_lists = modeldata.mat_lists
+materials_list = modeldata.materials_list
 frame_sections = modeldata.frame_sections
+sec_fiber = modeldata.sec_fiber
+sec_aggregator = modeldata.sec_aggregator
+sections_list = modeldata.sections_list
 slab_sections = modeldata.slab_sections
 storeys = modeldata.storeys
 point_objects = modeldata.point_objects
 line_objects = modeldata.line_objects
 surface_objects = modeldata.surface_objects
-sec_fiber = modeldata.sec_fiber
-sec_aggregator = modeldata.sec_aggregator
-print(mat_lists)
+
+print(materials_list)

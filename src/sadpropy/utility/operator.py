@@ -31,7 +31,7 @@ def rebar_area(dia):
      return A_rebar
 
 # COMPUTE SECTION PROPERTIES
-def _rectangular_section(properties):
+def _rectangular_concrete_section(properties):
     h = properties[:, FrameSectionProperties.h]
     b = properties[:, FrameSectionProperties.b]
 
@@ -47,11 +47,12 @@ def _rectangular_section(properties):
     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
 
 SECTION_FUNCTIONS = {
-    "Rectangular": _rectangular_section,
-    #"Circle": _circle_section,
+    ("Concrete", "Rectangular"): _rectangular_concrete_section,
+    #("Steel", "Wide Flange"): _wideflange_steel_section,
+    #("Concrete", "Circular"): _circular_concrete_section,
 }
 
-def section_properties(sec_shape, properties):
+def section_properties(sec_shape, mat_type, properties):
      n = len(sec_shape)
      A = np.zeros(n)
      Avy = np.zeros(n)
@@ -61,25 +62,28 @@ def section_properties(sec_shape, properties):
      Jxx = np.zeros(n)
      alphaY = np.zeros(n)
      alphaZ = np.zeros(n)
-     for shape in np.unique(sec_shape):
-        mask = sec_shape == shape
-        try:
-             section_func = SECTION_FUNCTIONS[shape]
-        except KeyError:
-            raise ValidationError(f"Unsupported section shape '{shape}'")
-        (
-             A[mask],
-             Avy[mask],
-             Avz[mask],
-             Iz[mask],
-             Iy[mask],
-             Jxx[mask],
-             alphaY[mask],
-             alphaZ[mask],
-        ) = section_func(properties[mask])
+     for mattype, shape in np.unique(np.column_stack((mat_type, sec_shape)), axis=0,):
+          mask = ((mat_type == mattype) & (sec_shape == shape))
+          try:
+               section_func = SECTION_FUNCTIONS[(mattype, shape)]
+          except KeyError:
+               raise ValidationError(
+                    f"Unsupported section "
+                    f"'{mattype} {shape}'"
+               )
+          (
+               A[mask],
+               Avy[mask],
+               Avz[mask],
+               Iz[mask],
+               Iy[mask],
+               Jxx[mask],
+               alphaY[mask],
+               alphaZ[mask],
+          ) = section_func(properties[mask])
      return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
 
-def _rectangular_fibersection(properties):
+def _rectangular_concrete_fibersection(properties):
      h = properties[:, FiberSectionProperties.h]
      b = properties[:, FiberSectionProperties.b]
      cover = properties[:, FiberSectionProperties.cover]
@@ -153,11 +157,12 @@ def _rectangular_fibersection(properties):
      return (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,)
 
 FIBERSECTION_FUNCTIONS = {
-    "Rectangular": _rectangular_fibersection,
-    #"Circle": _circle_fibersection,
+    ("Concrete", "Rectangular"): _rectangular_concrete_fibersection,
+    #("Steel", "Wide Flange"): _wideflange_steel_fibersection,
+    #("Concrete", "Circular"): _circular_concrete_fibersection,
 }
 
-def fibersection_properties(sec_shape, properties):
+def fibersection_properties(sec_shape, mat_type, properties):
      n = len(sec_shape)
      A = np.zeros(n)
      Avy = np.zeros(n)
@@ -168,21 +173,24 @@ def fibersection_properties(sec_shape, properties):
      Abar_top = np.zeros(n)
      Abar_bot = np.zeros(n)
      Abar_int = np.zeros(n)
-     for shape in np.unique(sec_shape):
-        mask = sec_shape == shape
-        try:
-             section_func = FIBERSECTION_FUNCTIONS[shape]
-        except KeyError:
-            raise ValidationError(f"Unsupported section shape '{shape}'")
-        (
-             A[mask],
-             Avy[mask],
-             Avz[mask],
-             Iz[mask],
-             Iy[mask],
-             Jxx[mask],
-             Abar_top[mask],
-             Abar_bot[mask],
-             Abar_int[mask],
-        ) = section_func(properties[mask])
+     for mattype, shape in np.unique(np.column_stack((mat_type, sec_shape)), axis=0,):
+          mask = ((mat_type == mattype) & (sec_shape == shape))
+          try:
+               section_func = FIBERSECTION_FUNCTIONS[(mattype, shape)]
+          except KeyError:
+               raise ValidationError(
+                    f"Unsupported section "
+                    f"'{mattype} {shape}'"
+               )
+          (
+               A[mask],
+               Avy[mask],
+               Avz[mask],
+               Iz[mask],
+               Iy[mask],
+               Jxx[mask],
+               Abar_top[mask],
+               Abar_bot[mask],
+               Abar_int[mask],
+          ) = section_func(properties[mask])
      return (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,)

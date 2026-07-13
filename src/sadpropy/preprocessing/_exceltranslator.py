@@ -27,6 +27,7 @@ from ._propertiesclass import (
     IMKProperties,
     FrameSectionProperties,
     FiberSectionProperties,
+    SectionAggregatorProperties,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -526,7 +527,7 @@ class ExcelTranslator:
             kIy[i] = row["k_Iy"]
             kJxx[i] = row["k_Jxx"]
             properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(sec_shape, properties)
+        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(sec_shape, mat_type, properties)
         properties[:, FrameSectionProperties.A] = kA * A
         properties[:, FrameSectionProperties.Avy] = kAvy * Avy
         properties[:, FrameSectionProperties.Avz] = kAvz * Avz
@@ -556,6 +557,7 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         sec_shape = np.empty(n, dtype="U15")
+        element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
         integration_type = np.empty(n, dtype="U15")
@@ -575,6 +577,7 @@ class ExcelTranslator:
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
+            element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
             integration_type[i] = str(row["Integration Type"])
             mat_1_class, _, mat_1_idx = self._retrieve_material_index(str(row["Material 1"]))
             mat_2_class, _, mat_2_idx = self._retrieve_material_index(str(row["Material 2"]))
@@ -586,7 +589,6 @@ class ExcelTranslator:
             cover, nbars_top, nbars_bot, nbars_int = self._to_internalunit_length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
             bar_dia_hoop, bar_dia_top = self._to_internalunit_length(row["barDiaHoop"]), self._to_internalunit_length(row["barDiaTop"])
             bar_dia_bot, bar_dia_int = self._to_internalunit_length(row["barDiaBot"]), self._to_internalunit_length(row["barDiaInt"])
-            
             properties[i] = (0.0, 0.0, cover, nbars_top, nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int,
                              0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         base_sec_props = get_section_properties(
@@ -596,7 +598,7 @@ class ExcelTranslator:
             ["h", "b"]
         )
         properties[:, FiberSectionProperties.h:FiberSectionProperties.b+1] = base_sec_props
-        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(sec_shape, properties)
+        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(sec_shape, mat_type, properties)
         properties[:, FiberSectionProperties.A] = A
         properties[:, FiberSectionProperties.Avy] = Avy
         properties[:, FiberSectionProperties.Avz] = Avz
@@ -610,6 +612,7 @@ class ExcelTranslator:
             index = index,
             sec_name = sec_name,
             sec_shape = sec_shape,
+            element_type = element_type,
             base_sec_class = base_sec_class,
             base_sec_idx = base_sec_idx,
             integration_type = integration_type,
@@ -619,37 +622,57 @@ class ExcelTranslator:
             sec_model = sec_model,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Defining dictionary for each frame section
+        ) # Defining dataclass for each frame section
         self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section Lists
-        print(sec_fiber)
         return sec_fiber
     
-    def _translate_sec_aggregator(self, sections_list):
+    def _translate_sec_aggregator(self):
         data = self._reader.read(sheet_name="Sec_Aggregator", start_row=8) # Reading Sheet "Sec_Aggregator" in the Input file
-        sec_aggregator = {}
-        for row in data:
-            sec_name, aggregated_sec, base_mat, sec_model, aggregator_type = row["Section Name"], row["Aggregated Section"], row["Base Material"], row["Section Model"], row["Aggregator Type"]
-            for sections in sections_list:
-                if aggregated_sec in sections:
-                    aggregated_sec_data = sections[aggregated_sec]
-                    h, b, A, Avy, Avz, Iz, Iy, Jxx = aggregated_sec_data.h, aggregated_sec_data.b, aggregated_sec_data.A, aggregated_sec_data.Avy, aggregated_sec_data.Avz, aggregated_sec_data.Iz, aggregated_sec_data.Iy, aggregated_sec_data.Jxx
-                else:
-                    continue
-            sec_aggregator[str(sec_name)] = Sec_Aggregator(
-                sec_name = str(sec_name),
-                aggregated_sec = str(aggregated_sec),
-                base_mat = str(base_mat),
-                sec_model = str(sec_model),
-                aggregator_type = str(aggregator_type),
-                h = float(h),
-                b = float(b),
-                A = float(A),
-                Avy = float(Avy),
-                Avz = float(Avz),
-                Iz = float(Iz),
-                Iy = float(Iy),
-                Jxx = float(Jxx),
-            ) # Defining dictionary for each frame section
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        sec_name = np.empty(n, dtype="U32")
+        aggregator_type = np.empty(n, dtype="U32")
+        aggregated_sec_class = np.empty(n, dtype=np.int32)
+        aggregated_sec_idx = np.empty(n, dtype=np.int32)
+        base_mat_class = np.empty(n, dtype=np.int32)
+        base_mat_idx = np.empty(n, dtype=np.int32)
+        sec_model = np.empty(n, dtype="U15")
+        properties = np.zeros((n, len(SectionAggregatorProperties)), dtype=np.float64)
+        name_to_idx = {}
+        for i, row in enumerate(data):
+            name = str(row["Section Name"])
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Section name '{name}'")
+            name_to_idx[name] = index[i]
+            sec_name[i] = name
+            aggregator_type[i] = str(row["Aggregator Type"])
+            sec_class, _, sec_idx = self._retrieve_section_index(str(row["Aggregated Section"]))
+            aggregated_sec_class[i] = sec_class
+            aggregated_sec_idx[i] = sec_idx
+            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            base_mat_class[i] = mat_class
+            base_mat_idx[i] = mat_idx
+            sec_model[i] = str(row["Section Model"])
+        base_sec_props = get_section_properties(
+            self._secs_list,
+            aggregated_sec_class,
+            aggregated_sec_idx,
+            ["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"]
+        )
+        properties[:, SectionAggregatorProperties.h:SectionAggregatorProperties.Jxx+1] = base_sec_props
+        sec_aggregator = Sec_Aggregator(
+            index = index,
+            sec_name = sec_name,
+            aggregator_type = aggregator_type,
+            aggregated_sec_class = aggregated_sec_class,
+            aggregated_sec_idx = aggregated_sec_idx,
+            base_mat_class = base_mat_class,
+            base_mat_idx = base_mat_idx,
+            sec_model = sec_model,
+            properties = properties,
+            name_to_idx = name_to_idx,
+        ) # Defining dataclass for each frame section
+        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into Section Lists
         return sec_aggregator
 
     def _translate_slab_sections(self):

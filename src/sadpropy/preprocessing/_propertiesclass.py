@@ -108,6 +108,16 @@ class FiberSectionProperties(IntEnum):
     Abar_bot = 17
     Abar_int = 18
 
+class SectionAggregatorProperties(IntEnum):
+    h = 0
+    b = 1
+    A = 2
+    Avy = 3
+    Avz = 4
+    Iz = 5
+    Iy = 6
+    Jxx = 7
+
 class PropertiesClassRegistry:
     MATERIALS = np.array([
         MaterialProperties, # Index 0
@@ -120,6 +130,7 @@ class PropertiesClassRegistry:
     SECTIONS = np.array([
         FrameSectionProperties, # Index 0
         FiberSectionProperties, # Index 1
+        SectionAggregatorProperties, # Index 2
     ], dtype=object)
 
     def _get_mat_props_class(self, mat_class):
