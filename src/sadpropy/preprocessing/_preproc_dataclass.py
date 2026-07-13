@@ -72,7 +72,7 @@ class Mat_Concrete04:
 class Mat_Steel02:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
-    base_mat_table_idx: np.ndarray      # int32, shape (N,)
+    base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,14)
@@ -82,7 +82,7 @@ class Mat_Steel02:
 class Mat_MinMax:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
-    base_nl_mat_table_idx: np.ndarray   # str, shape (N,)
+    base_nl_mat_class: np.ndarray       # int32, shape (N,)
     base_nl_mat_idx: np.ndarray         # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,6)
@@ -101,7 +101,9 @@ class Mat_IMK:
 class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
-    sec_shape_model: np.ndarray         # str, shape (N,2) --> sec_shape, sec_model
+    sec_shape: np.ndarray               # str, shape (N,)
+    sec_model: np.ndarray               # str, shape (N,)
+    base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     element_type: np.ndarray            # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
@@ -172,6 +174,7 @@ class ModelData:
     mat_steel02: Mat_Steel02
     mat_minmax: Mat_MinMax
     mat_imk: Mat_IMK
+    materials_list: list
     frame_sections: FrameSections
     sec_fiber: Sec_Fiber
     sec_aggregator: Sec_Aggregator

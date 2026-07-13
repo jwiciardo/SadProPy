@@ -1,6 +1,5 @@
+import numpy as np
 from enum import IntEnum
-from dataclasses import dataclass
-from sadpropy.utility._exceptions import ValidationError
 
 class MaterialProperties(IntEnum):
     Unitweight = 0
@@ -88,7 +87,6 @@ class FrameSectionProperties(IntEnum):
     ALPHAY = 8
     ALPHAZ = 9
 
-
 class FiberSectionProperties(IntEnum):
     H = 0
     B = 1
@@ -101,21 +99,18 @@ class FiberSectionProperties(IntEnum):
     ALPHAY = 8
     ALPHAZ = 9
 
-class PropertiesRegistry:
-    MATERIALS = {
-        int(0): MaterialProperties,
-        int(1): Concrete04Properties,
-        int(2): Steel02Properties,
-        int(3): MinMaxProperties,
-        int(4): IMKProperties,
-    }
+class PropertiesClassRegistry:
+    MATERIALS = np.array([
+        MaterialProperties, # Index 0
+        Concrete04Properties, # Index 1
+        Steel02Properties, # Index 2
+        MinMaxProperties, # Index 3
+        IMKProperties, # Index 4
+    ], dtype=object)
 
-    def _get_materialproperties(self, mat_class):
+    SECTIONS = np.array([
+
+    ])
+
+    def _get_mat_props_class(self, mat_class):
         return self.MATERIALS[mat_class]
-
-class MaterialClass(IntEnum):
-    Materials = 0
-    Mat_Concrete04 = 1
-    Mat_Steel02 = 2
-    Mat_MinMax = 3
-    Mat_IMK = 4
