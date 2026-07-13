@@ -61,6 +61,7 @@ class Materials:
 class Mat_Concrete04:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
@@ -72,6 +73,7 @@ class Mat_Concrete04:
 class Mat_Steel02:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
@@ -82,6 +84,7 @@ class Mat_Steel02:
 class Mat_MinMax:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
     base_nl_mat_class: np.ndarray       # int32, shape (N,)
     base_nl_mat_idx: np.ndarray         # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
@@ -102,10 +105,11 @@ class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
-    sec_model: np.ndarray               # str, shape (N,)
+    element_type: np.ndarray            # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
-    element_type: np.ndarray            # str, shape (N,)
+    mat_type: np.ndarray                # str, shape (N,)
+    sec_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
     name_to_idx: dict[str, np.int32]
 
@@ -113,32 +117,16 @@ class FrameSections:
 class Sec_Fiber:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
+    sec_shape: np.ndarray               # str, shape (N,)
+    base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
     integration_type: np.ndarray        # str, shape (N,)
+    mats_class: np.ndarray              # float64, shape (N,3) --> mat_1, mat_2, mat_3
+    mats_idx: np.ndarray                # float64, shape (N,3) --> mat_1, mat_2, mat_3
     mat_type: np.ndarray                # str, shape (N,)
-    mat_idx: np.ndarray                 # float64, shape (N,3) --> mat_1, mat_2, mat_3
     sec_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,19)
+    properties: np.ndarray              # float64, shape (N,22)
     name_to_idx: dict[str, np.int32]
-    h: float
-    b: float
-    cover: float
-    nbars_top: int
-    nbars_bot: int
-    nbars_int: int
-    bar_dia_hoop: float
-    bar_dia_top: float
-    bar_dia_bot: float
-    bar_dia_int: float
-    A: float
-    Avy: float
-    Avz: float
-    Iz: float
-    Iy: float 
-    Jxx: float
-    Abar_top: float
-    Abar_bot: float
-    Abar_int: float
 
 @dataclass(slots=True, frozen=True)
 class Sec_Aggregator:
@@ -178,6 +166,7 @@ class ModelData:
     frame_sections: FrameSections
     sec_fiber: Sec_Fiber
     sec_aggregator: Sec_Aggregator
+    sections_list: list
     slab_sections: SlabSections
     storeys: Storeys
     point_objects: PointObjects

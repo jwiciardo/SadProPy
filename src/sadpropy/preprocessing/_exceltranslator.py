@@ -26,6 +26,7 @@ from ._propertiesclass import (
     MinMaxProperties,
     IMKProperties,
     FrameSectionProperties,
+    FiberSectionProperties,
 )
 from sadpropy.utility import (
     UnitConverter,
@@ -36,7 +37,7 @@ from sadpropy.utility import (
     TagManager,
 )
 from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility.helper import get_material_properties
+from sadpropy.utility.helper import get_material_properties, get_section_properties
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -71,6 +72,7 @@ class ExcelTranslator:
         self._unitregistry = UnitRegistry()
         self._unitconverter = UnitConverter(self._unitregistry)
         self._mats_list = []
+        self._secs_list = []
 
     # UNIT CONVERTER METHODS TO INTERNAL UNITS
     def _to_internalunit_length(self, value):
@@ -146,9 +148,9 @@ class ExcelTranslator:
         mat_imk = self._translate_mat_imk()
         materials_list = self._mats_list
         frame_sections = self._translate_frame_sections()
-        sec_fiber = self._translate_sec_fiber(frame_sections, materials)
-        sections_list = (frame_sections, sec_fiber)
-        sec_aggregator = self._translate_sec_aggregator(sections_list)
+        sec_fiber = self._translate_sec_fiber()
+        sec_aggregator = self._translate_sec_aggregator()
+        sections_list = self._secs_list
         slab_sections = self._translate_slab_sections()
         point_objects, storeys = self._translate_point_objects()
         line_objects = self._translate_line_objects(point_objects)
@@ -166,6 +168,7 @@ class ExcelTranslator:
             "frame_sections": frame_sections,
             "sec_fiber": sec_fiber,
             "sec_aggregator": sec_aggregator,
+            "sections_list": sections_list,
             "slab_sections": slab_sections,
             "storeys": storeys,
             "point_objects": point_objects,
@@ -196,6 +199,13 @@ class ExcelTranslator:
             if mat_idx is not None:
                 return mat_class, mat, mat_idx
         raise ValidationError(f"Material '{mat_name}' not found.")
+    
+    def _retrieve_section_index(self, sec_name):
+        for sec_class, sec in enumerate(self._secs_list):
+            sec_idx = sec.name_to_idx.get(sec_name)
+            if sec_idx is not None:
+                return sec_class, sec, sec_idx
+        raise ValidationError(f"Section '{sec_name}' not found.")
     
     # SUPPORTING METHODS
     def _translate_project_information(self):
@@ -271,6 +281,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
+        mat_type = np.empty(n, dtype="U15")
         base_mat_class = np.empty(n, dtype=np.int32)
         base_mat_idx = np.empty(n, dtype=np.int32)
         mat_model = np.empty(n, dtype="U15")
@@ -285,6 +296,7 @@ class ExcelTranslator:
             mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
+            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
             fc = self._to_internalunit_stress(row["fc"])
             epsc, epscu = row["epsc"], row["epscu"]
@@ -302,6 +314,7 @@ class ExcelTranslator:
         mat_concrete04 = Mat_Concrete04(
             index = index,
             mat_name = mat_name,
+            mat_type = mat_type,
             base_mat_class = base_mat_class,
             base_mat_idx = base_mat_idx,
             mat_model = mat_model,
@@ -316,6 +329,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
+        mat_type = np.empty(n, dtype="U15")
         base_mat_class = np.empty(n, dtype=np.int32)
         base_mat_idx = np.empty(n, dtype=np.int32)
         mat_model = np.empty(n, dtype="U15")
@@ -334,6 +348,7 @@ class ExcelTranslator:
             mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
+            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
             fy[i] = self._to_internalunit_stress(row["fy"])
             b[i] = row["b"]
@@ -368,6 +383,7 @@ class ExcelTranslator:
         mat_steel02 = Mat_Steel02(
             index = index,
             mat_name = mat_name,
+            mat_type = mat_type,
             base_mat_class = base_mat_class,
             base_mat_idx = base_mat_idx,
             mat_model = mat_model,
@@ -382,6 +398,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
+        mat_type = np.empty(n, dtype="U15")
         base_nl_mat_class = np.empty(n, dtype=np.int32)
         base_nl_mat_idx = np.empty(n, dtype=np.int32)
         mat_model = np.empty(n, dtype="U15")
@@ -396,6 +413,7 @@ class ExcelTranslator:
             mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base NL Material"]))
             base_nl_mat_class[i] = mat_class
             base_nl_mat_idx[i] = mat_idx
+            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
             ec_max = row["ecmax"]
             et_max = row["etmax"]
@@ -410,6 +428,7 @@ class ExcelTranslator:
         mat_minmax = Mat_MinMax(
             index = index,
             mat_name = mat_name,
+            mat_type = mat_type,
             base_nl_mat_class = base_nl_mat_class,
             base_nl_mat_idx = base_nl_mat_idx,
             mat_model = mat_model,
@@ -472,10 +491,11 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         sec_shape = np.empty(n, dtype="U15")
-        sec_model = np.empty(n, dtype="U15")
+        element_type = np.empty(n, dtype="U15")
         base_mat_class = np.empty(n, dtype=np.int32)
         base_mat_idx = np.empty(n, dtype=np.int32)
-        element_type = np.empty(n, dtype="U15")
+        mat_type = np.empty(n, dtype="U15")
+        sec_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(FrameSectionProperties)), dtype=np.float64)
         name_to_idx = {}
         kA = np.zeros(n, dtype=np.float64)
@@ -491,11 +511,12 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             sec_name[i] = name
             sec_shape[i] = str(row["Section Shape"])
-            sec_model[i] = str(row["Section Model"])
+            element_type[i] = (str(row["Element Type"]))
             mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
-            element_type[i] = (str(row["Element Type"]))
+            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
+            sec_model[i] = str(row["Section Model"])
             h = self._to_internalunit_length(row["h"])
             b = self._to_internalunit_length(row["b"])
             kA[i] = row["k_A"]
@@ -507,70 +528,100 @@ class ExcelTranslator:
             properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(sec_shape, properties)
         properties[:, FrameSectionProperties.A] = kA * A
-        properties[:, FrameSectionProperties.AVY] = kAvy * Avy
-        properties[:, FrameSectionProperties.AVZ] = kAvz * Avz
-        properties[:, FrameSectionProperties.IZ] = kIz * Iz
-        properties[:, FrameSectionProperties.IY] = kIy * Iy
-        properties[:, FrameSectionProperties.JXX] = kJxx * Jxx
-        properties[:, FrameSectionProperties.ALPHAY] = alphaY
-        properties[:, FrameSectionProperties.ALPHAZ] = alphaZ
+        properties[:, FrameSectionProperties.Avy] = kAvy * Avy
+        properties[:, FrameSectionProperties.Avz] = kAvz * Avz
+        properties[:, FrameSectionProperties.Iz] = kIz * Iz
+        properties[:, FrameSectionProperties.Iy] = kIy * Iy
+        properties[:, FrameSectionProperties.Jxx] = kJxx * Jxx
+        properties[:, FrameSectionProperties.AlphaY] = alphaY
+        properties[:, FrameSectionProperties.AlphaZ] = alphaZ
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,
             sec_shape = sec_shape,
-            sec_model = sec_model,
+            element_type = element_type,
             base_mat_class = base_mat_class,
             base_mat_idx = base_mat_idx,
-            element_type = element_type,
+            mat_type = mat_type,
+            sec_model = sec_model,
             properties = properties,
             name_to_idx = name_to_idx
         ) # Defining dataclass for each frame section
-        print(frame_sections)
+        self._secs_list.append(frame_sections) # Append FrameSections Properties into Section Lists
         return frame_sections
     
-    def _translate_sec_fiber(self, frame_sections, materials):
+    def _translate_sec_fiber(self):
         data = self._reader.read(sheet_name="Sec_Fiber", start_row=18) # Reading Sheet "Sec_Fiber" in the Input file
-        sec_fiber = {}
-        for row in data:
-            sec_name, base_sec, integration_type = row["Section Name"], row["Base Section"], row["Integration Type"]
-            mat_1, mat_2, mat_3, sec_model = row["Material 1"], row["Material 2"], row["Material 3"], row["Section Model"]
-            cover, nbars_top, nbars_bot, nbars_int = row["cover"], row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
-            bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int = row["barDiaHoop"], row["barDiaTop"], row["barDiaBot"], row["barDiaInt"]
-            base_sec_data = frame_sections[base_sec]
-            h, b, sec_shape, base_mat = base_sec_data.h, base_sec_data.b, base_sec_data.sec_shape, base_sec_data.base_mat
-            base_mat_data = materials[base_mat]
-            mat_type = base_mat_data.mat_type
-            row["h"], row["b"], row["Section Shape"], row["Material Type"] = h, b, sec_shape, mat_type
-            A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int = fibersection_properties(row)
-            sec_fiber[str(sec_name)] = Sec_Fiber(
-                sec_name = str(sec_name),
-                base_sec = str(base_sec),
-                integration_type = str(integration_type),
-                mat_type = str(mat_type),
-                mat_1 = str(mat_1),
-                mat_2 = str(mat_2),
-                mat_3 = str(mat_3),
-                sec_model = str(sec_model),
-                h = float(h),
-                b = float(b),
-                cover = float(self._to_internalunit_length(cover)),
-                nbars_top = int(nbars_top),
-                nbars_bot = int(nbars_bot),
-                nbars_int = int(nbars_int),
-                bar_dia_hoop = float(self._to_internalunit_length(bar_dia_hoop)),
-                bar_dia_top = float(self._to_internalunit_length(bar_dia_top)),
-                bar_dia_bot = float(self._to_internalunit_length(bar_dia_bot)),
-                bar_dia_int = float(self._to_internalunit_length(bar_dia_int)),
-                A = float(A),
-                Avy = float(Avy),
-                Avz = float(Avz),
-                Iz = float(Iz),
-                Iy = float(Iy),
-                Jxx = float(Jxx),
-                Abar_top = float(Abar_top),
-                Abar_bot = float(Abar_bot),
-                Abar_int = float(Abar_int),
-            ) # Defining dictionary for each frame section
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        sec_name = np.empty(n, dtype="U32")
+        sec_shape = np.empty(n, dtype="U15")
+        base_sec_class = np.empty(n, dtype=np.int32)
+        base_sec_idx = np.empty(n, dtype=np.int32)
+        integration_type = np.empty(n, dtype="U15")
+        mats_class = np.empty((n, 3), dtype=np.int32)
+        mats_idx = np.empty((n, 3), dtype=np.int32)
+        mat_type = np.empty(n, dtype="U15")
+        sec_model = np.empty(n, dtype="U15")
+        properties = np.zeros((n, len(FiberSectionProperties)), dtype=np.float64)
+        name_to_idx = {}
+        for i, row in enumerate(data):
+            name = str(row["Section Name"])
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Section name '{name}'")
+            name_to_idx[name] = index[i]
+            sec_name[i] = name
+            sec_class, _, sec_idx = self._retrieve_section_index(str(row["Base Section"]))
+            base_sec_class[i] = sec_class
+            base_sec_idx[i] = sec_idx
+            sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
+            integration_type[i] = str(row["Integration Type"])
+            mat_1_class, _, mat_1_idx = self._retrieve_material_index(str(row["Material 1"]))
+            mat_2_class, _, mat_2_idx = self._retrieve_material_index(str(row["Material 2"]))
+            mat_3_class, _, mat_3_idx = self._retrieve_material_index(str(row["Material 3"]))
+            mats_class[i, :3] = (mat_1_class, mat_2_class, mat_3_class)
+            mats_idx[i, :3] = (mat_1_idx, mat_2_idx, mat_3_idx)
+            mat_type[i] = self._mats_list[mat_1_class].mat_type[mat_1_idx]
+            sec_model[i] = str(row["Section Model"])
+            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunit_length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
+            bar_dia_hoop, bar_dia_top = self._to_internalunit_length(row["barDiaHoop"]), self._to_internalunit_length(row["barDiaTop"])
+            bar_dia_bot, bar_dia_int = self._to_internalunit_length(row["barDiaBot"]), self._to_internalunit_length(row["barDiaInt"])
+            
+            properties[i] = (0.0, 0.0, cover, nbars_top, nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int,
+                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        base_sec_props = get_section_properties(
+            self._secs_list,
+            base_sec_class,
+            base_sec_idx,
+            ["h", "b"]
+        )
+        properties[:, FiberSectionProperties.h:FiberSectionProperties.b+1] = base_sec_props
+        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(sec_shape, properties)
+        properties[:, FiberSectionProperties.A] = A
+        properties[:, FiberSectionProperties.Avy] = Avy
+        properties[:, FiberSectionProperties.Avz] = Avz
+        properties[:, FiberSectionProperties.Iz] = Iz
+        properties[:, FiberSectionProperties.Iy] = Iy
+        properties[:, FiberSectionProperties.Jxx] = Jxx
+        properties[:, FiberSectionProperties.Abar_top] = Abar_top
+        properties[:, FiberSectionProperties.Abar_bot] = Abar_bot
+        properties[:, FiberSectionProperties.Abar_int] = Abar_int
+        sec_fiber = Sec_Fiber(
+            index = index,
+            sec_name = sec_name,
+            sec_shape = sec_shape,
+            base_sec_class = base_sec_class,
+            base_sec_idx = base_sec_idx,
+            integration_type = integration_type,
+            mats_class = mats_class,
+            mats_idx = mats_idx,
+            mat_type = mat_type,
+            sec_model = sec_model,
+            properties = properties,
+            name_to_idx = name_to_idx,
+        ) # Defining dictionary for each frame section
+        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section Lists
+        print(sec_fiber)
         return sec_fiber
     
     def _translate_sec_aggregator(self, sections_list):

@@ -76,28 +76,37 @@ class IMKProperties(IntEnum):
     D_neg = 26
 
 class FrameSectionProperties(IntEnum):
-    H = 0
-    B = 1
+    h = 0
+    b = 1
     A = 2
-    AVY = 3
-    AVZ = 4
-    IZ = 5
-    IY = 6
-    JXX = 7
-    ALPHAY = 8
-    ALPHAZ = 9
+    Avy = 3
+    Avz = 4
+    Iz = 5
+    Iy = 6
+    Jxx = 7
+    AlphaY = 8
+    AlphaZ = 9
 
 class FiberSectionProperties(IntEnum):
-    H = 0
-    B = 1
-    A = 2
-    AVY = 3
-    AVZ = 4
-    IZ = 5
-    IY = 6
-    JXX = 7
-    ALPHAY = 8
-    ALPHAZ = 9
+    h = 0
+    b = 1
+    cover = 2
+    nBars_top = 3
+    nBars_bot = 4
+    nBars_int = 5
+    barDia_hoop = 6
+    barDia_top = 7
+    barDia_bot = 8
+    barDia_int = 9
+    A = 10
+    Avy = 11
+    Avz = 12
+    Iz = 13
+    Iy = 14
+    Jxx = 15
+    Abar_top = 16
+    Abar_bot = 17
+    Abar_int = 18
 
 class PropertiesClassRegistry:
     MATERIALS = np.array([
@@ -109,8 +118,12 @@ class PropertiesClassRegistry:
     ], dtype=object)
 
     SECTIONS = np.array([
-
-    ])
+        FrameSectionProperties, # Index 0
+        FiberSectionProperties, # Index 1
+    ], dtype=object)
 
     def _get_mat_props_class(self, mat_class):
         return self.MATERIALS[mat_class]
+    
+    def _get_sec_props_class(self, sec_class):
+        return self.SECTIONS[sec_class]

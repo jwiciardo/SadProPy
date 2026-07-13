@@ -3,7 +3,7 @@ from collections import defaultdict
 from sadpropy.preprocessing._propertiesclass import PropertiesClassRegistry
 from ._exceptions import ValidationError
 
-__all__ = ["get_material_properties", "get_vertices_from_surface"]
+__all__ = ["get_material_properties", "get_section_properties", "get_vertices_from_surface"]
 
 # GET MATERIAL PROPERTIES
 def get_material_properties(mats_list, mat_class=np.ndarray, mat_idx=np.ndarray, props_name=list[str]):
@@ -22,6 +22,24 @@ def get_material_properties(mats_list, mat_class=np.ndarray, mat_idx=np.ndarray,
         for propcls in props_class
     ])
     return mat_props[row_idx, col_idx]
+
+# GET SECTION PROPERTIES
+def get_section_properties(secs_list, sec_class=np.ndarray, sec_idx=np.ndarray, props_name=list[str]):
+    n = len(sec_class)
+    props_class = PropertiesClassRegistry()._get_sec_props_class(sec_class)
+    max_ncol_props_class = np.max(np.array([len(propcls) for propcls in props_class])) # Maximum number of array columns in all section properties
+    sec_props = np.zeros((n, max_ncol_props_class), dtype=np.float64)
+    for cls in np.unique(sec_class):
+            mask = sec_class == cls
+            sec = secs_list[cls]
+            props = sec.properties[sec_idx[mask]]
+            sec_props[mask, :props.shape[1]] = props
+    row_idx = np.arange(n)[:, None]
+    col_idx = np.array(
+        [[getattr(propcls, propname) for propname in props_name]
+        for propcls in props_class
+    ])
+    return sec_props[row_idx, col_idx]
 
 # GET VERTICES FROM SURFACE
 def get_vertices_from_surface(edges, line_connectivity):
