@@ -157,6 +157,12 @@ class SlabSections:
     properties: np.ndarray              # float64, shape (N,)
     name_to_idx: dict[str, np.int32]
 
+# PROPERTIES: RESTRAINTS
+@dataclass(slots=True, frozen=True)
+class Restraints:
+    point_idx: np.ndarray               # int32, shape (N,)
+    dofs: np.ndarray                    # int32, shape (N,6)
+
 # MODEL DATA
 @dataclass(slots=True)
 class ModelData:
@@ -178,16 +184,15 @@ class ModelData:
     point_objects: PointObjects
     line_objects: LineObjects
     surface_objects: SurfaceObjects
+    restraints: Restraints
 
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
 class Nodes:
-    tag: int
-    point_id: int
-    index: int
-    x: float
-    y: float
-    z: float
+    index: np.ndarray                   # int32, shape (N,)
+    point_idx: np.ndarray               # int32, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
+    coords: np.ndarray                  # float64, shape (N,3)
 
 @dataclass(slots=True, frozen=True)
 class BeamColumnElements:

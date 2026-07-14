@@ -20,5 +20,6 @@ storeys = modeldata.storeys
 point_objects = modeldata.point_objects
 line_objects = modeldata.line_objects
 surface_objects = modeldata.surface_objects
+restraints = modeldata.restraints
 
-print()
+print(restraints)

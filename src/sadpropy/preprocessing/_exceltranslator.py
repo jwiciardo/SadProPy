@@ -17,7 +17,7 @@ from ._preproc_dataclass import (
     LineObjects,
     SurfaceObjects,
     Storeys,
-    Nodes,
+    Restraints,
     )
 from ._propertiesclass import (
     MaterialProperties,
@@ -156,6 +156,7 @@ class ExcelTranslator:
         point_objects, storeys = self._translate_point_objects()
         line_objects = self._translate_line_objects(point_objects)
         surface_objects = self._translate_surface_objects(line_objects, slab_sections)
+        restraints = self._translate_restraints(point_objects)
         return {
             "project_information": project_information,
             "user_unitsystem": self._units,
@@ -175,6 +176,7 @@ class ExcelTranslator:
             "point_objects": point_objects,
             "line_objects": line_objects,
             "surface_objects": surface_objects,
+            "restraints": restraints,
         }
 
     # HELPER METHOD
@@ -792,8 +794,8 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
-        edges_idx = np.zeros((n, 4), dtype=np.int32)
-        vertices_idx = np.zeros((n, 4), dtype=np.int32)
+        edges_idx = np.empty((n, 4), dtype=np.int32)
+        vertices_idx = np.empty((n, 4), dtype=np.int32)
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         name_to_idx = {}
@@ -803,7 +805,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Surface object name '{name}'")
             name_to_idx[name] = index[i]
             unique_name[i] = name
-            edges_name = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"],) if edge is not None]
+            edges_name = [edge for edge in (str(row["Edge 1"]), str(row["Edge 2"]), str(row["Edge 3"]), str(row["Edge 4"]),) if edge is not None]
             for j, edge_name in enumerate(edges_name):
                 try:
                     edges_idx[i, j] = line_objects.name_to_idx[str(edge_name)]
@@ -852,3 +854,29 @@ class ExcelTranslator:
         ) # Defining dataclass for each surface object
         return surface_objects
     
+    def _translate_restraints(self, point_objects):
+        data = self._reader.read(sheet_name="Restraints", start_row=10) # Reading Sheet "Restraints" in the Input file
+        n = len(data)
+        point_idx = np.empty(n, dtype=np.int32)
+        dofs = np.empty((n, 6), dtype=np.int32)
+        idx_set = set()
+        for i, row in enumerate(data):
+            point_name = str(row["Point"])
+            idx = point_objects.name_to_idx[point_name]
+            if idx in idx_set:
+                raise ValidationError(f"Duplicate Restraints at Point '{point_name}'")
+            idx_set.add(idx)
+            point_idx[i] = idx
+            dofs[i] = (
+                int(row["UX"]),
+                int(row["UY"]),
+                int(row["UZ"]),
+                int(row["RX"]),
+                int(row["RY"]),
+                int(row["RZ"]),
+            )
+        restraints = Restraints(
+            point_idx = point_idx,
+            dofs = dofs,
+        ) # Defining dataclass for each restraint
+        return restraints
