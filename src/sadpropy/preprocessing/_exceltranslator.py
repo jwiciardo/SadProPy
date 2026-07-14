@@ -140,8 +140,7 @@ class ExcelTranslator:
     # MAIN METHOD: EXCEL TRANSLATOR
     def translate(self):
         project_information = self._translate_project_information()
-        user_unitsystem = self._translate_user_unitsystem()
-        self._units = user_unitsystem
+        self._units = self._translate_user_unitsystem()
         analysis_preferences = self._translate_analysis_preferences()
         materials = self._translate_materials()
         mat_concrete04 = self._translate_mat_concrete04()
@@ -156,10 +155,10 @@ class ExcelTranslator:
         slab_sections = self._translate_slab_sections()
         point_objects, storeys = self._translate_point_objects()
         line_objects = self._translate_line_objects(point_objects)
-        surface_objects = self._translate_surface_objects(line_objects)
+        surface_objects = self._translate_surface_objects(line_objects, slab_sections)
         return {
             "project_information": project_information,
-            "user_unitsystem": user_unitsystem,
+            "user_unitsystem": self._units,
             "analysis_preferences": analysis_preferences,
             "materials": materials,
             "mat_concrete04": mat_concrete04,
@@ -204,6 +203,13 @@ class ExcelTranslator:
     
     def _retrieve_section_index(self, sec_name):
         for sec_class, sec in enumerate(self._secs_list):
+            sec_idx = sec.name_to_idx.get(sec_name)
+            if sec_idx is not None:
+                return sec_class, sec, sec_idx
+        raise ValidationError(f"Section '{sec_name}' not found.")
+    
+    def _retrieve_slabsection_index(self, sec_name, secs_list):
+        for sec_class, sec in enumerate([secs_list]):
             sec_idx = sec.name_to_idx.get(sec_name)
             if sec_idx is not None:
                 return sec_class, sec, sec_idx
@@ -707,103 +713,107 @@ class ExcelTranslator:
         return slab_sections
     
     def _translate_point_objects(self):
-        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+        data = self._reader.read(sheet_name="Point Objects", start_row=8) # Reading Sheet "Point Objects" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        unique_names = np.empty(n, dtype="U15")
+        index = np.arange(n, dtype=np.int32)
+        unique_name = np.empty(n, dtype="U15")
         coords = np.empty((n, 3), dtype=np.float64)
-        name_to_id = {}
-        point_objects = {}
+        is_zero_length = np.empty(n, dtype=bool)
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Point object's name: {name}")
-            name_to_id[name] = ids[i]
-            unique_names[i] = name
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Point object name '{name}'")
+            name_to_idx[name] = index[i]
+            unique_name[i] = name
             coords[i] = (
                 self._to_internalunit_length(row["X"]),
                 self._to_internalunit_length(row["Y"]),
                 self._to_internalunit_length(row["Z"]),
             )
+            is_zero_length[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         point_objects = PointObjects(
-            ids = ids,
-            unique_names = unique_names,
+            index = index,
+            unique_name = unique_name,
             coords = coords,
-            name_to_id = name_to_id,
+            is_zero_length = is_zero_length,
+            name_to_idx = name_to_idx,
         ) # Defining dataclass for each point object
         storeys = self._generate_storeys(np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
         return point_objects, storeys
 
     def _translate_line_objects(self, point_objects):
-        data = self._reader.read(sheet_name="Line Objects", start_row=11) # Reading Sheet "Line Objects" in the Input file
+        data = self._reader.read(sheet_name="Line Objects", start_row=12) # Reading Sheet "Line Objects" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        unique_names = np.empty(n, dtype="U15")
-        end_point_ids = np.empty((n, 2), dtype=np.int32)
+        index = np.arange(n, dtype=np.int32)
+        unique_name = np.empty(n, dtype="U15")
+        end_points_idx = np.empty((n, 2), dtype=np.int32)
         end_offset_option = np.empty(n, dtype="U22")
         end_offsets = np.empty((n, 2), dtype=np.float64)
+        sec_class = np.empty(n, dtype=np.int32)
+        sec_idx = np.empty(n, dtype=np.int32)
         length = np.empty(n, dtype=np.float64)
         centroids = np.empty((n, 3), dtype=np.float64)
-        name_to_id = {}
-        line_objects = {}
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Line object's name: {name}")
-            name_to_id[name] = ids[i]
-            unique_names[i] = name
-            end_point_ids[i] = (point_objects.name_to_id[str(row["I-End"])], point_objects.name_to_id[str(row["J-End"])],)
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Line object name '{name}'")
+            name_to_idx[name] = index[i]
+            unique_name[i] = name
+            end_points_idx[i] = (point_objects.name_to_idx[str(row["I-End"])], point_objects.name_to_idx[str(row["J-End"])],)
             end_offset_option[i] = str(row["End Offset"])
             end_offsets[i] = (
                 self._to_internalunit_length(0.0 if row["I-End Offset Length"] is None else row["I-End Offset Length"]),
                 self._to_internalunit_length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
             )
-        i_coords = point_objects.coords[end_point_ids[:, 0] - 1]
-        j_coords = point_objects.coords[end_point_ids[:, 1] - 1]
+            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(str(row["Section"]))
+        i_coords = point_objects.coords[end_points_idx[:, 0]]
+        j_coords = point_objects.coords[end_points_idx[:, 1]]
         d_vectors = j_coords - i_coords # Calculate direction vectors of the elements
         length = np.linalg.norm(d_vectors, axis=1) # Calculate full length of the elements
         centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of the elements
         line_objects = LineObjects(
-            ids = ids,
-            unique_names = unique_names,
-            end_point_ids = end_point_ids,
+            index = index,
+            unique_name = unique_name,
+            end_points_idx = end_points_idx,
             end_offset_option = end_offset_option,
             end_offsets = end_offsets,
+            sec_class = sec_class,
+            sec_idx = sec_idx,
             length = length,
             centroids = centroids,
-            name_to_id = name_to_id,
+            name_to_idx = name_to_idx,
         ) # Defining dataclass for each line object
         return line_objects
 
-    def _translate_surface_objects(self, line_objects):
-        data = self._reader.read(sheet_name="Surface Objects", start_row=8) # Reading Sheet "Surface Objects" in the Input file
+    def _translate_surface_objects(self, line_objects, slab_sections):
+        data = self._reader.read(sheet_name="Surface Objects", start_row=9) # Reading Sheet "Surface Objects" in the Input file
         n = len(data)
-        ids = np.arange(1, n + 1, dtype=np.int32)
-        unique_names = np.empty(n, dtype="U15")
-        edge_ids = np.zeros((n, 4), dtype=np.int32)
-        vertex_ids = np.zeros((n, 4), dtype=np.int32)
-        name_to_id = {}
-        surface_objects = {}
+        index = np.arange(n, dtype=np.int32)
+        unique_name = np.empty(n, dtype="U15")
+        edges_idx = np.zeros((n, 4), dtype=np.int32)
+        vertices_idx = np.zeros((n, 4), dtype=np.int32)
+        sec_class = np.empty(n, dtype=np.int32)
+        sec_idx = np.empty(n, dtype=np.int32)
+        name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])
-            if name in name_to_id:
-                raise ValidationError(f"Duplicate Surface object's name: {name}")
-            name_to_id[name] = ids[i]
-            unique_names[i] = name
-            edge_names = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"],) if edge is not None]
-
-            for j, edge_name in enumerate(edge_names):
+            if name in name_to_idx:
+                raise ValidationError(f"Duplicate Surface object name '{name}'")
+            name_to_idx[name] = index[i]
+            unique_name[i] = name
+            edges_name = [edge for edge in (row["Edge 1"], row["Edge 2"], row["Edge 3"], row["Edge 4"],) if edge is not None]
+            for j, edge_name in enumerate(edges_name):
                 try:
-                    edge_ids[i, j] = line_objects.name_to_id[str(edge_name)]
+                    edges_idx[i, j] = line_objects.name_to_idx[str(edge_name)]
                 except KeyError:
                     raise ValidationError(
                         f"Surface '{name}' references undefined line '{edge_name}'."
                     )
-            current_edges = edge_ids[i, :len(edge_names)]
-
-            e1 = line_objects.end_point_ids[current_edges[0] - 1]
-            e2 = line_objects.end_point_ids[current_edges[1] - 1]
-
+            current_edges = edges_idx[i, :len(edges_name)]
+            e1 = line_objects.end_points_idx[current_edges[0]]
+            e2 = line_objects.end_points_idx[current_edges[1]]
             if e1[1] in e2:
                 vertices = [e1[0], e1[1]]
             elif e1[0] in e2:
@@ -813,8 +823,8 @@ class ExcelTranslator:
                     f"Surface '{name}' has connection edges that are not closed."
                 )
 
-            for edge_id in current_edges[1:]:
-                edge = line_objects.end_point_ids[edge_id - 1]
+            for edge_idx in current_edges[1:]:
+                edge = line_objects.end_points_idx[edge_idx]
                 current_vertex = vertices[-1]
                 if edge[0] == current_vertex:
                     vertices.append(edge[1])
@@ -824,19 +834,21 @@ class ExcelTranslator:
                     raise ValidationError(
                         f"Surface '{name}' has connection edges that are not closed."
                     )
-
             if vertices[0] != vertices[-1]:
                 raise ValidationError(
                     f"Surface '{name}' has connection edges that are not closed."
                 )
             vertices.pop()
-            vertex_ids[i, :len(vertices)] = vertices
-
-            surface_objects = SurfaceObjects(
-                ids = ids,
-                unique_names = unique_names,
-                edge_ids = edge_ids,
-                vertex_ids = vertex_ids,
-                name_to_id = name_to_id,
-            ) # Defining dataclass for each surface object
+            vertices_idx[i, :len(vertices)] = vertices
+            sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(str(row["Section"]), slab_sections)
+        surface_objects = SurfaceObjects(
+            index = index,
+            unique_name = unique_name,
+            edges_idx = edges_idx,
+            vertices_idx = vertices_idx,
+            sec_class = sec_class,
+            sec_idx = sec_idx,
+            name_to_idx = name_to_idx,
+        ) # Defining dataclass for each surface object
         return surface_objects
+    

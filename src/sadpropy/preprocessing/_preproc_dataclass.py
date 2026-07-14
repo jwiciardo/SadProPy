@@ -21,6 +21,7 @@ class PointObjects:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
+    is_zero_length: np.ndarray          # bool, shape (N,)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
@@ -30,6 +31,8 @@ class LineObjects:
     end_points_idx: np.ndarray          # int32, shape (N,2)
     end_offset_option: np.ndarray       # str, shape (N,)
     end_offsets: np.ndarray             # float64, shape (N,2)
+    sec_class: np.ndarray               # int32, shape (N,)
+    sec_idx: np.ndarray                 # int32, shape (N,)
     length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
     name_to_idx: dict[str, np.int32]
@@ -40,6 +43,8 @@ class SurfaceObjects:
     unique_name: np.ndarray             # str, shape (N,)
     edges_idx: np.ndarray               # int32, shape (N,4)
     vertices_idx: np.ndarray            # int32, shape (N,4)
+    sec_class: np.ndarray               # int32, shape (N,)
+    sec_idx: np.ndarray                 # int32, shape (N,)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)

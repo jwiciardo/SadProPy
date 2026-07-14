@@ -21,4 +21,4 @@ point_objects = modeldata.point_objects
 line_objects = modeldata.line_objects
 surface_objects = modeldata.surface_objects
 
-print(materials_list)
+print()
