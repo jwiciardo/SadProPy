@@ -2,21 +2,7 @@ import warnings
 import numpy as np
 from .modeldata import ModelData
 from ._preproc_dataclass import (
-    ProjectInformation,
-    AnalysisPreferences,
-    Materials,
-    Mat_Concrete04,
-    Mat_Steel02,
-    Mat_MinMax,
-    Mat_IMK,
-    FrameSections,
-    Sec_Fiber,
-    Sec_Aggregator,
-    SlabSections,
-    PointObjects,
-    LineObjects,
-    SurfaceObjects,
-    Storeys,
+    Nodes,
     Restraints,
     )
 from ._propertiesclass import (
@@ -31,8 +17,6 @@ from ._propertiesclass import (
     SlabSectionProperties,
 )
 from sadpropy.utility import (
-    UnitConverter,
-    UnitRegistry,
     UnitSystem,
     section_properties,
     fibersection_properties,
@@ -41,14 +25,34 @@ from sadpropy.utility import (
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility.helperfunc import get_material_properties, get_section_properties
 
+__all__ = ["StructuralModelData"]
+
 class StructuralModelData:
     def __init__(self, modeldata):
         self._modeldata = modeldata
     
     def generate(self):
         nodes = self._generate_nodes()
-        return 1
+        beamcolumn_elements = self._generate_beamcolumn_elements()
+        return beamcolumn_elements
     
     def _generate_nodes(self):
         data = self._modeldata.point_objects # Recall point_objects data
-        n = 
+        n = len(data.index)
+        index = np.arange(n, dtype=np.int32)
+        tag = np.arange(1, n + 1, dtype=np.int32)
+        nodes = Nodes(
+            index = index,
+            point_idx = data.index,
+            tag = tag,
+            coords = data.coords,
+            tag_to_idx = dict(zip(tag.tolist(), index.tolist()))
+        )
+        return nodes
+    
+    def _generate_beamcolumn_elements(self):
+        data = self._modeldata.line_objects # Recall line_objects data
+        secs_list = self._modeldata.sections_list # Recall sections_list data
+        element_type = np.fromiter((secs_list[sc].element_type[idx]
+            for sc, idx in zip(data.sec_class, data.sec_idx)), dtype="U15")
+        return element_type

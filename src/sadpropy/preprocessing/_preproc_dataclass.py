@@ -203,6 +203,7 @@ class Nodes:
     point_idx: np.ndarray               # int32, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
+    tag_to_idx: dict[np.int32, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class BeamColumnElements:

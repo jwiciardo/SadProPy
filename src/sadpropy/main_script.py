@@ -1,25 +1,21 @@
 from sadpropy import *
 
 modeldata = ModelData().retrieve()
-filepath_information = modeldata.filepath_information
-project_information = modeldata.project_information
-system_units = modeldata.user_unitsystem
-analysis_preferences = modeldata.analysis_preferences
 materials = modeldata.materials
 mat_concrete04 = modeldata.mat_concrete04
 mat_steel02 = modeldata.mat_steel02
 mat_minmax = modeldata.mat_minmax
 mat_imk = modeldata.mat_imk
-materials_list = modeldata.materials_list
 frame_sections = modeldata.frame_sections
 sec_fiber = modeldata.sec_fiber
 sec_aggregator = modeldata.sec_aggregator
-sections_list = modeldata.sections_list
 slab_sections = modeldata.slab_sections
-storeys = modeldata.storeys
 point_objects = modeldata.point_objects
 line_objects = modeldata.line_objects
 surface_objects = modeldata.surface_objects
+storeys = modeldata.storeys
 restraints = modeldata.restraints
 
-print(line_objects)
+model = StructuralModelData(modeldata).generate()
+
+print(materials)

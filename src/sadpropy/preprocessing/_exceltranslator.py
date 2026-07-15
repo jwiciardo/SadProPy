@@ -32,8 +32,7 @@ from ._propertiesclass import (
     SlabSectionProperties,
 )
 from sadpropy.utility import (
-    UnitConverter,
-    UnitRegistry,
+    ConverterToInternalUnits,
     UnitSystem,
     section_properties,
     fibersection_properties,
@@ -76,75 +75,13 @@ class ExcelTranslator:
 
         # CORE
         self._reader = ExcelReader(self._inputfile_path)
-        self._unitregistry = UnitRegistry()
-        self._unitconverter = UnitConverter(self._unitregistry)
         self._units = self._translate_user_unitsystem()
+        self._to_internalunits = ConverterToInternalUnits(self._units)
         
         # DICTIONARY LIST
         self._mats_list = []
         self._secs_list = []
 
-    # UNIT CONVERTER METHODS TO INTERNAL UNITS
-    def _to_internalunit_length(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.length)
-
-    def _to_internalunit_force(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.force)
-        
-    def _to_internalunit_mass(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.mass)
-        
-    def _to_internalunit_velocity(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.velocity())
-        
-    def _to_internalunit_acceleration(self, value):
-        return self._unitconverter.to_internal_units(value, self.units._acceleration())
-        
-    def _to_internalunit_stress(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.stress)
-        
-    def _to_internalunit_time(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.time)
-        
-    def _to_internalunit_angle(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.angle)
-        
-    def _to_internalunit_area(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.area())
-        
-    def _to_internalunit_volume(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.volume())
-        
-    def _to_internalunit_second_moment_of_area(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.second_moment_of_area())
-        
-    def _to_internalunit_moment(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.moment())
-        
-    def _to_internalunit_unitweight(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.unitweight())
-        
-    def _to_internalunit_surfaceload(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.surface_load())
-        
-    def _to_internalunit_distributed_lineload(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.distributed_line_load())
-        
-    def _to_internalunit_concentrated_lineload(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.concentrated_line_load())
-        
-    def _to_internalunit_force_pointload(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.force_point_load())
-
-    def _to_internalunit_moment_pointload(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.moment_point_load())
-    
-    def _to_internalunit_translational_stiffness(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.translational_stiffness())
-    
-    def _to_internalunit_rotational_stiffness(self, value):
-        return self._unitconverter.to_internal_units(value, self._units.rotational_stiffness())
-    
     # MAIN METHOD: EXCEL TRANSLATOR
     def translate(self):
         filepath_information = self._translate_filepath_information()
@@ -284,12 +221,12 @@ class ExcelTranslator:
             mat_name[i] = name
             mattype = str(row["Material Type"])
             mat_type[i] = mattype
-            Unitweight = self._to_internalunit_unitweight(row["Unitweight"])
-            E = self._to_internalunit_stress(row["E"])
+            Unitweight = self._to_internalunits.unitweight(row["Unitweight"])
+            E = self._to_internalunits.stress(row["E"])
             nu = row["nu"]
-            fc = self._to_internalunit_stress(row["fc"]) if mattype == "Concrete" else 0.0
-            fy = self._to_internalunit_stress(row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
-            fu = self._to_internalunit_stress(row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
+            fc = self._to_internalunits.stress(row["fc"]) if mattype == "Concrete" else 0.0
+            fy = self._to_internalunits.stress(row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
+            fu = self._to_internalunits.stress(row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
             properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
         E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.nu]
         properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
@@ -325,9 +262,9 @@ class ExcelTranslator:
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
-            fc = self._to_internalunit_stress(row["fc"])
+            fc = self._to_internalunits.stress(row["fc"])
             epsc, epscu = row["epsc"], row["epscu"]
-            fct = self._to_internalunit_stress(row["fct"])
+            fct = self._to_internalunits.stress(row["fct"])
             et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
             beta = row["beta"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
@@ -377,9 +314,9 @@ class ExcelTranslator:
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
-            fy[i] = self._to_internalunit_stress(row["fy"])
+            fy[i] = self._to_internalunits.stress(row["fy"])
             b[i] = row["b"]
-            fu[i] = self._to_internalunit_stress(row["fu"])
+            fu[i] = self._to_internalunits.stress(row["fu"])
             eu[i] = row["eu"]
             R0 = row["R0"]
             cR1 = row["cR1"]
@@ -388,7 +325,7 @@ class ExcelTranslator:
             a2 = row["a2"]
             a3 = row["a3"]
             a4 = row["a4"]
-            f_init = self._to_internalunit_stress(row["f_init"])
+            f_init = self._to_internalunits.stress(row["f_init"])
             properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R0, cR1, cR2, a1, a2, a3, a4, f_init,) # Look at Steel02Properties class in _propertiesclass.py to find definition of variables
         base_mat_props = get_material_properties(
             self._mats_list,
@@ -482,15 +419,16 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             mat_name[i] = name
             mat_model[i] = str(row["Material Model"])
-            K0 = self._to_internalunit_rotational_stiffness(row["K0"])
-            my_pos = self._to_internalunit_moment(row["My_Pos"])
-            my_neg = self._to_internalunit_moment(row["My_Neg"])
-            mu_pos[i] = self._to_internalunit_moment(row["Mu_Pos"])
-            mu_neg[i] = self._to_internalunit_moment(row["Mu_Neg"])
+            K0 = self._to_internalunits.rotational_stiffness(row["K0"])
+            my_pos = self._to_internalunits.moment(row["My_Pos"])
+            my_neg = self._to_internalunits.moment(row["My_Neg"])
+            mu_pos[i] = self._to_internalunits.moment(row["Mu_Pos"])
+            mu_neg[i] = self._to_internalunits.moment(row["Mu_Neg"])
             fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
             lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
-            theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg = row["theta_p_Pos"], row["theta_p_Neg"], row["theta_pc_Pos"], row["theta_pc_Neg"], row["Res_Pos"], row["Res_Neg"]
-            theta_u_pos, theta_u_neg, d_pos, d_neg = row["theta_u_Pos"], row["theta_u_Neg"], row["D_Pos"], row["D_Neg"]
+            theta_p_pos, theta_p_neg = self._to_internalunits.angle(row["theta_p_Pos"]), self._to_internalunits.angle(row["theta_p_Neg"])
+            theta_pc_pos, theta_pc_neg, res_pos, res_neg = self._to_internalunits.angle(row["theta_pc_Pos"]), self._to_internalunits.angle(row["theta_pc_Neg"]), row["Res_Pos"], row["Res_Neg"]
+            theta_u_pos, theta_u_neg, d_pos, d_neg = self._to_internalunits.angle(row["theta_u_Pos"]), self._to_internalunits.angle(row["theta_u_Neg"]), row["D_Pos"], row["D_Neg"]
             properties[i] = (
                 K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
                 theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
@@ -544,8 +482,8 @@ class ExcelTranslator:
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             sec_model[i] = str(row["Section Model"])
-            h = self._to_internalunit_length(row["h"])
-            b = self._to_internalunit_length(row["b"])
+            h = self._to_internalunits.length(row["h"])
+            b = self._to_internalunits.length(row["b"])
             kA[i] = row["k_A"]
             kAvy[i] = row["k_Avy"]
             kAvz[i] = row["k_Avz"]
@@ -612,9 +550,9 @@ class ExcelTranslator:
             mats_idx[i, :3] = (mat_1_idx, mat_2_idx, mat_3_idx)
             mat_type[i] = self._mats_list[mat_1_class].mat_type[mat_1_idx]
             sec_model[i] = str(row["Section Model"])
-            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunit_length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
-            bar_dia_hoop, bar_dia_top = self._to_internalunit_length(row["barDiaHoop"]), self._to_internalunit_length(row["barDiaTop"])
-            bar_dia_bot, bar_dia_int = self._to_internalunit_length(row["barDiaBot"]), self._to_internalunit_length(row["barDiaInt"])
+            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunits.length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
+            bar_dia_hoop, bar_dia_top = self._to_internalunits.length(row["barDiaHoop"]), self._to_internalunits.length(row["barDiaTop"])
+            bar_dia_bot, bar_dia_int = self._to_internalunits.length(row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
             properties[i] = (0.0, 0.0, cover, nbars_top, nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int,
                              0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         base_sec_props = get_section_properties(
@@ -719,7 +657,7 @@ class ExcelTranslator:
             mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
-            t = self._to_internalunit_length(row["t"])
+            t = self._to_internalunits.length(row["t"])
             properties[i] = (t)
         slab_sections = SlabSections(
             index = index,
@@ -745,9 +683,9 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             unique_name[i] = name
             coords[i] = (
-                self._to_internalunit_length(row["X"]),
-                self._to_internalunit_length(row["Y"]),
-                self._to_internalunit_length(row["Z"]),
+                self._to_internalunits.length(row["X"]),
+                self._to_internalunits.length(row["Y"]),
+                self._to_internalunits.length(row["Z"]),
             )
         point_objects = PointObjects(
             index = index,
@@ -781,8 +719,8 @@ class ExcelTranslator:
             end_points_idx[i] = (point_objects.name_to_idx[str(row["I-End"])], point_objects.name_to_idx[str(row["J-End"])],)
             end_offset_option[i] = str(row["End Offset"])
             end_offsets[i] = (
-                self._to_internalunit_length(0.0 if row["I-End Offset Length"] is None else row["I-End Offset Length"]),
-                self._to_internalunit_length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
+                self._to_internalunits.length(0.0 if row["I-End Offset Length"] is None else row["I-End Offset Length"]),
+                self._to_internalunits.length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
             )
             sec_class[i], _, sec_idx[i] = self._retrieve_section_index(str(row["Section"]))
             is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")

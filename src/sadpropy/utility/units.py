@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from .constantvalues import GRAVITATIONAL_ACCELERATION
 from ._exceptions import ValidationError
 
-__all__ = ["UnitConverter", "UnitRegistry", "UnitSystem"]
+__all__ = ["ConverterToInternalUnits", "ConverterFromInternalUnits", "UnitSystem"]
 
 g = GRAVITATIONAL_ACCELERATION
 
@@ -153,23 +153,181 @@ class UnitRegistry:
         "deg": pi / 180,
     }
 
-    def _get(self, unit):
+    def get(self, unit):
         if unit not in self.UNITS:
             raise ValidationError(f"Unit '{unit}' not found in the Unit Registry")
         return self.UNITS[unit]
     
-class UnitConverter:
-    def __init__(self, registry):
-        self.registry = registry
+class ConverterToInternalUnits:
+    def __init__(self, units):
+        self._registry = UnitRegistry()
+        self._units = units
     
-    def to_internal_units(self, value, unit):
-        factor = self.registry._get(unit)
+    def length(self, value):
+        factor = self._registry.get(self._units.length)
         return value * factor
     
-    def from_internal_units(self, value, unit):
-        factor = self.registry._get(unit)
-        return value / factor
+    def force(self, value):
+        factor = self._registry.get(self._units.force)
+        return value * factor
+    
+    def mass(self, value):
+        factor = self._registry.get(self._units.mass)
+        return value * factor
+    
+    def velocity(self, value):
+        factor = self._registry.get(self._units.velocity())
+        return value * factor
+    
+    def acceleration(self, value):
+        factor = self._registry.get(self._units.acceleration())
+        return value * factor
+    
+    def stress(self, value):
+        factor = self._registry.get(self._units.stress)
+        return value * factor
+    
+    def time(self, value):
+        factor = self._registry.get(self._units.time)
+        return value * factor
+    
+    def angle(self, value):
+        factor = self._registry.get(self._units.angle)
+        return value * factor
+    
+    def area(self, value):
+        factor = self._registry.get(self._units.area())
+        return value * factor
+    
+    def volume(self, value):
+        factor = self._registry.get(self._units.volume())
+        return value * factor
+    
+    def second_moment_of_area(self, value):
+        factor = self._registry.get(self._units.second_moment_of_area())
+        return value * factor
+    
+    def moment(self, value):
+        factor = self._registry.get(self._units.moment())
+        return value * factor
+    
+    def unitweight(self, value):
+        factor = self._registry.get(self._units.unitweight())
+        return value * factor
+    
+    def surfaceload(self, value):
+        factor = self._registry.get(self._units.surface_load())
+        return value * factor
+    
+    def distributed_lineload(self, value):
+        factor = self._registry.get(self._units.distributed_line_load())
+        return value * factor
+    
+    def concentrated_lineload(self, value):
+        factor = self._registry.get(self._units.concentrated_line_load())
+        return value * factor
+    
+    def force_pointload(self, value):
+        factor = self._registry.get(self._units.force_point_load())
+        return value * factor
+    
+    def moment_pointload(self, value):
+        factor = self._registry.get(self._units.moment_point_load())
+        return value * factor
+    
+    def translational_stiffness(self, value):
+        factor = self._registry.get(self._units.translational_stiffness())
+        return value * factor
+    
+    def rotational_stiffness(self, value):
+        factor = self._registry.get(self._units.rotational_stiffness())
+        return value * factor
 
+class ConverterFromInternalUnits:
+    def __init__(self, units):
+        self._registry = UnitRegistry()
+        self._units = units
+    
+    def length(self, value):
+        factor = self._registry.get(self._units.length)
+        return value / factor
+    
+    def force(self, value):
+        factor = self._registry.get(self._units.force)
+        return value / factor
+    
+    def mass(self, value):
+        factor = self._registry.get(self._units.mass)
+        return value / factor
+    
+    def velocity(self, value):
+        factor = self._registry.get(self._units.velocity())
+        return value / factor
+    
+    def acceleration(self, value):
+        factor = self._registry.get(self._units.acceleration())
+        return value / factor
+    
+    def stress(self, value):
+        factor = self._registry.get(self._units.stress)
+        return value / factor
+    
+    def time(self, value):
+        factor = self._registry.get(self._units.time)
+        return value / factor
+    
+    def angle(self, value):
+        factor = self._registry.get(self._units.angle)
+        return value / factor
+    
+    def area(self, value):
+        factor = self._registry.get(self._units.area())
+        return value / factor
+    
+    def volume(self, value):
+        factor = self._registry.get(self._units.volume())
+        return value / factor
+    
+    def second_moment_of_area(self, value):
+        factor = self._registry.get(self._units.second_moment_of_area())
+        return value / factor
+    
+    def moment(self, value):
+        factor = self._registry.get(self._units.moment())
+        return value / factor
+    
+    def unitweight(self, value):
+        factor = self._registry.get(self._units.unitweight())
+        return value / factor
+    
+    def surfaceload(self, value):
+        factor = self._registry.get(self._units.surface_load())
+        return value / factor
+    
+    def distributed_lineload(self, value):
+        factor = self._registry.get(self._units.distributed_line_load())
+        return value / factor
+    
+    def concentrated_lineload(self, value):
+        factor = self._registry.get(self._units.concentrated_line_load())
+        return value / factor
+    
+    def force_pointload(self, value):
+        factor = self._registry.get(self._units.force_point_load())
+        return value / factor
+    
+    def moment_pointload(self, value):
+        factor = self._registry.get(self._units.moment_point_load())
+        return value / factor
+    
+    def translational_stiffness(self, value):
+        factor = self._registry.get(self._units.translational_stiffness())
+        return value / factor
+    
+    def rotational_stiffness(self, value):
+        factor = self._registry.get(self._units.rotational_stiffness())
+        return value / factor
+    
 @dataclass(slots=True, frozen=True)   
 class UnitSystem:
     force: str
