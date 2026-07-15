@@ -2,6 +2,7 @@ import warnings
 import numpy as np
 from openpyxl import load_workbook
 from ._preproc_dataclass import (
+    FilePathInformation,
     ProjectInformation,
     AnalysisPreferences,
     Materials,
@@ -36,10 +37,11 @@ from sadpropy.utility import (
     UnitSystem,
     section_properties,
     fibersection_properties,
-    TagManager,
 )
 from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility.helper import get_material_properties, get_section_properties
+from sadpropy.utility._filepath import get_filepath
+from sadpropy.utility.helperfunc import get_material_properties, get_section_properties
+
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -68,11 +70,17 @@ class ExcelReader:
         return data
 
 class ExcelTranslator:
-    def __init__(self, inputfile_path):
-        self._reader = ExcelReader(inputfile_path)
-        self._units = None
+    def __init__(self):
+        # FILE PATH
+        self._parent_path, self._input_path, self._output_path, self._inputfile_path, self._logfile_path = get_filepath()
+
+        # CORE
+        self._reader = ExcelReader(self._inputfile_path)
         self._unitregistry = UnitRegistry()
         self._unitconverter = UnitConverter(self._unitregistry)
+        self._units = self._translate_user_unitsystem()
+        
+        # DICTIONARY LIST
         self._mats_list = []
         self._secs_list = []
 
@@ -139,25 +147,24 @@ class ExcelTranslator:
     
     # MAIN METHOD: EXCEL TRANSLATOR
     def translate(self):
+        filepath_information = self._translate_filepath_information()
         project_information = self._translate_project_information()
-        self._units = self._translate_user_unitsystem()
         analysis_preferences = self._translate_analysis_preferences()
         materials = self._translate_materials()
         mat_concrete04 = self._translate_mat_concrete04()
         mat_steel02 = self._translate_mat_steel02()
         mat_minmax = self._translate_mat_minmax()
         mat_imk = self._translate_mat_imk()
-        materials_list = self._mats_list
         frame_sections = self._translate_frame_sections()
         sec_fiber = self._translate_sec_fiber()
         sec_aggregator = self._translate_sec_aggregator()
-        sections_list = self._secs_list
         slab_sections = self._translate_slab_sections()
         point_objects, storeys = self._translate_point_objects()
         line_objects = self._translate_line_objects(point_objects)
         surface_objects = self._translate_surface_objects(line_objects, slab_sections)
         restraints = self._translate_restraints(point_objects)
         return {
+            "filepath_information": filepath_information,
             "project_information": project_information,
             "user_unitsystem": self._units,
             "analysis_preferences": analysis_preferences,
@@ -166,11 +173,11 @@ class ExcelTranslator:
             "mat_steel02": mat_steel02,
             "mat_minmax": mat_minmax,
             "mat_imk": mat_imk,
-            "materials_list": materials_list,
+            "materials_list": self._mats_list,
             "frame_sections": frame_sections,
             "sec_fiber": sec_fiber,
             "sec_aggregator": sec_aggregator,
-            "sections_list": sections_list,
+            "sections_list": self._secs_list,
             "slab_sections": slab_sections,
             "storeys": storeys,
             "point_objects": point_objects,
@@ -218,6 +225,16 @@ class ExcelTranslator:
         raise ValidationError(f"Section '{sec_name}' not found.")
     
     # SUPPORTING METHODS
+    def _translate_filepath_information(self):
+        filepath_information = FilePathInformation(
+            parent_path = self._parent_path,
+            input_path = self._input_path,
+            output_path = self._output_path,
+            inputfile_path = self._inputfile_path,
+            logfile_path = self._logfile_path
+        ) # Defining dataclass for filepath information
+        return filepath_information
+
     def _translate_project_information(self):
         data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
@@ -245,8 +262,8 @@ class ExcelTranslator:
         data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
         analysis_preferences = AnalysisPreferences(
-                nonlinear_analysis = str(values["Nonlinear Analysis"]),
-                pdelta = str(values["P-Delta"]),
+                is_nonlinear_analysis = str(values["Nonlinear Analysis"]),
+                is_pdelta = str(values["P-Delta"]),
                 liveload_mass_factor = float(values["LL Mass Factor"]),
         ) # Defining dataclass for analysis preferences
         return analysis_preferences
@@ -715,12 +732,11 @@ class ExcelTranslator:
         return slab_sections
     
     def _translate_point_objects(self):
-        data = self._reader.read(sheet_name="Point Objects", start_row=8) # Reading Sheet "Point Objects" in the Input file
+        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         coords = np.empty((n, 3), dtype=np.float64)
-        is_zero_length = np.empty(n, dtype=bool)
         name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])
@@ -733,19 +749,17 @@ class ExcelTranslator:
                 self._to_internalunit_length(row["Y"]),
                 self._to_internalunit_length(row["Z"]),
             )
-            is_zero_length[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         point_objects = PointObjects(
             index = index,
             unique_name = unique_name,
             coords = coords,
-            is_zero_length = is_zero_length,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each point object
         storeys = self._generate_storeys(np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
         return point_objects, storeys
 
     def _translate_line_objects(self, point_objects):
-        data = self._reader.read(sheet_name="Line Objects", start_row=12) # Reading Sheet "Line Objects" in the Input file
+        data = self._reader.read(sheet_name="Line Objects", start_row=13) # Reading Sheet "Line Objects" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
@@ -754,6 +768,7 @@ class ExcelTranslator:
         end_offsets = np.empty((n, 2), dtype=np.float64)
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
+        is_zero_length_element = np.empty(n, dtype=bool)
         length = np.empty(n, dtype=np.float64)
         centroids = np.empty((n, 3), dtype=np.float64)
         name_to_idx = {}
@@ -770,6 +785,7 @@ class ExcelTranslator:
                 self._to_internalunit_length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
             )
             sec_class[i], _, sec_idx[i] = self._retrieve_section_index(str(row["Section"]))
+            is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         i_coords = point_objects.coords[end_points_idx[:, 0]]
         j_coords = point_objects.coords[end_points_idx[:, 1]]
         d_vectors = j_coords - i_coords # Calculate direction vectors of the elements
@@ -783,6 +799,7 @@ class ExcelTranslator:
             end_offsets = end_offsets,
             sec_class = sec_class,
             sec_idx = sec_idx,
+            is_zero_length_element = is_zero_length_element,
             length = length,
             centroids = centroids,
             name_to_idx = name_to_idx,

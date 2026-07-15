@@ -1,7 +1,7 @@
 from sadpropy import *
 
-model = Model()
-modeldata = model.data
+modeldata = ModelData().retrieve()
+filepath_information = modeldata.filepath_information
 project_information = modeldata.project_information
 system_units = modeldata.user_unitsystem
 analysis_preferences = modeldata.analysis_preferences
@@ -22,4 +22,4 @@ line_objects = modeldata.line_objects
 surface_objects = modeldata.surface_objects
 restraints = modeldata.restraints
 
-print(restraints)
+print(line_objects)

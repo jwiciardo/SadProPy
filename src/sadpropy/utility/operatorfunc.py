@@ -1,5 +1,4 @@
 import numpy as np
-from math import pi
 from sadpropy.preprocessing._propertiesclass import FrameSectionProperties, FiberSectionProperties
 from ._exceptions import ValidationError
 

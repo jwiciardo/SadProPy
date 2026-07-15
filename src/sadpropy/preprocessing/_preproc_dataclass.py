@@ -4,6 +4,15 @@ from sadpropy.utility import UnitSystem
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
+class FilePathInformation:
+    parent_path: str
+    input_path: str
+    output_path: str
+    inputfile_path: str
+    logfile_path: str
+
+# PROJECT
+@dataclass(slots=True, frozen=True)
 class ProjectInformation:
     name: str
     desc: str
@@ -11,8 +20,8 @@ class ProjectInformation:
 
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
-    nonlinear_analysis: str
-    pdelta: str
+    is_nonlinear_analysis: str
+    is_pdelta: str
     liveload_mass_factor: float
 
 # STRUCTURE DATA
@@ -21,7 +30,6 @@ class PointObjects:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
-    is_zero_length: np.ndarray          # bool, shape (N,)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
@@ -33,6 +41,7 @@ class LineObjects:
     end_offsets: np.ndarray             # float64, shape (N,2)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
+    is_zero_length_element: np.ndarray  # bool, shape (N,)
     length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
     name_to_idx: dict[str, np.int32]
@@ -165,7 +174,8 @@ class Restraints:
 
 # MODEL DATA
 @dataclass(slots=True)
-class ModelData:
+class ModelDataclass:
+    filepath_information: FilePathInformation
     project_information: ProjectInformation
     user_unitsystem: UnitSystem
     analysis_preferences: AnalysisPreferences
@@ -205,4 +215,10 @@ class Slabs:
     tag: int
     elements: tuple[int, ...]
     nodes: tuple[int, ...]
+
+# MODEL GENERATION
+@dataclass(slots=True)
+class StructuralModelData:
+    nodes: Nodes
+    restraints: Restraints
 
