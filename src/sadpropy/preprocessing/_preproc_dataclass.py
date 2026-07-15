@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from sadpropy.utility import UnitSystem
+from sadpropy.utility import UserDefinedUnits
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
@@ -177,7 +177,7 @@ class Restraints:
 class ModelDataclass:
     filepath_information: FilePathInformation
     project_information: ProjectInformation
-    user_unitsystem: UnitSystem
+    userdefined_units: UserDefinedUnits
     analysis_preferences: AnalysisPreferences
     materials: Materials
     mat_concrete04: Mat_Concrete04

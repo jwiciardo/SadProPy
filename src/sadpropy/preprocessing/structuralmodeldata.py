@@ -17,7 +17,7 @@ from ._propertiesclass import (
     SlabSectionProperties,
 )
 from sadpropy.utility import (
-    UnitSystem,
+    UserDefinedUnits,
     section_properties,
     fibersection_properties,
     TagManager,

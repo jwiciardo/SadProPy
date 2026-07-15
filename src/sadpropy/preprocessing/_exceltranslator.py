@@ -33,7 +33,7 @@ from ._propertiesclass import (
 )
 from sadpropy.utility import (
     ConverterToInternalUnits,
-    UnitSystem,
+    UserDefinedUnits,
     section_properties,
     fibersection_properties,
 )
@@ -103,7 +103,7 @@ class ExcelTranslator:
         return {
             "filepath_information": filepath_information,
             "project_information": project_information,
-            "user_unitsystem": self._units,
+            "userdefined_units": self._units,
             "analysis_preferences": analysis_preferences,
             "materials": materials,
             "mat_concrete04": mat_concrete04,
@@ -129,7 +129,7 @@ class ExcelTranslator:
         for i, elev in reversed(list(enumerate(storey_elevations))):
             if i == 0:
                 storey_name = "Base"
-                height = 0.0
+                height = np.float64(0.0)
             else:
                 storey_name = f"Storey{i}"
                 height = elev - storey_elevations[i - 1]
@@ -183,9 +183,9 @@ class ExcelTranslator:
         return project_information
     
     def _translate_user_unitsystem(self):
-        data = self._reader.read(sheet_name="User Specified Unitsystem", start_row=9) # Reading Sheet "User Specified Unitsystem" in the Input file
+        data = self._reader.read(sheet_name="User Defined Units", start_row=9) # Reading Sheet "User Defined Units" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
-        user_unitsystem = UnitSystem(
+        userdefined_units = UserDefinedUnits(
                 force = str(values["Force"]),
                 length = str(values["Length"]),
                 mass = str(values["Mass"]),
@@ -193,7 +193,7 @@ class ExcelTranslator:
                 time = str(values["Time"]),
                 angle = str(values["Angle"]),
         ) # Defining dataclass for units
-        return user_unitsystem
+        return userdefined_units
 
     def _translate_analysis_preferences(self):
         data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
