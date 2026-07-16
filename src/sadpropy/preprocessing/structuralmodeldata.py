@@ -2,6 +2,7 @@ import warnings
 import numpy as np
 from ._preproc_dataclass import (
     Nodes,
+    BeamColumnElements,
     Restraints,
     )
 from ._propertiesclass import (
@@ -22,7 +23,7 @@ from sadpropy.utility import (
     TagManager,
 )
 from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility.helperfunc import get_material_properties, get_section_properties
+from sadpropy.utility.helperfunc import get_material_properties, get_section_properties, retrieve_output_from_input
 
 __all__ = ["StructuralModelData"]
 
@@ -33,27 +34,38 @@ class StructuralModelData:
     
     def generate(self):
         nodes = self._generate_nodes()
-        beamcolumn_elements = self._generate_beamcolumn_elements()
-        return nodes
+        beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
+        return beamcolumn_elements
     
     def _generate_nodes(self):
         data = self._modeldata.point_objects # Recall point_objects data
-        n = len(data.index)
-        point_name = data.unique_name
-        tag = self._tagmanager.add("Node", n, point_name)
-        next_tag = self._tagmanager.next_tag("Node")
-        count = self._tagmanager.count("Node")
-        print(next_tag, count)
+        point_idx = data.index
+        n = len(point_idx)
+        index = np.arange(n, dtype=np.int32)
         nodes = Nodes(
-            tag = tag,
-            point_name = point_name,
+            index = index,
+            point_name = data.unique_name,
             coords = data.coords,
         )
         return nodes
     
-    def _generate_beamcolumn_elements(self):
+    def _generate_beamcolumn_elements(self, nodes):
         data = self._modeldata.line_objects # Recall line_objects data
+        data_pointobj = self._modeldata.point_objects # Recall point_objects data
         secs_list = self._modeldata.sections_list # Recall sections_list data
         element_type = np.fromiter((secs_list[sc].element_type[idx]
             for sc, idx in zip(data.sec_class, data.sec_idx)), dtype="U15")
+        mask = (element_type == "Beam")
+        #mask = (element_type == "Column") | (element_type == "Beam")
+        n = len(data.index[mask])
+        index = np.arange(n, dtype=np.int32)
+        line_name = data.unique_name[mask]
+        point_name = data_pointobj.unique_name
+        end_points_idx = data.end_points_idx[mask]
+        end_nodes_idx = retrieve_output_from_input(
+            inputdata=end_points_idx,
+            shared_data_in=point_name,
+            outputdata=nodes.index, 
+            shared_data_out=nodes.point_name,
+        )
         return element_type

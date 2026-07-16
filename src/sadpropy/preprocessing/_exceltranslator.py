@@ -39,7 +39,7 @@ from sadpropy.utility import (
 )
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
-from sadpropy.utility.helperfunc import get_material_properties, get_section_properties
+from sadpropy.utility.helperfunc import get_material_properties, get_section_properties, get_edges_and_vertices_from_surface
 
 
 class ExcelReader:
@@ -74,9 +74,9 @@ class ExcelTranslator:
         self._parent_path, self._input_path, self._output_path, self._inputfile_path, self._logfile_path = get_filepath()
 
         # CORE
-        self._reader = ExcelReader(self._inputfile_path)
-        self._units = self._translate_user_unitsystem()
-        self._to_internalunits = ConverterToInternalUnits(self._units)
+        self._reader = ExcelReader(inputfile_path=self._inputfile_path)
+        self._units = self._translate_userdefined_units()
+        self._to_internalunits = ConverterToInternalUnits(units=self._units)
         
         # DICTIONARY LIST
         self._mats_list = []
@@ -97,9 +97,12 @@ class ExcelTranslator:
         sec_aggregator = self._translate_sec_aggregator()
         slab_sections = self._translate_slab_sections()
         point_objects, storeys = self._translate_point_objects()
-        line_objects = self._translate_line_objects(point_objects)
-        surface_objects = self._translate_surface_objects(line_objects, slab_sections)
-        restraints = self._translate_restraints(point_objects)
+        line_objects = self._translate_line_objects(point_objects=point_objects)
+        surface_objects = self._translate_surface_objects(
+            line_objects=line_objects,
+            slab_sections=slab_sections,
+        )
+        restraints = self._translate_restraints(point_objects=point_objects)
         return {
             "filepath_information": filepath_information,
             "project_information": project_information,
@@ -182,7 +185,7 @@ class ExcelTranslator:
         ) # Defining dataclass for project information
         return project_information
     
-    def _translate_user_unitsystem(self):
+    def _translate_userdefined_units(self):
         data = self._reader.read(sheet_name="User Defined Units", start_row=9) # Reading Sheet "User Defined Units" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
         userdefined_units = UserDefinedUnits(
@@ -221,12 +224,12 @@ class ExcelTranslator:
             mat_name[i] = name
             mattype = str(row["Material Type"])
             mat_type[i] = mattype
-            Unitweight = self._to_internalunits.unitweight(row["Unitweight"])
+            Unitweight = self._to_internalunits.unitweight(value=row["Unitweight"])
             E = self._to_internalunits.stress(row["E"])
             nu = row["nu"]
-            fc = self._to_internalunits.stress(row["fc"]) if mattype == "Concrete" else 0.0
-            fy = self._to_internalunits.stress(row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
-            fu = self._to_internalunits.stress(row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
+            fc = self._to_internalunits.stress(value=row["fc"]) if mattype == "Concrete" else 0.0
+            fy = self._to_internalunits.stress(value=row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
+            fu = self._to_internalunits.stress(value=row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
             properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
         E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.nu]
         properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
@@ -257,22 +260,22 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
-            fc = self._to_internalunits.stress(row["fc"])
+            fc = self._to_internalunits.stress(value=row["fc"])
             epsc, epscu = row["epsc"], row["epscu"]
-            fct = self._to_internalunits.stress(row["fct"])
+            fct = self._to_internalunits.stress(value=row["fct"])
             et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
             beta = row["beta"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
         base_mat_props = get_material_properties(
-            self._mats_list,
-            base_mat_class,
-            base_mat_idx,
-            ["Unitweight", "E", "nu", "G"]
+            mats_list=self._mats_list,
+            mat_class=base_mat_class,
+            mat_idx=base_mat_idx,
+            props_name=["Unitweight", "E", "nu", "G"],
         )
         properties[:, Concrete04Properties.Unitweight:Concrete04Properties.G+1] = base_mat_props
         mat_concrete04 = Mat_Concrete04(
@@ -309,14 +312,14 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             mat_model[i] = str(row["Material Model"])
-            fy[i] = self._to_internalunits.stress(row["fy"])
+            fy[i] = self._to_internalunits.stress(value=row["fy"])
             b[i] = row["b"]
-            fu[i] = self._to_internalunits.stress(row["fu"])
+            fu[i] = self._to_internalunits.stress(value=row["fu"])
             eu[i] = row["eu"]
             R0 = row["R0"]
             cR1 = row["cR1"]
@@ -325,13 +328,13 @@ class ExcelTranslator:
             a2 = row["a2"]
             a3 = row["a3"]
             a4 = row["a4"]
-            f_init = self._to_internalunits.stress(row["f_init"])
+            f_init = self._to_internalunits.stress(value=row["f_init"])
             properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R0, cR1, cR2, a1, a2, a3, a4, f_init,) # Look at Steel02Properties class in _propertiesclass.py to find definition of variables
         base_mat_props = get_material_properties(
-            self._mats_list,
-            base_mat_class,
-            base_mat_idx,
-            ["Unitweight", "E", "nu", "G"]
+            mats_list=self._mats_list,
+            mat_class=base_mat_class,
+            mat_idx=base_mat_idx,
+            props_name=["Unitweight", "E", "nu", "G"],
         )
         properties[:, Steel02Properties.Unitweight:Steel02Properties.G+1] = base_mat_props
         E = properties[:, Steel02Properties.E]
@@ -374,7 +377,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base NL Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base NL Material"]))
             base_nl_mat_class[i] = mat_class
             base_nl_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
@@ -383,10 +386,10 @@ class ExcelTranslator:
             et_max = row["etmax"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, ec_max, et_max,) # Look at MinMaxProperties class in _propertiesclass.py to find definition of variables
         base_nl_mat_props = get_material_properties(
-            self._mats_list,
-            base_nl_mat_class,
-            base_nl_mat_idx,
-            ["Unitweight", "E", "nu", "G"]
+            mats_list=self._mats_list,
+            mat_class=base_nl_mat_class,
+            mat_idx=base_nl_mat_idx,
+            props_name=["Unitweight", "E", "nu", "G"],
         )
         properties[:, MinMaxProperties.Unitweight:MinMaxProperties.G+1] = base_nl_mat_props
         mat_minmax = Mat_MinMax(
@@ -419,16 +422,16 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             mat_name[i] = name
             mat_model[i] = str(row["Material Model"])
-            K0 = self._to_internalunits.rotational_stiffness(row["K0"])
-            my_pos = self._to_internalunits.moment(row["My_Pos"])
-            my_neg = self._to_internalunits.moment(row["My_Neg"])
-            mu_pos[i] = self._to_internalunits.moment(row["Mu_Pos"])
-            mu_neg[i] = self._to_internalunits.moment(row["Mu_Neg"])
+            K0 = self._to_internalunits.rotational_stiffness(value=row["K0"])
+            my_pos = self._to_internalunits.moment(value=row["My_Pos"])
+            my_neg = self._to_internalunits.moment(value=row["My_Neg"])
+            mu_pos[i] = self._to_internalunits.moment(value=row["Mu_Pos"])
+            mu_neg[i] = self._to_internalunits.moment(value=row["Mu_Neg"])
             fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
             lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
-            theta_p_pos, theta_p_neg = self._to_internalunits.angle(row["theta_p_Pos"]), self._to_internalunits.angle(row["theta_p_Neg"])
-            theta_pc_pos, theta_pc_neg, res_pos, res_neg = self._to_internalunits.angle(row["theta_pc_Pos"]), self._to_internalunits.angle(row["theta_pc_Neg"]), row["Res_Pos"], row["Res_Neg"]
-            theta_u_pos, theta_u_neg, d_pos, d_neg = self._to_internalunits.angle(row["theta_u_Pos"]), self._to_internalunits.angle(row["theta_u_Neg"]), row["D_Pos"], row["D_Neg"]
+            theta_p_pos, theta_p_neg = self._to_internalunits.angle(value=row["theta_p_Pos"]), self._to_internalunits.angle(value=row["theta_p_Neg"])
+            theta_pc_pos, theta_pc_neg, res_pos, res_neg = self._to_internalunits.angle(value=row["theta_pc_Pos"]), self._to_internalunits.angle(value=row["theta_pc_Neg"]), row["Res_Pos"], row["Res_Neg"]
+            theta_u_pos, theta_u_neg, d_pos, d_neg = self._to_internalunits.angle(value=row["theta_u_Pos"]), self._to_internalunits.angle(value=row["theta_u_Neg"]), row["D_Pos"], row["D_Neg"]
             properties[i] = (
                 K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
                 theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
@@ -477,13 +480,13 @@ class ExcelTranslator:
             sec_name[i] = name
             sec_shape[i] = str(row["Section Shape"])
             element_type[i] = (str(row["Element Type"]))
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
             sec_model[i] = str(row["Section Model"])
-            h = self._to_internalunits.length(row["h"])
-            b = self._to_internalunits.length(row["b"])
+            h = self._to_internalunits.length(value=row["h"])
+            b = self._to_internalunits.length(value=row["b"])
             kA[i] = row["k_A"]
             kAvy[i] = row["k_Avy"]
             kAvz[i] = row["k_Avz"]
@@ -491,7 +494,11 @@ class ExcelTranslator:
             kIy[i] = row["k_Iy"]
             kJxx[i] = row["k_Jxx"]
             properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(sec_shape, mat_type, properties)
+        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(
+            sec_shape=sec_shape,
+            mat_type=mat_type, 
+            properties=properties,
+        )
         properties[:, FrameSectionProperties.A] = kA * A
         properties[:, FrameSectionProperties.Avy] = kAvy * Avy
         properties[:, FrameSectionProperties.Avz] = kAvz * Avz
@@ -537,32 +544,36 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Section name '{name}'")
             name_to_idx[name] = index[i]
             sec_name[i] = name
-            sec_class, _, sec_idx = self._retrieve_section_index(str(row["Base Section"]))
+            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=str(row["Base Section"]))
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
             element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
             integration_type[i] = str(row["Integration Type"])
-            mat_1_class, _, mat_1_idx = self._retrieve_material_index(str(row["Material 1"]))
-            mat_2_class, _, mat_2_idx = self._retrieve_material_index(str(row["Material 2"]))
-            mat_3_class, _, mat_3_idx = self._retrieve_material_index(str(row["Material 3"]))
+            mat_1_class, _, mat_1_idx = self._retrieve_material_index(mat_name=str(row["Material 1"]))
+            mat_2_class, _, mat_2_idx = self._retrieve_material_index(mat_name=str(row["Material 2"]))
+            mat_3_class, _, mat_3_idx = self._retrieve_material_index(mat_name=str(row["Material 3"]))
             mats_class[i, :3] = (mat_1_class, mat_2_class, mat_3_class)
             mats_idx[i, :3] = (mat_1_idx, mat_2_idx, mat_3_idx)
             mat_type[i] = self._mats_list[mat_1_class].mat_type[mat_1_idx]
             sec_model[i] = str(row["Section Model"])
-            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunits.length(row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
-            bar_dia_hoop, bar_dia_top = self._to_internalunits.length(row["barDiaHoop"]), self._to_internalunits.length(row["barDiaTop"])
-            bar_dia_bot, bar_dia_int = self._to_internalunits.length(row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
+            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunits.length(value=row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
+            bar_dia_hoop, bar_dia_top = self._to_internalunits.length(value=row["barDiaHoop"]), self._to_internalunits.length(row["barDiaTop"])
+            bar_dia_bot, bar_dia_int = self._to_internalunits.length(value=row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
             properties[i] = (0.0, 0.0, cover, nbars_top, nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int,
                              0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         base_sec_props = get_section_properties(
-            self._secs_list,
-            base_sec_class,
-            base_sec_idx,
-            ["h", "b"]
+            secs_list=self._secs_list,
+            sec_class=base_sec_class,
+            sec_idx=base_sec_idx,
+            props_name=["h", "b"],
         )
         properties[:, FiberSectionProperties.h:FiberSectionProperties.b+1] = base_sec_props
-        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(sec_shape, mat_type, properties)
+        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(
+            sec_shape=sec_shape,
+            mat_type=mat_type,
+            properties=properties,
+        )
         properties[:, FiberSectionProperties.A] = A
         properties[:, FiberSectionProperties.Avy] = Avy
         properties[:, FiberSectionProperties.Avz] = Avz
@@ -610,18 +621,18 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             sec_name[i] = name
             aggregator_type[i] = str(row["Aggregator Type"])
-            sec_class, _, sec_idx = self._retrieve_section_index(str(row["Aggregated Section"]))
+            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=str(row["Aggregated Section"]))
             aggregated_sec_class[i] = sec_class
             aggregated_sec_idx[i] = sec_idx
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             sec_model[i] = str(row["Section Model"])
         base_sec_props = get_section_properties(
-            self._secs_list,
-            aggregated_sec_class,
-            aggregated_sec_idx,
-            ["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"]
+            secs_list=self._secs_list,
+            sec_class=aggregated_sec_class,
+            sec_idx=aggregated_sec_idx,
+            props_name=["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"],
         )
         properties[:, SectionAggregatorProperties.h:SectionAggregatorProperties.Jxx+1] = base_sec_props
         sec_aggregator = Sec_Aggregator(
@@ -654,10 +665,10 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Section name '{name}'")
             name_to_idx[name] = index[i]
             sec_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
-            t = self._to_internalunits.length(row["t"])
+            t = self._to_internalunits.length(value=row["t"])
             properties[i] = (t)
         slab_sections = SlabSections(
             index = index,
@@ -683,9 +694,9 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             unique_name[i] = name
             coords[i] = (
-                self._to_internalunits.length(row["X"]),
-                self._to_internalunits.length(row["Y"]),
-                self._to_internalunits.length(row["Z"]),
+                self._to_internalunits.length(value=row["X"]),
+                self._to_internalunits.length(value=row["Y"]),
+                self._to_internalunits.length(value=row["Z"]),
             )
         point_objects = PointObjects(
             index = index,
@@ -693,7 +704,7 @@ class ExcelTranslator:
             coords = coords,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each point object
-        storeys = self._generate_storeys(np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
+        storeys = self._generate_storeys(storey_elevations=np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
         return point_objects, storeys
 
     def _translate_line_objects(self, point_objects):
@@ -719,10 +730,10 @@ class ExcelTranslator:
             end_points_idx[i] = (point_objects.name_to_idx[str(row["I-End"])], point_objects.name_to_idx[str(row["J-End"])],)
             end_offset_option[i] = str(row["End Offset"])
             end_offsets[i] = (
-                self._to_internalunits.length(0.0 if row["I-End Offset Length"] is None else row["I-End Offset Length"]),
-                self._to_internalunits.length(0.0 if row["J-End Offset Length"] is None else row["J-End Offset Length"]),
+                self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
+                self._to_internalunits.length(value=row["J-End Offset Length"] if row["J-End Offset Length"] is not None else 0.0),
             )
-            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(str(row["Section"]))
+            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(sec_name=str(row["Section"]))
             is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         i_coords = point_objects.coords[end_points_idx[:, 0]]
         j_coords = point_objects.coords[end_points_idx[:, 1]]
@@ -761,43 +772,15 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             unique_name[i] = name
             edges_name = [edge for edge in (str(row["Edge 1"]), str(row["Edge 2"]), str(row["Edge 3"]), str(row["Edge 4"]),) if edge is not None]
-            for j, edge_name in enumerate(edges_name):
-                try:
-                    edges_idx[i, j] = line_objects.name_to_idx[str(edge_name)]
-                except KeyError:
-                    raise ValidationError(
-                        f"Surface '{name}' references undefined line '{edge_name}'."
-                    )
-            current_edges = edges_idx[i, :len(edges_name)]
-            e1 = line_objects.end_points_idx[current_edges[0]]
-            e2 = line_objects.end_points_idx[current_edges[1]]
-            if e1[1] in e2:
-                vertices = [e1[0], e1[1]]
-            elif e1[0] in e2:
-                vertices = [e1[1], e1[0]]
-            else:
-                raise ValidationError(
-                    f"Surface '{name}' has connection edges that are not closed."
-                )
-
-            for edge_idx in current_edges[1:]:
-                edge = line_objects.end_points_idx[edge_idx]
-                current_vertex = vertices[-1]
-                if edge[0] == current_vertex:
-                    vertices.append(edge[1])
-                elif edge[1] == current_vertex:
-                    vertices.append(edge[0])
-                else:
-                    raise ValidationError(
-                        f"Surface '{name}' has connection edges that are not closed."
-                    )
-            if vertices[0] != vertices[-1]:
-                raise ValidationError(
-                    f"Surface '{name}' has connection edges that are not closed."
-                )
-            vertices.pop()
-            vertices_idx[i, :len(vertices)] = vertices
-            sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(str(row["Section"]), slab_sections)
+            edges_idx[i], vertices_idx[i] = get_edges_and_vertices_from_surface(
+                edges_name=edges_name,
+                line_objects=line_objects,
+                surface_name=name,
+            )
+            sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(
+                sec_name=str(row["Section"]),
+                secs_list=slab_sections,
+            )
         surface_objects = SurfaceObjects(
             index = index,
             unique_name = unique_name,

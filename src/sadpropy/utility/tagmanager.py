@@ -48,7 +48,11 @@ class TagManager:
             if len(names) != n:
                 raise ValidationError("Length of names must equal Number of tag")
             for name, tag in zip(names, tags):
-                self._store_tag(category, name, int(tag))
+                self._store_tag(
+                    category=category, 
+                    name=name, 
+                    tag=int(tag),
+                )
         if n == 1:
             return int(tags[0])
         return tags

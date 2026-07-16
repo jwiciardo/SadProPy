@@ -79,7 +79,7 @@ def section_properties(sec_shape, mat_type, properties):
                Jxx[mask],
                alphaY[mask],
                alphaZ[mask],
-          ) = section_func(properties[mask])
+          ) = section_func(properties=properties[mask])
      return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
 
 def _rectangular_concrete_fibersection(properties):
@@ -191,5 +191,5 @@ def fibersection_properties(sec_shape, mat_type, properties):
                Abar_top[mask],
                Abar_bot[mask],
                Abar_int[mask],
-          ) = section_func(properties[mask])
+          ) = section_func(properties=properties[mask])
      return (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,)
