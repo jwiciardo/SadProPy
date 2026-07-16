@@ -199,17 +199,21 @@ class ModelDataclass:
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
 class Nodes:
-    index: np.ndarray                   # int32, shape (N,)
-    point_idx: np.ndarray               # int32, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
+    point_name: np.ndarray              # str, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
-    tag_to_idx: dict[np.int32, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class BeamColumnElements:
-    tag: int
-    iend_node: int
-    jend_node: int
+    tag: np.ndarray                     # int32, shape (N,)
+    line_name: np.ndarray               # str, shape (N,)
+    end_nodes_idx: np.ndarray           # int32, shape (N,2)
+    end_offsets: np.ndarray             # float64, shape (N,2)
+    sec_class: np.ndarray               # int32, shape (N,)
+    sec_idx: np.ndarray                 # int32, shape (N,)
+    length: np.ndarray                  # float64, shape (N,)
+    centroids: np.ndarray               # float64, shape (N,3)
+    name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Slabs:

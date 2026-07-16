@@ -18,4 +18,4 @@ restraints = modeldata.restraints
 
 model = StructuralModelData(modeldata).generate()
 
-print(storeys)
+print(model)

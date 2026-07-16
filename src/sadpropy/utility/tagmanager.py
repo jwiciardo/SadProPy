@@ -1,67 +1,84 @@
+import numpy as np
 from ._exceptions import ValidationError
 
 __all__ = ["TagManager"]
 
 class TagManager:
     def __init__(self):
-        self.counters = {
-            'Node': 1,
-            'Element': 1,
-            'Constraint': 1,
-            'Material': 1,
-            'Section': 1,
-            'BeamIntegration': 1,
-            'GeometricTransformation': 1,
-            'Timeseries': 1,
-            'Pattern': 1,
+        categories = {
+            "Node",
+            "Element",
+            "Material",
+            "Section",
+            "Beam Integration",
+            "Geometric Transformation",
+            "Timeseries",
+            "Pattern",
         }
-
-        self.used = {key: set() for key in self.counters}
-        self.map_def_to_tag = {key: {} for key in self.counters}
-        self.map_tag_to_def = {key: {} for key in self.counters}
+        self._counters = {category: 1 for category in categories}
+        self._used = {category: set() for category in categories}
+        self._name_to_tag = {category: {} for category in categories}
+        self._tag_to_name = {category: {} for category in categories}
 
     # MAIN METHOD: STORE TAG
-    def store_tag(self, category, name, tag):
-        if name in self.map_def_to_tag[category]:
+    def _store_tag(self, category, name, tag):
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        
+        if name in self._name_to_tag[category]:
             raise ValidationError(f"{category} name '{name}' already exists")
 
-        self.map_def_to_tag[category][name] = tag
-        self.map_tag_to_def[category][tag] = name
+        self._name_to_tag[category][name] = int(tag)
+        self._tag_to_name[category][tag] = name
 
     # SUPPORTING METHOD: ADD AUTOMATIC TAG
-    def add(self, category, name=None):
-        tag = self.counters[category]
-        while tag in self.used[category]:
-            tag += 1
+    def add(self, category, n=1, names=None):
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        
+        if n < 1:
+            raise ValidationError("Number of tag allocation must be at least 1")
+        
+        start = self._counters[category]
+        tags = np.arange(start, start + n, dtype=np.int32)
+        self._used[category].update(tags.tolist())
+        self._counters[category] += n
 
-        self.used[category].add(tag)
-        self.counters[category] = tag + 1
+        if names is not None:
+            if len(names) != n:
+                raise ValidationError("Length of names must equal Number of tag")
+            for name, tag in zip(names, tags):
+                self._store_tag(category, name, int(tag))
+        if n == 1:
+            return int(tags[0])
+        return tags
 
-        if name:
-            self._store_tag(category, name, tag)
-        return tag
-
-    # SUPPORTING METHOD: STORE MANUAL TAG
-    def store(self, category, tag, name=None):
-        if tag in self.used[category]:
-            raise ValueError(f"{category} tag {tag} already used")
-
-        self.used[category].add(tag)
-
-        if name:
-            self._store_tag(category, name, tag)
-
-    # SUPPORTING METHOD: CALL TAG OR NAME
+    # SUPPORTING METHOD: LOOKUP
     def get_tag(self, category, name):
-        return self.map_def_to_tag[category][name]
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        return self._name_to_tag[category][name]
 
     def get_name(self, category, tag):
-        return self.map_tag_to_def[category].get(tag)
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        return self._tag_to_name[category].get(int(tag))
 
-    # SUPPORTING METHOD: RESET ALL TAGS
+    # SUPPORTING METHOD: GET INFORMATION
+    def next_tag(self, category):
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        return self._counters[category]
+
+    def count(self, category):
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        return len(self._used[category])
+
+    # SUPPORTING METHOD: RESET
     def reset(self):
-        for key in self.counters:
-            self.counters[key] = 1
-            self.used[key].clear()
-            self.map_def_to_tag[key].clear()
-            self.map_tag_to_def[key].clear()
+        for category in self._counters:
+            self._counters[category] = 1
+            self._used[category].clear()
+            self._name_to_tag[category].clear()
+            self._tag_to_name[category].clear()

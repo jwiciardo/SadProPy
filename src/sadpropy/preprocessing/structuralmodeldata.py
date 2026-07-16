@@ -1,6 +1,5 @@
 import warnings
 import numpy as np
-from .modeldata import ModelData
 from ._preproc_dataclass import (
     Nodes,
     Restraints,
@@ -30,23 +29,25 @@ __all__ = ["StructuralModelData"]
 class StructuralModelData:
     def __init__(self, modeldata):
         self._modeldata = modeldata
+        self._tagmanager = TagManager()
     
     def generate(self):
         nodes = self._generate_nodes()
         beamcolumn_elements = self._generate_beamcolumn_elements()
-        return beamcolumn_elements
+        return nodes
     
     def _generate_nodes(self):
         data = self._modeldata.point_objects # Recall point_objects data
         n = len(data.index)
-        index = np.arange(n, dtype=np.int32)
-        tag = np.arange(1, n + 1, dtype=np.int32)
+        point_name = data.unique_name
+        tag = self._tagmanager.add("Node", n, point_name)
+        next_tag = self._tagmanager.next_tag("Node")
+        count = self._tagmanager.count("Node")
+        print(next_tag, count)
         nodes = Nodes(
-            index = index,
-            point_idx = data.index,
             tag = tag,
+            point_name = point_name,
             coords = data.coords,
-            tag_to_idx = dict(zip(tag.tolist(), index.tolist()))
         )
         return nodes
     
