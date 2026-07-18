@@ -47,6 +47,16 @@ class LineObjects:
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
+class LineConnectivity:
+    top: list[np.ndarray]
+    bottom: list[np.ndarray]
+    left: list[np.ndarray]
+    right: list[np.ndarray]
+    front: list[np.ndarray]
+    back: list[np.ndarray]
+
+
+@dataclass(slots=True, frozen=True)
 class SurfaceObjects:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
