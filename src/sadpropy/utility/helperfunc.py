@@ -54,8 +54,7 @@ def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_dat
 # GET EDGES AND VERTICES FROM SURFACE
 def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
     # Get edge indices
-    edges_idx = np.empty(4, dtype=np.int32)
-    edges_idx.fill(-1)
+    edges_idx = np.full(4, -1, dtype=np.int32)
     for i, edge_name in enumerate(edges_name):
         try:
             edges_idx[i] = line_objects.name_to_idx[str(edge_name)]
@@ -64,6 +63,8 @@ def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
     current_edges = edges_idx[:len(edges_name)]
 
     # Determine ordered vertices
+    if len(edges_name) < 3:
+        raise ValidationError(f"Surface '{surface_name}' must contain at least three edges.")
     edge1 = line_objects.end_points_idx[current_edges[0]]
     edge2 = line_objects.end_points_idx[current_edges[1]]
 
@@ -88,7 +89,6 @@ def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
         raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
 
     vertices.pop()
-    vertices_idx = np.empty(4, dtype=np.int32)
-    vertices_idx.fill(-1)
+    vertices_idx = np.full(4, -1, dtype=np.int32)
     vertices_idx[:len(vertices)] = vertices
     return edges_idx, vertices_idx

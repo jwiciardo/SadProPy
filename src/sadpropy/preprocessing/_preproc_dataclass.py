@@ -44,17 +44,9 @@ class LineObjects:
     is_zero_length_element: np.ndarray  # bool, shape (N,)
     length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
+    connected_lines: np.ndarray         # int32, shape (N,max connection)
+    connection_direction: np.ndarray    # int32, shape (N,max connection)
     name_to_idx: dict[str, np.int32]
-
-@dataclass(slots=True, frozen=True)
-class LineConnectivity:
-    top: list[np.ndarray]
-    bottom: list[np.ndarray]
-    left: list[np.ndarray]
-    right: list[np.ndarray]
-    front: list[np.ndarray]
-    back: list[np.ndarray]
-
 
 @dataclass(slots=True, frozen=True)
 class SurfaceObjects:
@@ -91,7 +83,6 @@ class Mat_Concrete04:
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
     name_to_idx: dict[str, np.int32]
-
 
 @dataclass(slots=True, frozen=True)
 class Mat_Steel02:

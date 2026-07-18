@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+from collections import defaultdict
 from openpyxl import load_workbook
 from ._preproc_dataclass import (
     FilePathInformation,
@@ -30,6 +31,9 @@ from ._propertiesclass import (
     FiberSectionProperties,
     SectionAggregatorProperties,
     SlabSectionProperties,
+)
+from ._connectivityclass import (
+    ConnectionDirection,
 )
 from sadpropy.utility import (
     ConverterToInternalUnits,
@@ -143,27 +147,96 @@ class ExcelTranslator:
             )
         return storeys
 
-    def _retrieve_material_index(self, mat_name):
+    def _retrieve_material_index(self, mat_name): # Retrieve Material Index
         for mat_class, mat in enumerate(self._mats_list):
             mat_idx = mat.name_to_idx.get(mat_name)
             if mat_idx is not None:
                 return mat_class, mat, mat_idx
         raise ValidationError(f"Material '{mat_name}' not found.")
     
-    def _retrieve_section_index(self, sec_name):
+    def _retrieve_section_index(self, sec_name): # Retrieve Section index
         for sec_class, sec in enumerate(self._secs_list):
             sec_idx = sec.name_to_idx.get(sec_name)
             if sec_idx is not None:
                 return sec_class, sec, sec_idx
         raise ValidationError(f"Section '{sec_name}' not found.")
     
-    def _retrieve_slabsection_index(self, sec_name, secs_list):
+    def _retrieve_slabsection_index(self, sec_name, secs_list): # Retrieve Slab section index
         for sec_class, sec in enumerate([secs_list]):
             sec_idx = sec.name_to_idx.get(sec_name)
             if sec_idx is not None:
                 return sec_class, sec, sec_idx
         raise ValidationError(f"Section '{sec_name}' not found.")
     
+    def _classify_connectivity_direction(self, dx, dy, dz, tol=1.0e-9):
+        # Horizontal direction
+        if dx > tol:
+            horizontal = ConnectionDirection.RIGHT
+        elif dx < -tol:
+            horizontal = ConnectionDirection.LEFT
+        elif dy > tol:
+            horizontal = ConnectionDirection.FRONT
+        elif dy < -tol:
+            horizontal = ConnectionDirection.BACK
+        else:
+            horizontal = None
+        # Vertical direction
+        if dz > tol:
+            vertical = ConnectionDirection.TOP
+        elif dz < -tol:
+            vertical = ConnectionDirection.BOTTOM
+        else:
+            vertical = None
+        # Pure horizontal
+        if vertical is None:
+            return horizontal
+        # Pure vertical
+        if horizontal is None:
+            return vertical
+        combined_connection = {
+            (ConnectionDirection.TOP, ConnectionDirection.LEFT): ConnectionDirection.TOP_LEFT,
+            (ConnectionDirection.TOP, ConnectionDirection.RIGHT): ConnectionDirection.TOP_RIGHT,
+            (ConnectionDirection.TOP, ConnectionDirection.FRONT): ConnectionDirection.TOP_FRONT,
+            (ConnectionDirection.TOP, ConnectionDirection.BACK): ConnectionDirection.TOP_BACK,
+            (ConnectionDirection.BOTTOM, ConnectionDirection.LEFT): ConnectionDirection.BOTTOM_LEFT,
+            (ConnectionDirection.BOTTOM, ConnectionDirection.RIGHT): ConnectionDirection.BOTTOM_RIGHT,
+            (ConnectionDirection.BOTTOM, ConnectionDirection.FRONT): ConnectionDirection.BOTTOM_FRONT,
+            (ConnectionDirection.BOTTOM, ConnectionDirection.BACK): ConnectionDirection.BOTTOM_BACK,
+        }
+        return combined_connection[(vertical, horizontal)]
+
+    def _build_node_to_line_map(self, end_points_idx):
+        node_map = defaultdict(list)
+        for line_idx, (i_node, j_node) in enumerate(end_points_idx):
+            node_map[int(i_node)].append(line_idx)
+            node_map[int(j_node)].append(line_idx)
+        return node_map
+    
+    def _generate_line_connectivity(self, end_points_idx, centroids):
+        node_map = self._build_node_to_line_map(end_points_idx)
+        n = len(end_points_idx)
+        candidate_list = []
+        max_connections = 0
+        for line_idx, (i_node, j_node) in enumerate(end_points_idx):
+            candidates = np.unique(np.concatenate((node_map[int(i_node)], node_map[int(j_node)])))
+            candidates = candidates[candidates != line_idx]
+            candidate_list.append(candidates)
+            if len(candidates) > max_connections:
+                max_connections = len(candidates)
+        connected_lines = np.full((n, max_connections), -1, dtype=np.int32)
+        connection_direction = np.full((n, max_connections), -1, dtype=np.int32)
+        for line_idx, candidates in enumerate(candidate_list):
+            if candidates.size == 0:
+                continue
+            delta = centroids[candidates] - centroids[line_idx]
+            directions = np.empty(len(candidates), dtype=np.int32)
+            for k, (dx, dy, dz) in enumerate(delta):
+                directions[k] = self._classify_connectivity_direction(dx, dy, dz)
+            m = len(candidates)
+            connected_lines[line_idx, :m] = candidates
+            connection_direction[line_idx, :m] = directions
+        return connected_lines, connection_direction
+
     # SUPPORTING METHODS
     def _translate_filepath_information(self):
         filepath_information = FilePathInformation(
@@ -740,6 +813,10 @@ class ExcelTranslator:
         d_vectors = j_coords - i_coords # Calculate direction vectors of the elements
         length = np.linalg.norm(d_vectors, axis=1) # Calculate full length of the elements
         centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of the elements
+        connected_lines, connection_direction = self._generate_line_connectivity(
+            end_points_idx=end_points_idx,
+            centroids=centroids,
+        )
         line_objects = LineObjects(
             index = index,
             unique_name = unique_name,
@@ -751,6 +828,8 @@ class ExcelTranslator:
             is_zero_length_element = is_zero_length_element,
             length = length,
             centroids = centroids,
+            connected_lines = connected_lines,
+            connection_direction = connection_direction,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each line object
         return line_objects
