@@ -1,6 +1,17 @@
 import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
+from ._propertiesclass import (
+    MaterialProperties,
+    Concrete04Properties,
+    Steel02Properties,
+    MinMaxProperties,
+    IMKProperties,
+    FrameSectionProperties,
+    FiberSectionProperties,
+    SectionAggregatorProperties,
+    SlabSectionProperties,
+)
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
@@ -105,6 +116,19 @@ class Mat_MinMax:
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,6)
     name_to_idx: dict[str, np.int32]
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            index=np.empty(0, dtype=np.int32),
+            mat_name=np.empty(0, dtype="U32"),
+            mat_type=np.empty(0, dtype="U15"),
+            base_nl_mat_class=np.empty(0, dtype=np.int32),
+            base_nl_mat_idx=np.empty(0, dtype=np.int32),
+            mat_model=np.empty(0, dtype="U15"),
+            properties=np.empty((0, len(MinMaxProperties)), dtype=np.float64),
+            name_to_idx={},
+        )
 
 @dataclass(slots=True, frozen=True)
 class Mat_IMK:

@@ -132,7 +132,10 @@ class ExcelTranslator:
             "restraints": restraints,
         }
 
-    # HELPER METHOD
+    # HELPER 
+    def _is_empty_data(self, data):
+        return len(data) == 0
+    
     def _generate_storeys(self, storey_elevations): # Create Storey data
         storeys = {}
         for i, elev in reversed(list(enumerate(storey_elevations))):
@@ -368,6 +371,11 @@ class ExcelTranslator:
 
     def _translate_mat_minmax(self):
         data = self._reader.read(sheet_name="Mat_MinMax", start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
+        if self._is_empty_sheet(data):
+            mat_minmax = Mat_MinMax.empty()
+            self._mats_list.append(mat_minmax)
+            return mat_minmax
+        
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -538,8 +546,8 @@ class ExcelTranslator:
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
         integration_type = np.empty(n, dtype="U15")
-        mats_class = np.empty((n, 3), dtype=np.int32)
-        mats_idx = np.empty((n, 3), dtype=np.int32)
+        mats_class = np.full((n, 3), -1, dtype=np.int32)
+        mats_idx = np.full((n, 3), -1, dtype=np.int32)
         mat_type = np.empty(n, dtype="U15")
         sec_model = np.empty(n, dtype="U15")
         properties = np.zeros((n, len(FiberSectionProperties)), dtype=np.float64)
@@ -556,24 +564,23 @@ class ExcelTranslator:
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
             element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
             integration_type[i] = str(row["Integration Type"])
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Material"]))
-            if row["Material 2"] is not None:
-                mat_2_class, _, mat_2_idx = self._retrieve_material_index(mat_name=str(row["Material 2"]))
-            else:
-                mat_2_class, mat_2_idx = -1, -1
-            if row["Material 3"] is not None:
-                mat_3_class, _, mat_3_idx = self._retrieve_material_index(mat_name=str(row["Material 3"]))
-            else:
-                mat_3_class, mat_3_idx = -1, -1
-            mats_class[i, :3] = (mat_class, mat_2_class, mat_3_class)
-            mats_idx[i, :3] = (mat_idx, mat_2_idx, mat_3_idx)
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
+            material_columns = ["Material", "Material 2", "Material 3"]
+            for j, column in enumerate(material_columns):
+                if row[column] is None:
+                    continue
+                mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row[column]))
+                mats_class[i, j] = mat_class
+                mats_idx[i, j] = mat_idx
+            for j in range(6):
+                if mats_class[i, j] >= 0:
+                    mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
+                    break
             sec_model[i] = str(row["Section Model"])
             cover, nbars_top, nbars_bot, nbars_int = self._to_internalunits.length(value=row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
             bar_dia_hoop, bar_dia_top = self._to_internalunits.length(value=row["barDiaHoop"]), self._to_internalunits.length(row["barDiaTop"])
             bar_dia_bot, bar_dia_int = self._to_internalunits.length(value=row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
-            properties[i] = (0.0, 0.0, cover, nbars_top, nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int,
-                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, cover, nbars_top, 
+                             nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int, 0.0, 0.0, 0.0)
         base_sec_props = get_section_properties(
             secs_list=self._secs_list,
             sec_class=base_sec_class,
@@ -614,7 +621,7 @@ class ExcelTranslator:
         return sec_fiber
     
     def _translate_sec_aggregator(self):
-        data = self._reader.read(sheet_name="Sec_Aggregator", start_row=16) # Reading Sheet "Sec_Aggregator" in the Input file
+        data = self._reader.read(sheet_name="Sec_Aggregator", start_row=15) # Reading Sheet "Sec_Aggregator" in the Input file
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
@@ -622,12 +629,12 @@ class ExcelTranslator:
         element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
-        mats_class = np.empty((n, 6), dtype=np.int32)
-        mats_idx = np.empty((n, 6), dtype=np.int32)
+        mats_class = np.full((n, 6), -1, dtype=np.int32)
+        mats_idx   = np.full((n, 6), -1, dtype=np.int32)
         mat_type = np.empty(n, dtype="U15")
         sec_model = np.empty(n, dtype="U15")
-        aggregated_sec_class = np.empty(n, dtype=np.int32)
-        aggregated_sec_idx = np.empty(n, dtype=np.int32)
+        aggregated_sec_class = np.full(n, -1, dtype=np.int32)
+        aggregated_sec_idx = np.full(n, -1, dtype=np.int32)
         properties = np.zeros((n, len(SectionAggregatorProperties)), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
@@ -641,41 +648,31 @@ class ExcelTranslator:
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
             element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Material"]))
-            if row["Material 2"] is not None:
-                mat_2_class, _, mat_2_idx = self._retrieve_material_index(mat_name=str(row["Material 2"]))
-            else:
-                mat_2_class, mat_2_idx = -1, -1
-            if row["Material 3"] is not None:
-                mat_3_class, _, mat_3_idx = self._retrieve_material_index(mat_name=str(row["Material 3"]))
-            else:
-                mat_3_class, mat_3_idx = -1, -1
-            if row["Material 4"] is not None:
-                mat_4_class, _, mat_4_idx = self._retrieve_material_index(mat_name=str(row["Material 4"]))
-            else:
-                mat_4_class, mat_4_idx = -1, -1
-            if row["Material 5"] is not None:
-                mat_5_class, _, mat_5_idx = self._retrieve_material_index(mat_name=str(row["Material 5"]))
-            else:
-                mat_5_class, mat_5_idx = -1, -1
-            if row["Material 6"] is not None:
-                mat_6_class, _, mat_6_idx = self._retrieve_material_index(mat_name=str(row["Material 6"]))
-            else:
-                mat_6_class, mat_6_idx = -1, -1
-            mats_class[i, :6] = (mat_class, mat_2_class, mat_3_class, mat_4_class, mat_5_class, mat_6_class)
-            mats_idx[i, :6] = (mat_idx, mat_2_idx, mat_3_idx, mat_4_idx, mat_5_idx, mat_6_idx)
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
+            material_columns = ["Material", "Material 2", "Material 3", "Material 4", "Material 5", "Material 6"]
+            for j, column in enumerate(material_columns):
+                if row[column] is None:
+                    continue
+                mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row[column]))
+                mats_class[i, j] = mat_class
+                mats_idx[i, j] = mat_idx
+            for j in range(6):
+                if mats_class[i, j] >= 0:
+                    mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
+                    break
             sec_model[i] = str(row["Section Model"])
-            agg_sec_class, _, agg_sec_idx = self._retrieve_section_index(sec_name=str(row["Aggregated Section"]))
-            aggregated_sec_class[i] = agg_sec_class
-            aggregated_sec_idx[i] = agg_sec_idx
-        base_sec_props = get_section_properties(
+            if row["Aggregated Section"] is not None:
+                agg_sec_class, _, agg_sec_idx = self._retrieve_section_index(sec_name=str(row["Aggregated Section"]))
+                aggregated_sec_class[i] = agg_sec_class
+                aggregated_sec_idx[i] = agg_sec_idx
+        sec_class = np.where(aggregated_sec_class >= 0, aggregated_sec_class, base_sec_class)
+        sec_idx = np.where(aggregated_sec_idx >= 0, aggregated_sec_idx, base_sec_idx,)
+        sec_props = get_section_properties(
             secs_list=self._secs_list,
-            sec_class=aggregated_sec_class,
-            sec_idx=aggregated_sec_idx,
+            sec_class=sec_class,
+            sec_idx=sec_idx,
             props_name=["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"],
         )
-        properties[:, SectionAggregatorProperties.h:SectionAggregatorProperties.Jxx+1] = base_sec_props
+        properties[:, SectionAggregatorProperties.h:SectionAggregatorProperties.Jxx+1] = sec_props
         sec_aggregator = Sec_Aggregator(
             index = index,
             sec_name = sec_name,
