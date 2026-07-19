@@ -17,5 +17,7 @@ storeys = modeldata.storeys
 restraints = modeldata.restraints
 
 model = StructuralModelData(modeldata).generate()
+vis = Visualisation(modeldata)
+vis.plot_line_connectivity()
 
 print(line_objects)

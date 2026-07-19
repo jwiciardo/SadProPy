@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from sadpropy.preprocessing._propertiesclass import PropertiesClassRegistry
+from sadpropy.preprocessing._connectivityclass import ConnectionDirection
 from ._exceptions import ValidationError
 
 __all__ = ["get_material_properties", "get_section_properties", "get_edges_and_vertices_from_surface", "retrieve_output_from_input"]
@@ -92,3 +93,73 @@ def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
     vertices_idx = np.full(4, -1, dtype=np.int32)
     vertices_idx[:len(vertices)] = vertices
     return edges_idx, vertices_idx
+
+# GENERATE LINE CONNECTIVITY
+def _classify_connectivity_direction(dx, dy, dz, tol=1.0e-9):
+    # Horizontal direction
+    if dx > tol:
+        horizontal = ConnectionDirection.RIGHT
+    elif dx < -tol:
+        horizontal = ConnectionDirection.LEFT
+    elif dy > tol:
+        horizontal = ConnectionDirection.FRONT
+    elif dy < -tol:
+        horizontal = ConnectionDirection.BACK
+    else:
+        horizontal = None
+    # Vertical direction
+    if dz > tol:
+        vertical = ConnectionDirection.TOP
+    elif dz < -tol:
+        vertical = ConnectionDirection.BOTTOM
+    else:
+        vertical = None
+    # Pure horizontal
+    if vertical is None:
+        return horizontal
+    # Pure vertical
+    if horizontal is None:
+        return vertical
+    combined_connection = {
+        (ConnectionDirection.TOP, ConnectionDirection.LEFT): ConnectionDirection.TOP_LEFT,
+        (ConnectionDirection.TOP, ConnectionDirection.RIGHT): ConnectionDirection.TOP_RIGHT,
+        (ConnectionDirection.TOP, ConnectionDirection.FRONT): ConnectionDirection.TOP_FRONT,
+        (ConnectionDirection.TOP, ConnectionDirection.BACK): ConnectionDirection.TOP_BACK,
+        (ConnectionDirection.BOTTOM, ConnectionDirection.LEFT): ConnectionDirection.BOTTOM_LEFT,
+        (ConnectionDirection.BOTTOM, ConnectionDirection.RIGHT): ConnectionDirection.BOTTOM_RIGHT,
+        (ConnectionDirection.BOTTOM, ConnectionDirection.FRONT): ConnectionDirection.BOTTOM_FRONT,
+        (ConnectionDirection.BOTTOM, ConnectionDirection.BACK): ConnectionDirection.BOTTOM_BACK,
+    }
+    return combined_connection[(vertical, horizontal)]
+
+def _build_node_to_line_map(end_points_idx):
+    node_map = defaultdict(list)
+    for line_idx, (i_node, j_node) in enumerate(end_points_idx):
+        node_map[int(i_node)].append(line_idx)
+        node_map[int(j_node)].append(line_idx)
+    return node_map
+    
+def generate_line_connectivity(end_points_idx, centroids):
+    node_map = _build_node_to_line_map(end_points_idx)
+    n = len(end_points_idx)
+    candidate_list = []
+    max_connections = 0
+    for line_idx, (i_node, j_node) in enumerate(end_points_idx):
+        candidates = np.unique(np.concatenate((node_map[int(i_node)], node_map[int(j_node)])))
+        candidates = candidates[candidates != line_idx]
+        candidate_list.append(candidates)
+        if len(candidates) > max_connections:
+            max_connections = len(candidates)
+    connected_lines = np.full((n, max_connections), -1, dtype=np.int32)
+    connection_direction = np.full((n, max_connections), -1, dtype=np.int32)
+    for line_idx, candidates in enumerate(candidate_list):
+        if candidates.size == 0:
+            continue
+        delta = centroids[candidates] - centroids[line_idx]
+        directions = np.empty(len(candidates), dtype=np.int32)
+        for k, (dx, dy, dz) in enumerate(delta):
+            directions[k] = _classify_connectivity_direction(dx, dy, dz)
+        m = len(candidates)
+        connected_lines[line_idx, :m] = candidates
+        connection_direction[line_idx, :m] = directions
+    return connected_lines, connection_direction
