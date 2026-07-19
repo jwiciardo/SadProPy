@@ -18,6 +18,6 @@ restraints = modeldata.restraints
 
 model = StructuralModelData(modeldata).generate()
 vis = Visualisation(modeldata)
-vis.plot_line_connectivity()
+vis.plot_line_connectivity(colour_by="Section")
 
-print(line_objects)
+print(sec_fiber)

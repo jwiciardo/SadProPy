@@ -121,8 +121,8 @@ class FrameSections:
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
     element_type: np.ndarray            # str, shape (N,)
-    base_mat_class: np.ndarray          # int32, shape (N,)
-    base_mat_idx: np.ndarray            # int32, shape (N,)
+    mats_class: np.ndarray              # int32, shape (N,1)
+    mats_idx: np.ndarray                # int32, shape (N,1)
     mat_type: np.ndarray                # str, shape (N,)
     sec_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,10)
@@ -148,13 +148,17 @@ class Sec_Fiber:
 class Sec_Aggregator:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
-    aggregator_type: str                # str, shape (N,)
-    aggregated_sec_class: np.ndarray    # int32, shape (N,)
-    aggregated_sec_idx: np.ndarray      # int32, shape (N,)
-    base_mat_class: np.ndarray          # int32, shape (N,)
-    base_mat_idx: np.ndarray            # int32, shape (N,)
+    sec_shape: np.ndarray               # str, shape (N,)
+    element_type: np.ndarray            # str, shape (N,)
+    base_sec_class: np.ndarray          # int32, shape (N,)
+    base_sec_idx: np.ndarray            # int32, shape (N,)
+    mats_class: np.ndarray              # int32, shape (N,6)
+    mats_idx: np.ndarray                # int32, shape (N,6)
+    mat_type: np.ndarray                # str, shape (N,)
     sec_model: str                      # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,8)
+    aggregated_sec_class: np.ndarray    # int32, shape (N,)
+    aggregated_sec_idx: np.ndarray      # int32, shape (N,)
     name_to_idx: dict[str, np.int32]
 
 # PROPERTIES: SLAB SECTIONS
@@ -162,6 +166,7 @@ class Sec_Aggregator:
 class SlabSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
+    element_type: np.ndarray            # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
     properties: np.ndarray              # float64, shape (N,)
