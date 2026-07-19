@@ -132,7 +132,13 @@ class ExcelTranslator:
             "restraints": restraints,
         }
 
-    # HELPER 
+    # HELPER METHOD
+    def _check_data(self, data, sheet_name, mandatory=True):
+        if len(data) > 0:
+            return True
+        if mandatory:
+            raise ValidationError(f"Sheet '{sheet_name}' is mandatory but contains no data.")
+        return False
     def _is_empty_data(self, data):
         return len(data) == 0
     
@@ -187,15 +193,24 @@ class ExcelTranslator:
     def _translate_project_information(self):
         data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
         values = {row["Item"]: row["Value"] for row in data}
+        if values["Model Dimensional Space"] == "3-Dimensional":
+            ndim = 3
+        elif values["Model Dimensional Space"] == "2-Dimensional":
+            ndim = 2
+        elif values["Model Dimensional Space"] is None:
+            raise ValidationError("Empty value in Project Information sheet")
         project_information = ProjectInformation(
                 name = str(values["Project Name"]),
                 desc = str(values["Project Description"]),
-                ndim = int(3 if values["Model Dimensional Space"] == "3-Dimensional" else 2),
+                ndim = int(ndim),
         ) # Defining dataclass for project information
         return project_information
     
     def _translate_userdefined_units(self):
         data = self._reader.read(sheet_name="User Defined Units", start_row=9) # Reading Sheet "User Defined Units" in the Input file
+        if not self._check_data(data, "User Defined Units", mandatory=True):
+            userdefined_units = UserDefinedUnits.empty()
+            return userdefined_units
         values = {row["Item"]: row["Value"] for row in data}
         userdefined_units = UserDefinedUnits(
                 force = str(values["Force"]),
@@ -371,7 +386,7 @@ class ExcelTranslator:
 
     def _translate_mat_minmax(self):
         data = self._reader.read(sheet_name="Mat_MinMax", start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
-        if self._is_empty_sheet(data):
+        if self._is_empty_data(data):
             mat_minmax = Mat_MinMax.empty()
             self._mats_list.append(mat_minmax)
             return mat_minmax

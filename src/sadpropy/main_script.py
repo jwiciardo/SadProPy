@@ -20,4 +20,4 @@ model = StructuralModelData(modeldata).generate()
 vis = Visualisation(modeldata)
 #vis.plot_line_connectivity(colour_by="Section")
 
-print(sec_aggregator)
+print(mat_minmax)
