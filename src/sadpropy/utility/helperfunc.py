@@ -4,24 +4,24 @@ from sadpropy.preprocessing._propertiesclass import PropertiesClassRegistry
 from sadpropy.preprocessing._connectivityclass import ConnectionDirection
 from ._exceptions import ValidationError
 
-__all__ = ["get_material_properties", "get_section_properties", "get_edges_and_vertices_from_surface", "retrieve_output_from_input"]
+__all__ = ["get_material_properties", "get_section_properties", "retrieve_output_from_input", "generate_local_axes", "generate_line_connectivity", "get_edges_and_vertices_from_surface"]
 
 # GET MATERIAL PROPERTIES
 def get_material_properties(mats_list, mat_class=np.ndarray, mat_idx=np.ndarray, props_name=list[str]):
-    n = len(mat_class)
-    props_class = PropertiesClassRegistry()._get_mat_props_class(mat_class=mat_class)
-    max_ncol_props_class = np.max(np.array([len(propcls) for propcls in props_class])) # Maximum number of array columns in all material properties
-    mat_props = np.zeros((n, max_ncol_props_class), dtype=np.float64)
-    for cls in np.unique(mat_class):
+    n = len(mat_class) # Get length of array (rows)
+    props_class = PropertiesClassRegistry()._get_mat_props_class(mat_class=mat_class) # Get Properties class index of material, look at _propertiesclass.py
+    max_ncol_props_class = np.max(np.array([len(propcls) for propcls in props_class])) # Determine maximum number of columns among all material properties arrays
+    mat_props = np.zeros((n, max_ncol_props_class), dtype=np.float64) # Allocate material properties array which has shape (n, max number of columns)
+    for cls in np.unique(mat_class): # Filter material properties array using material class mask
             mask = mat_class == cls
             mat = mats_list[cls]
             props = mat.properties[mat_idx[mask]]
             mat_props[mask, :props.shape[1]] = props
-    row_idx = np.arange(n)[:, None]
+    row_idx = np.arange(n)[:, None] # Build array of index
     col_idx = np.array(
         [[getattr(propcls, propname) for propname in props_name]
         for propcls in props_class
-    ])
+    ]) # Build array of properties class
     return mat_props[row_idx, col_idx]
 
 # GET SECTION PROPERTIES
@@ -52,47 +52,43 @@ def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_dat
         raise ValidationError(f"Shared value {e.args[0]!r} not found in output shared data.")
     return outputdata_converted.astype(np.int32)
 
-# GET EDGES AND VERTICES FROM SURFACE
-def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
-    # Get edge indices
-    edges_idx = np.full(4, -1, dtype=np.int32)
-    for i, edge_name in enumerate(edges_name):
-        try:
-            edges_idx[i] = line_objects.name_to_idx[str(edge_name)]
-        except KeyError:
-            raise ValidationError(f"Surface '{surface_name}' references undefined line '{edge_name}'.")
-    current_edges = edges_idx[:len(edges_name)]
+# GENERATE LOCAL AXES OF LINE OBJECTS
+def generate_local_axes(end_points_index, point_objects, ndim):
+    coords = point_objects.coords # Retrieve array of point coordinates
+    
+    # 3-Dimensional Structure
+    if ndim == 3:
+        i_coords = coords[end_points_index[:, 0]] # Obtain I-end point coordinates from array of point coordinates
+        j_coords = coords[end_points_index[:, 1]] # Obtain I-end point coordinates from array of point coordinates
+        d_vectors = j_coords - i_coords # Determine direction vectors
+        length = np.linalg.norm(d_vectors, axis=1) # Compute length of line objects
+        local_x = d_vectors / length[:, None] # Determine local x-axis
+        reference = np.tile(np.array([0.0, 0.0, 1.0]), (len(local_x), 1)) # Build reference direction array, default is toward global Z-axis
+        vertical = np.abs(local_x[:, 2]) > 0.99 # Build masking for vertical line objects
+        reference[vertical] = np.array([1.0, 0.0, 0.0]) # Change reference direction array for vertical line objects which is toward global X-axis
+        local_z = np.cross(local_x, reference) # Cross product to determine local z-axis
+        local_z /= np.linalg.norm(local_z, axis=1)[:, None] # Determine local z-axis
+        local_y = np.cross(local_z, local_x) # Cross product to determine local y-axis
+        local_y /= np.linalg.norm(local_y, axis=1)[:, None] # Determine local y-axis
+        rotation_matrix = np.stack((local_x, local_y, local_z), axis=1) # Build rotation matrix 3x3 for transforming global to local axes and local to global axes
+        return (length, local_x, local_y, local_z, rotation_matrix)
 
-    # Determine ordered vertices
-    if len(edges_name) < 3:
-        raise ValidationError(f"Surface '{surface_name}' must contain at least three edges.")
-    edge1 = line_objects.end_points_idx[current_edges[0]]
-    edge2 = line_objects.end_points_idx[current_edges[1]]
-
-    if edge1[1] in edge2:
-        vertices = [edge1[0], edge1[1]]
-    elif edge1[0] in edge2:
-        vertices = [edge1[1], edge1[0]]
+    # 2-Dimensional Structure
     else:
-        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    for edge_idx in current_edges[1:]:
-        edge = line_objects.end_points_idx[edge_idx]
-        current_vertex = vertices[-1]
-        if edge[0] == current_vertex:
-            vertices.append(edge[1])
-        elif edge[1] == current_vertex:
-            vertices.append(edge[0])
-        else:
-            raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    if vertices[0] != vertices[-1]:
-        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    vertices.pop()
-    vertices_idx = np.full(4, -1, dtype=np.int32)
-    vertices_idx[:len(vertices)] = vertices
-    return edges_idx, vertices_idx
+        i_coords = coords[end_points_index[:, 0], :2] # Obtain I-end point coordinates from array of point coordinates
+        j_coords = coords[end_points_index[:, 1], :2] # Obtain I-end point coordinates from array of point coordinates
+        d_vectors = j_coords - i_coords # Determine direction vectors
+        length = np.linalg.norm(d_vectors, axis=1) # Compute length of line objects
+        cx = d_vectors[:, 0] / length # Compute the x-component of the direction cosine of line objects
+        cy = d_vectors[:, 1] / length # Compute the y-component of the direction cosine of line objects
+        local_x = np.column_stack((cx, cy)) # Determine local x-axis
+        local_y = np.column_stack((-cy, cx)) # Determine local y-axis
+        rotation_matrix = np.empty((len(length), 2, 2)) # Allocate rotation matrix 2x2
+        rotation_matrix[:, 0, 0] = cx # Input value in row 1, column 1 rotation matrix
+        rotation_matrix[:, 0, 1] = cy # Input value in row 1, column 2 rotation matrix
+        rotation_matrix[:, 1, 0] = -cy # Input value in row 2, column 1 rotation matrix
+        rotation_matrix[:, 1, 1] = cx # Input value in row 2, column 2 rotation matrix
+        return (length, local_x, local_y, None, rotation_matrix)
 
 # GENERATE LINE CONNECTIVITY
 def _classify_connectivity_direction(dx, dy, dz, tol=1.0e-9):
@@ -163,3 +159,132 @@ def generate_line_connectivity(end_points_idx, centroids):
         connected_lines[line_idx, :m] = candidates
         connection_direction[line_idx, :m] = directions
     return connected_lines, connection_direction
+
+# GET EDGES AND VERTICES FROM SURFACE
+def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
+    # Get edge indices
+    edges_idx = np.full(4, -1, dtype=np.int32)
+    for i, edge_name in enumerate(edges_name):
+        try:
+            edges_idx[i] = line_objects.name_to_idx[str(edge_name)]
+        except KeyError:
+            raise ValidationError(f"Surface '{surface_name}' references undefined line '{edge_name}'.")
+    current_edges = edges_idx[:len(edges_name)]
+
+    # Determine ordered vertices
+    if len(edges_name) < 3:
+        raise ValidationError(f"Surface '{surface_name}' must contain at least three edges.")
+    edge1 = line_objects.end_points_idx[current_edges[0]]
+    edge2 = line_objects.end_points_idx[current_edges[1]]
+
+    if edge1[1] in edge2:
+        vertices = [edge1[0], edge1[1]]
+    elif edge1[0] in edge2:
+        vertices = [edge1[1], edge1[0]]
+    else:
+        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
+
+    for edge_idx in current_edges[1:]:
+        edge = line_objects.end_points_idx[edge_idx]
+        current_vertex = vertices[-1]
+        if edge[0] == current_vertex:
+            vertices.append(edge[1])
+        elif edge[1] == current_vertex:
+            vertices.append(edge[0])
+        else:
+            raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
+
+    if vertices[0] != vertices[-1]:
+        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
+
+    vertices.pop()
+    vertices_idx = np.full(4, -1, dtype=np.int32)
+    vertices_idx[:len(vertices)] = vertices
+    return edges_idx, vertices_idx
+
+
+
+# GENERATE END OFFSET
+def _get_section_depth(self, sec_class, sec_idx):
+    return get_section_properties(
+        secs_list=self._secs_list,
+        sec_class=np.array([sec_class]),
+        sec_idx=np.array([sec_idx]),
+        props_name=["h"],
+    )[0, 0]
+
+def _maximum_connected_depth(self, line_objects, connected_lines, connection_direction, valid_directions):
+    max_depth = 0.0
+    for neighbour, direction in zip(connected_lines, connection_direction):
+        if neighbour < 0:
+            continue
+        if direction not in valid_directions:
+            continue
+        depth = self._get_section_depth(
+            line_objects.sec_class[neighbour],
+            line_objects.sec_idx[neighbour],
+        )
+        max_depth = max(max_depth, depth)
+    return max_depth
+
+def _generate_auto_offsets(self, line_objects):
+    n = len(line_objects.index)
+    auto_offsets = np.zeros((n, 2), dtype=np.float64)
+    for line in range(n):
+        connected = line_objects.connected_lines[line]
+        directions = line_objects.connection_direction[line]
+        element_type = self._secs_list[
+            line_objects.sec_class[line]
+        ].element_type[line_objects.sec_idx[line]]
+
+        # -------------------------------------------------
+        # COLUMN
+        # -------------------------------------------------
+        if element_type == "Column":
+
+            auto_offsets[line, 0] = self._maximum_connected_depth(
+                line_objects,
+                connected,
+                directions,
+                {
+                    ConnectionDirection.TOP_LEFT,
+                    ConnectionDirection.TOP_RIGHT,
+                    ConnectionDirection.TOP_FRONT,
+                    ConnectionDirection.TOP_BACK,
+                },
+            )
+            auto_offsets[line, 1] = self._maximum_connected_depth(
+                line_objects,
+                connected,
+                directions,
+                {
+                    ConnectionDirection.BOTTOM_LEFT,
+                    ConnectionDirection.BOTTOM_RIGHT,
+                    ConnectionDirection.BOTTOM_FRONT,
+                    ConnectionDirection.BOTTOM_BACK,
+                },
+            )
+
+        # -------------------------------------------------
+        # BEAM
+        # -------------------------------------------------
+        elif element_type == "Beam":
+            auto_offsets[line, 0] = self._maximum_connected_depth(
+                line_objects,
+                connected,
+                directions,
+                {
+                    ConnectionDirection.TOP_LEFT,
+                    ConnectionDirection.BOTTOM_LEFT,
+                },
+            )
+            auto_offsets[line, 1] = self._maximum_connected_depth(
+                line_objects,
+                connected,
+                directions,
+                {
+                    ConnectionDirection.TOP_RIGHT,
+                    ConnectionDirection.BOTTOM_RIGHT,
+                },
+            )
+    return auto_offsets

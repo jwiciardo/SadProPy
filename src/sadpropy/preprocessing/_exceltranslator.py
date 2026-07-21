@@ -1,6 +1,5 @@
 import warnings
 import numpy as np
-from collections import defaultdict
 from openpyxl import load_workbook
 from ._preproc_dataclass import (
     FilePathInformation,
@@ -43,8 +42,9 @@ from sadpropy.utility._filepath import get_filepath
 from sadpropy.utility.helperfunc import (
     get_material_properties,
     get_section_properties,
-    get_edges_and_vertices_from_surface,
+    generate_local_axes,
     generate_line_connectivity,
+    get_edges_and_vertices_from_surface,
 )
 
 
@@ -73,6 +73,17 @@ class ExcelReader:
                 continue
             data.append(record)
         return data
+    
+    def read_preferences_sheet(self, sheet_name="", start_row=1, required_preferences=None):
+        data = self.read(sheet_name=sheet_name, start_row=start_row)
+        values = {row["Item"]: row["Value"] for row in data}
+
+        if required_preferences is not None:
+            for preference in required_preferences:
+                value = values.get(preference)
+                if value is None or str(value).strip() == "":
+                    raise ValidationError(f"'{preference}' in sheet '{sheet_name}' cannot be empty.")
+        return values
 
 class ExcelTranslator:
     def __init__(self):
@@ -103,7 +114,7 @@ class ExcelTranslator:
         sec_aggregator = self._translate_sec_aggregator()
         slab_sections = self._translate_slab_sections()
         point_objects, storeys = self._translate_point_objects()
-        line_objects = self._translate_line_objects(point_objects=point_objects)
+        line_objects = self._translate_line_objects(point_objects=point_objects, project_information=project_information)
         surface_objects = self._translate_surface_objects(
             line_objects=line_objects,
             slab_sections=slab_sections,
@@ -133,14 +144,12 @@ class ExcelTranslator:
         }
 
     # HELPER METHOD
-    def _check_data(self, data, sheet_name, mandatory=True):
+    def _validate_data(self, data, sheet_name, mandatory=True):
         if len(data) > 0:
             return True
         if mandatory:
             raise ValidationError(f"Sheet '{sheet_name}' is mandatory but contains no data.")
         return False
-    def _is_empty_data(self, data):
-        return len(data) == 0
     
     def _generate_storeys(self, storey_elevations): # Create Storey data
         storeys = {}
@@ -191,27 +200,31 @@ class ExcelTranslator:
         return filepath_information
 
     def _translate_project_information(self):
-        data = self._reader.read(sheet_name="Project Information", start_row=6) # Reading Sheet "Project Information" in the Input file
-        values = {row["Item"]: row["Value"] for row in data}
-        if values["Model Dimensional Space"] == "3-Dimensional":
-            ndim = 3
-        elif values["Model Dimensional Space"] == "2-Dimensional":
-            ndim = 2
-        elif values["Model Dimensional Space"] is None:
-            raise ValidationError("Empty value in Project Information sheet")
+        values = self._reader.read_preferences_sheet(
+            sheet_name="Project Information",
+            start_row=6,
+            required_preferences=["Model Dimensional Space"],
+        ) # Reading Sheet "Project Information" in the Input file
         project_information = ProjectInformation(
                 name = str(values["Project Name"]),
                 desc = str(values["Project Description"]),
-                ndim = int(ndim),
+                ndim = int(3 if str(values["Model Dimensional Space"]) == "3-Dimensional" else 2),
         ) # Defining dataclass for project information
         return project_information
     
     def _translate_userdefined_units(self):
-        data = self._reader.read(sheet_name="User Defined Units", start_row=9) # Reading Sheet "User Defined Units" in the Input file
-        if not self._check_data(data, "User Defined Units", mandatory=True):
-            userdefined_units = UserDefinedUnits.empty()
-            return userdefined_units
-        values = {row["Item"]: row["Value"] for row in data}
+        values = self._reader.read_preferences_sheet(
+            sheet_name="User Defined Units",
+            start_row=9,
+            required_preferences=[
+                "Force",
+                "Length",
+                "Mass",
+                "Stress",
+                "Time",
+                "Angle",
+            ],
+        ) # Reading Sheet "User Defined Units" in the Input file
         userdefined_units = UserDefinedUnits(
                 force = str(values["Force"]),
                 length = str(values["Length"]),
@@ -223,8 +236,15 @@ class ExcelTranslator:
         return userdefined_units
 
     def _translate_analysis_preferences(self):
-        data = self._reader.read(sheet_name="Analysis Preferences", start_row=6) # Reading Sheet "Analysis Preferences" in the Input file
-        values = {row["Item"]: row["Value"] for row in data}
+        values = self._reader.read_preferences_sheet(
+            sheet_name="Analysis Preferences",
+            start_row=6,
+            required_preferences=[
+                "Nonlinear Analysis",
+                "P-Delta",
+                "LL Mass Factor",
+            ],
+        ) # Reading Sheet "Analysis Preferences" in the Input file
         analysis_preferences = AnalysisPreferences(
                 is_nonlinear_analysis = str(values["Nonlinear Analysis"]),
                 is_pdelta = str(values["P-Delta"]),
@@ -233,7 +253,9 @@ class ExcelTranslator:
         return analysis_preferences
 
     def _translate_materials(self):
-        data = self._reader.read(sheet_name="Materials", start_row=13) # Reading Sheet "Materials" in the Input file
+        sheet_name = "Materials"
+        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Materials" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -268,7 +290,12 @@ class ExcelTranslator:
         return materials
     
     def _translate_mat_concrete04(self):
-        data = self._reader.read(sheet_name="Mat_Concrete04", start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
+        sheet_name = "Mat_Concrete04"
+        data = self._reader.read(sheet_name=sheet_name, start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            mat_concrete04 = Mat_Concrete04.empty()
+            self._mats_list.append(mat_concrete04)
+            return mat_concrete04
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -316,7 +343,12 @@ class ExcelTranslator:
         return mat_concrete04
 
     def _translate_mat_steel02(self):
-        data = self._reader.read(sheet_name="Mat_Steel02", start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
+        sheet_name = "Mat_Steel02"
+        data = self._reader.read(sheet_name=sheet_name, start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            mat_steel02 = Mat_Steel02.empty()
+            self._mats_list.append(mat_steel02)
+            return mat_steel02
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -385,12 +417,12 @@ class ExcelTranslator:
         return mat_steel02
 
     def _translate_mat_minmax(self):
-        data = self._reader.read(sheet_name="Mat_MinMax", start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
-        if self._is_empty_data(data):
+        sheet_name = "Mat_MinMax"
+        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
             mat_minmax = Mat_MinMax.empty()
             self._mats_list.append(mat_minmax)
             return mat_minmax
-        
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -435,7 +467,11 @@ class ExcelTranslator:
         return mat_minmax
     
     def _translate_mat_imk(self):
-        data = self._reader.read(sheet_name="Mat_IMK", start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+        sheet_name = "Mat_IMK"
+        data = self._reader.read(sheet_name=sheet_name, start_row=19) # Reading Sheet "Mat_IMK" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            mat_imk = Mat_IMK.empty()
+            return mat_imk
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.empty(n, dtype="U32")
@@ -479,11 +515,12 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing material data to dataclass
-        self._mats_list.append(mat_imk) # Append Mat_IMK Properties into Material Lists
         return mat_imk
     
     def _translate_frame_sections(self):
-        data = self._reader.read(sheet_name="Frame Sections", start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        sheet_name = "Frame Sections"
+        data = self._reader.read(sheet_name=sheet_name, start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
@@ -552,7 +589,12 @@ class ExcelTranslator:
         return frame_sections
     
     def _translate_sec_fiber(self):
-        data = self._reader.read(sheet_name="Sec_Fiber", start_row=20) # Reading Sheet "Sec_Fiber" in the Input file
+        sheet_name = "Sec_Fiber"
+        data = self._reader.read(sheet_name=sheet_name, start_row=20) # Reading Sheet "Sec_Fiber" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            sec_fiber = Sec_Fiber.empty()
+            self._secs_list.append(sec_fiber)
+            return sec_fiber
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
@@ -636,7 +678,12 @@ class ExcelTranslator:
         return sec_fiber
     
     def _translate_sec_aggregator(self):
-        data = self._reader.read(sheet_name="Sec_Aggregator", start_row=15) # Reading Sheet "Sec_Aggregator" in the Input file
+        sheet_name = "Sec_Aggregator"
+        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Sec_Aggregator" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            sec_aggregator = Sec_Aggregator.empty()
+            self._secs_list.append(sec_aggregator)
+            return sec_aggregator
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
@@ -708,13 +755,17 @@ class ExcelTranslator:
         return sec_aggregator
 
     def _translate_slab_sections(self):
-        data = self._reader.read(sheet_name="Slab Sections", start_row=7) # Reading Sheet "Slab Sections" in the Input file
+        sheet_name = "Slab Sections"
+        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Slab Sections" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            slab_sections = SlabSections.empty()
+            return slab_sections
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         element_type = np.empty(n, dtype="U15")
-        base_mat_class = np.empty(n, dtype=np.int32)
-        base_mat_idx = np.empty(n, dtype=np.int32)
+        mats_class = np.empty((n, 1), dtype=np.int32)
+        mats_idx = np.empty((n, 1), dtype=np.int32)
         properties = np.zeros((n, len(SlabSectionProperties)), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
@@ -724,24 +775,26 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             sec_name[i] = name
             element_type[i] = (str(row["Element Type"]))
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
-            base_mat_class[i] = mat_class
-            base_mat_idx[i] = mat_idx
+            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Material"]))
+            mats_class[i] = mat_class
+            mats_idx[i] = mat_idx
             t = self._to_internalunits.length(value=row["t"])
             properties[i] = (t)
         slab_sections = SlabSections(
             index = index,
             sec_name = sec_name,
             element_type = element_type,
-            base_mat_class = base_mat_class,
-            base_mat_idx = base_mat_idx,
+            mats_class = mats_class,
+            mats_idx = mats_idx,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each slab section
         return slab_sections
     
     def _translate_point_objects(self):
-        data = self._reader.read(sheet_name="Point Objects", start_row=7) # Reading Sheet "Point Objects" in the Input file
+        sheet_name = "Point Objects"
+        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Point Objects" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
@@ -767,8 +820,10 @@ class ExcelTranslator:
         storeys = self._generate_storeys(storey_elevations=np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
         return point_objects, storeys
 
-    def _translate_line_objects(self, point_objects):
-        data = self._reader.read(sheet_name="Line Objects", start_row=13) # Reading Sheet "Line Objects" in the Input file
+    def _translate_line_objects(self, point_objects, project_information):
+        sheet_name = "Line Objects"
+        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Line Objects" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
@@ -778,7 +833,6 @@ class ExcelTranslator:
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         is_zero_length_element = np.empty(n, dtype=bool)
-        length = np.empty(n, dtype=np.float64)
         centroids = np.empty((n, 3), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
@@ -797,9 +851,12 @@ class ExcelTranslator:
             is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         i_coords = point_objects.coords[end_points_idx[:, 0]]
         j_coords = point_objects.coords[end_points_idx[:, 1]]
-        d_vectors = j_coords - i_coords # Calculate direction vectors of the elements
-        length = np.linalg.norm(d_vectors, axis=1) # Calculate full length of the elements
-        centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of the elements
+        centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of line objects
+        length, local_x, local_y, local_z, rotation_matrix = generate_local_axes(
+            end_points_index=end_points_idx,
+            point_objects=point_objects,
+            ndim=project_information.ndim,
+        )
         connected_lines, connection_direction = generate_line_connectivity(
             end_points_idx=end_points_idx,
             centroids=centroids,
@@ -813,8 +870,12 @@ class ExcelTranslator:
             sec_class = sec_class,
             sec_idx = sec_idx,
             is_zero_length_element = is_zero_length_element,
-            length = length,
             centroids = centroids,
+            length = length,
+            local_x = local_x,
+            local_y = local_y,
+            local_z = local_z,
+            rotation_matrix = rotation_matrix,
             connected_lines = connected_lines,
             connection_direction = connection_direction,
             name_to_idx = name_to_idx,
@@ -822,7 +883,9 @@ class ExcelTranslator:
         return line_objects
 
     def _translate_surface_objects(self, line_objects, slab_sections):
-        data = self._reader.read(sheet_name="Surface Objects", start_row=9) # Reading Sheet "Surface Objects" in the Input file
+        sheet_name = "Surface Objects"
+        data = self._reader.read(sheet_name=sheet_name, start_row=9) # Reading Sheet "Surface Objects" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
@@ -859,7 +922,9 @@ class ExcelTranslator:
         return surface_objects
     
     def _translate_restraints(self, point_objects):
-        data = self._reader.read(sheet_name="Restraints", start_row=10) # Reading Sheet "Restraints" in the Input file
+        sheet_name="Restraints"
+        data = self._reader.read(sheet_name=sheet_name, start_row=10) # Reading Sheet "Restraints" in the Input file
+        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         point_idx = np.empty(n, dtype=np.int32)
         dofs = np.empty((n, 6), dtype=np.int32)

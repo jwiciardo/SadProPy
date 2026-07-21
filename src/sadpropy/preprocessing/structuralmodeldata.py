@@ -44,7 +44,7 @@ class StructuralModelData:
         index = np.arange(n, dtype=np.int32)
         nodes = Nodes(
             index = index,
-            point_name = data.unique_name,
+            label = data.unique_name,
             coords = data.coords,
         )
         return nodes
@@ -59,13 +59,13 @@ class StructuralModelData:
         #mask = (element_type == "Column") | (element_type == "Beam")
         n = len(data.index[mask])
         index = np.arange(n, dtype=np.int32)
-        line_name = data.unique_name[mask]
+        label = data.unique_name[mask]
         point_name = data_pointobj.unique_name
         end_points_idx = data.end_points_idx[mask]
         end_nodes_idx = retrieve_output_from_input(
             inputdata=end_points_idx,
             shared_data_in=point_name,
             outputdata=nodes.index, 
-            shared_data_out=nodes.point_name,
+            shared_data_out=nodes.label,
         )
         return element_type
