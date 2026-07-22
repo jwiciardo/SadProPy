@@ -18,6 +18,6 @@ restraints = modeldata.restraints
 
 model = StructuralModelData(modeldata).generate()
 vis = Visualisation(modeldata)
-vis.plot_undeformed_model(colour_by="Section", view="Isometric")
+vis.plot_undeformed_model(view="Isometric", colour_by="Section")
 
-print(line_objects)
+print()

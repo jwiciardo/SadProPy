@@ -113,7 +113,7 @@ class ExcelTranslator:
         sec_fiber = self._translate_sec_fiber()
         sec_aggregator = self._translate_sec_aggregator()
         slab_sections = self._translate_slab_sections()
-        point_objects, storeys = self._translate_point_objects()
+        point_objects, storeys = self._translate_point_objects(project_information=project_information)
         line_objects = self._translate_line_objects(point_objects=point_objects, project_information=project_information)
         surface_objects = self._translate_surface_objects(
             line_objects=line_objects,
@@ -791,7 +791,7 @@ class ExcelTranslator:
         ) # Defining dataclass for each slab section
         return slab_sections
     
-    def _translate_point_objects(self):
+    def _translate_point_objects(self, project_information):
         sheet_name = "Point Objects"
         data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Point Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
@@ -817,7 +817,9 @@ class ExcelTranslator:
             coords = coords,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each point object
-        storeys = self._generate_storeys(storey_elevations=np.unique(coords[:, 2])) # Generating Storey data from Z-coordinate of nodes
+        ndim = project_information.ndim # Retrieve number of dimensional space
+        storey_elevations = np.unique(coords[:, 2]) if ndim == 3 else np.unique(coords[:, 1]) # Determine storey elevations
+        storeys = self._generate_storeys(storey_elevations=storey_elevations) # Generating Storey data from storey elevations
         return point_objects, storeys
 
     def _translate_line_objects(self, point_objects, project_information):
