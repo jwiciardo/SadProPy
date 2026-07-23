@@ -830,12 +830,12 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         end_points_idx = np.empty((n, 2), dtype=np.int32)
-        end_offset_option = np.empty(n, dtype="U22")
-        end_offsets = np.empty((n, 2), dtype=np.float64)
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         is_zero_length_element = np.empty(n, dtype=bool)
         centroids = np.empty((n, 3), dtype=np.float64)
+        end_offset_option = np.empty(n, dtype="U22")
+        end_offsets = np.empty((n, 2), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])

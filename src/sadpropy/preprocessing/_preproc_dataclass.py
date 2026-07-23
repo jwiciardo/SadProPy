@@ -253,8 +253,6 @@ class LineObjects:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
     end_points_idx: np.ndarray          # int32, shape (N,2)
-    end_offset_option: np.ndarray       # str, shape (N,)
-    end_offsets: np.ndarray             # float64, shape (N,2)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     is_zero_length_element: np.ndarray  # bool, shape (N,)
@@ -266,6 +264,8 @@ class LineObjects:
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     connected_lines: np.ndarray         # int32, shape (N,max connection)
     connection_direction: np.ndarray    # int32, shape (N,max connection)
+    end_offset_option: np.ndarray       # str, shape (N,)
+    end_offsets: np.ndarray             # float64, shape (N,2)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
