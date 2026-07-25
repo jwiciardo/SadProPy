@@ -1,5 +1,5 @@
 import numpy as np
-from sadpropy.preprocessing._class import FrameSectionProperties, FiberSectionProperties
+from sadpropy.preprocessing._preproc_class import FrameSectionProperties, FiberSectionProperties
 from ._exceptions import ValidationError
 
 __all__ = ["significant_figures", "rayleigh_damping_coefficients", "rebar_area", "section_properties", "fibersection_properties"]

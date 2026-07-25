@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
-from ._class import (
+from ._preproc_class import (
     Concrete04Properties,
     Steel02Properties,
     MinMaxProperties,
@@ -272,41 +272,12 @@ class Storeys:
     height: float
     elevation: float
 
-# PROPERTIES: RESTRAINTS
-@dataclass(slots=True, frozen=True)
-class Restraints:
-    point_idx: np.ndarray               # int32, shape (N,)
-    dofs: np.ndarray                    # int32, shape (N,6)
-
-# MODEL DATA
-@dataclass(slots=True)
-class ModelDataclass:
-    filepath_information: FilePathInformation
-    project_information: ProjectInformation
-    userdefined_units: UserDefinedUnits
-    analysis_preferences: AnalysisPreferences
-    materials: Materials
-    mat_concrete04: Mat_Concrete04
-    mat_steel02: Mat_Steel02
-    mat_minmax: Mat_MinMax
-    mat_imk: Mat_IMK
-    materials_list: list
-    frame_sections: FrameSections
-    sec_fiber: Sec_Fiber
-    sec_aggregator: Sec_Aggregator
-    sections_list: list
-    slab_sections: SlabSections
-    storeys: Storeys
-    point_objects: PointObjects
-    line_objects: LineObjects
-    surface_objects: SurfaceObjects
-    restraints: Restraints
-
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
 class Nodes:
     index: np.ndarray                   # int32, shape (N,)
-    label: np.ndarray                   # str, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
 
 @dataclass(slots=True, frozen=True)
@@ -333,8 +304,32 @@ class Slabs:
     elements: tuple[int, ...]
     nodes: tuple[int, ...]
 
-# MODEL GENERATION
+# PROPERTIES: RESTRAINTS
+@dataclass(slots=True, frozen=True)
+class Restraints:
+    point_idx: np.ndarray               # int32, shape (N,)
+    dofs: np.ndarray                    # int32, shape (N,6)
+
+# MODEL DATA
 @dataclass(slots=True)
-class StructuralModelData:
+class ModelDataclass:
+    filepath_information: FilePathInformation
+    project_information: ProjectInformation
+    userdefined_units: UserDefinedUnits
+    analysis_preferences: AnalysisPreferences
+    materials: Materials
+    mat_concrete04: Mat_Concrete04
+    mat_steel02: Mat_Steel02
+    mat_minmax: Mat_MinMax
+    mat_imk: Mat_IMK
+    materials_list: list
+    frame_sections: FrameSections
+    sec_fiber: Sec_Fiber
+    sec_aggregator: Sec_Aggregator
+    sections_list: list
+    slab_sections: SlabSections
+    storeys: Storeys
     nodes: Nodes
+
+    restraints: Restraints
 

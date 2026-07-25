@@ -1,5 +1,5 @@
 import numpy as np
-from sadpropy.preprocessing._class import PropertiesClassRegistry
+from sadpropy.preprocessing._preproc_class import PropertiesClassRegistry
 
 # GET SECTION DATA
 def get_material_data(mats_list, mat_class=np.ndarray):

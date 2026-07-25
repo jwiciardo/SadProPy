@@ -16,7 +16,6 @@ surface_objects = modeldata.surface_objects
 storeys = modeldata.storeys
 restraints = modeldata.restraints
 
-model = StructuralModelData(modeldata).generate()
 vis = Visualisation(modeldata)
 vis.plot_undeformed_model(view="Isometric", colour_by="Section", show_grids=True,
                           show_nodes=True, show_elements=False, show_restraints=True,

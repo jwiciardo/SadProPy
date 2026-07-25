@@ -1,6 +1,6 @@
 import numpy as np
 from collections import defaultdict
-from sadpropy.preprocessing._class import PropertiesClassRegistry, SectionShape, ConnectionEnd
+from sadpropy.preprocessing._preproc_class import PropertiesClassRegistry, SectionShape, ConnectionEnd
 from ._exceptions import ValidationError
 
 # GENERATE LOCAL AXES OF LINE OBJECTS
