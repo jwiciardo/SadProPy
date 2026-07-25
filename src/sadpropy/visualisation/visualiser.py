@@ -405,7 +405,7 @@ class Visualisation:
             if colour_by is None: # Return default if colour_by is None
                 categories = np.full(len(elements.index), "Default", dtype="U15")
             else:
-                categories = np.empty(len(elements.index), dtype="U15") # Preallocated empty array for categories
+                categories = np.empty(len(elements.index), dtype="U15") # Preallocated empty categories array
                 for i in elements.index: # Loop over element index
                     section = sections_list[elements.sec_class[i]] # Get section data
                     material = materials_list[section.mats_class[elements.sec_idx[i]][0]] # Get material data
@@ -425,7 +425,7 @@ class Visualisation:
                 category: self._colour_cycle[i % len(self._colour_cycle)]
                 for i, category in enumerate(unique_categories)
             } # Define dictionary fo colour for each category
-            colours = np.empty(len(elements.index), dtype=object) # Preallocated empty array for colours
+            colours = np.empty(len(elements.index), dtype=object) # Preallocated empty colours array
             for i in elements.index: # Loop over element index
                 colours[i] = category_colours[categories[i]]
             return colours, categories, category_colours
@@ -504,8 +504,8 @@ class Visualisation:
             show_nodes=True,
             show_elements=True,
             show_restraints=True,
-            show_node_labels=False,
-            show_element_labels=False,
+            show_node_labels=True,
+            show_element_labels=True,
             show_spring_hinges=False,
             show_end_releases=False,
             show_end_length_offsets=False,

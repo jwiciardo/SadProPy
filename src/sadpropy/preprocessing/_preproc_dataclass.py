@@ -1,23 +1,19 @@
 import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
-from ._propertiesclass import (
-    MaterialProperties,
+from ._class import (
     Concrete04Properties,
     Steel02Properties,
     MinMaxProperties,
     IMKProperties,
-    FrameSectionProperties,
     FiberSectionProperties,
     SectionAggregatorProperties,
-    SlabSectionProperties,
 )
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
 class FilePathInformation:
     parent_path: str
-    input_path: str
     output_path: str
     inputfile_path: str
     logfile_path: str
@@ -168,7 +164,7 @@ class Sec_Fiber:
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
-            sec_shape=np.empty(0, dtype="U15"),
+            sec_shape=np.empty(0, dtype="U32"),
             element_type=np.empty(0, dtype="U15"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
@@ -203,7 +199,7 @@ class Sec_Aggregator:
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
-            sec_shape=np.empty(0, dtype="U15"),
+            sec_shape=np.empty(0, dtype="U32"),
             element_type=np.empty(0, dtype="U15"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
@@ -256,14 +252,6 @@ class LineObjects:
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     is_zero_length_element: np.ndarray  # bool, shape (N,)
-    centroids: np.ndarray               # float64, shape (N,3)
-    length: np.ndarray                  # float64, shape (N,)
-    local_x: np.ndarray                 # int32, shape (N,3)
-    local_y: np.ndarray                 # int32, shape (N,3)
-    local_z: np.ndarray | None          # int32, shape (N,3)
-    rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
-    connected_lines: np.ndarray         # int32, shape (N,max connection)
-    connection_direction: np.ndarray    # int32, shape (N,max connection)
     end_offset_option: np.ndarray       # str, shape (N,)
     end_offsets: np.ndarray             # float64, shape (N,2)
     name_to_idx: dict[str, np.int32]
@@ -329,8 +317,14 @@ class BeamColumnElements:
     end_offsets: np.ndarray             # float64, shape (N,2)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
-    length: np.ndarray                  # float64, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
+    length: np.ndarray                  # float64, shape (N,)
+    local_x: np.ndarray                 # int32, shape (N,3)
+    local_y: np.ndarray                 # int32, shape (N,3)
+    local_z: np.ndarray | None          # int32, shape (N,3)
+    rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
+    line_connectivity: np.ndarray       # int32, shape (N,max. connections)
+    connection_end: np.ndarray          # int32, shape (N,max. connections)
     name_to_tag: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
@@ -343,5 +337,4 @@ class Slabs:
 @dataclass(slots=True)
 class StructuralModelData:
     nodes: Nodes
-    restraints: Restraints
 

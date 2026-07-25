@@ -20,7 +20,7 @@ from ._preproc_dataclass import (
     Storeys,
     Restraints,
     )
-from ._propertiesclass import (
+from ._class import (
     MaterialProperties,
     Concrete04Properties,
     Steel02Properties,
@@ -39,13 +39,9 @@ from sadpropy.utility import (
 )
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
-from sadpropy.utility.helperfunc import (
-    get_material_properties,
-    get_section_properties,
-    generate_local_axes,
-    generate_line_connectivity,
-    get_edges_and_vertices_from_surface,
-)
+from sadpropy.utility._materialdata import get_material_properties
+from sadpropy.utility._sectiondata import get_section_properties
+from sadpropy.utility.helperfunc import get_edges_and_vertices_from_surface
 
 
 class ExcelReader:
@@ -88,7 +84,7 @@ class ExcelReader:
 class ExcelTranslator:
     def __init__(self):
         # FILE PATH
-        self._parent_path, self._input_path, self._output_path, self._inputfile_path, self._logfile_path = get_filepath()
+        self._parent_path, self._output_path, self._inputfile_path, self._logfile_path = get_filepath()
 
         # CORE
         self._reader = ExcelReader(inputfile_path=self._inputfile_path)
@@ -192,7 +188,6 @@ class ExcelTranslator:
     def _translate_filepath_information(self):
         filepath_information = FilePathInformation(
             parent_path = self._parent_path,
-            input_path = self._input_path,
             output_path = self._output_path,
             inputfile_path = self._inputfile_path,
             logfile_path = self._logfile_path
@@ -524,7 +519,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U15")
+        sec_shape = np.empty(n, dtype="U32")
         element_type = np.empty(n, dtype="U15")
         mats_class = np.empty((n, 1), dtype=np.int32)
         mats_idx = np.empty((n, 1), dtype=np.int32)
@@ -598,7 +593,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U15")
+        sec_shape = np.empty(n, dtype="U32")
         element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
@@ -687,7 +682,7 @@ class ExcelTranslator:
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U15")
+        sec_shape = np.empty(n, dtype="U32")
         element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
@@ -833,7 +828,6 @@ class ExcelTranslator:
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         is_zero_length_element = np.empty(n, dtype=bool)
-        centroids = np.empty((n, 3), dtype=np.float64)
         end_offset_option = np.empty(n, dtype="U22")
         end_offsets = np.empty((n, 2), dtype=np.float64)
         name_to_idx = {}
@@ -851,18 +845,6 @@ class ExcelTranslator:
             )
             sec_class[i], _, sec_idx[i] = self._retrieve_section_index(sec_name=str(row["Section"]))
             is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
-        i_coords = point_objects.coords[end_points_idx[:, 0]]
-        j_coords = point_objects.coords[end_points_idx[:, 1]]
-        centroids = (i_coords + j_coords) / 2.0 # Calculate centroid of line objects
-        length, local_x, local_y, local_z, rotation_matrix = generate_local_axes(
-            end_points_index=end_points_idx,
-            point_objects=point_objects,
-            ndim=project_information.ndim,
-        )
-        connected_lines, connection_direction = generate_line_connectivity(
-            end_points_idx=end_points_idx,
-            centroids=centroids,
-        )
         line_objects = LineObjects(
             index = index,
             unique_name = unique_name,
@@ -872,14 +854,6 @@ class ExcelTranslator:
             sec_class = sec_class,
             sec_idx = sec_idx,
             is_zero_length_element = is_zero_length_element,
-            centroids = centroids,
-            length = length,
-            local_x = local_x,
-            local_y = local_y,
-            local_z = local_z,
-            rotation_matrix = rotation_matrix,
-            connected_lines = connected_lines,
-            connection_direction = connection_direction,
             name_to_idx = name_to_idx,
         ) # Defining dataclass for each line object
         return line_objects

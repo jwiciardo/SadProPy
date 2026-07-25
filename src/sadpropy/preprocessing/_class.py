@@ -141,3 +141,20 @@ class PropertiesClassRegistry:
     
     def _get_sec_props_class(self, sec_class):
         return self.SECTIONS[sec_class]
+
+class SectionShape:
+    shape = {
+        "Rectangular": 0,
+        "Circular": 1,
+        "Wide Flange": 2,
+        "Channel": 3,
+        "Rectangular Hollow": 4,
+        "Circular Hollow": 5,
+    }
+
+    def _get_sec_shape_class(self, shape):
+        return self.shape[shape]
+
+class ConnectionEnd(IntEnum):
+    I_End = 0
+    J_End = 1
