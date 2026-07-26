@@ -155,6 +155,11 @@ class SectionShape:
     def _get_sec_shape_class(self, shape):
         return self.shape[shape]
 
+class NodeSource(IntEnum):
+    ORI = 0 # Original source
+    ZLE = 1 # Zero Length Auto Generated source
+    PZ = 2 # Panel Zone Auto Generated source
+
 class ConnectionEnd(IntEnum):
     I_End = 0
     J_End = 1

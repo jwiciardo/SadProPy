@@ -1,4 +1,8 @@
 import numpy as np
+from ._preproc_class import (
+    NodeSource,
+    ConnectionEnd,
+)
 from ._preproc_dataclass import (
     ModelDataclass,
     Nodes,
@@ -6,6 +10,7 @@ from ._preproc_dataclass import (
     Restraints,
 )
 from ._exceltranslator import ExcelTranslator
+from ._nodegenerator import NodeBuilder
 from sadpropy.utility import (
     UserDefinedUnits,
     section_properties,
@@ -27,74 +32,94 @@ class ModelData:
         self._translator_result = ExcelTranslator().translate()
     
     def retrieve(self):
-        filepath_information = self._translator_result["Filepath Information"],
-        project_information = self._translator_result["Project Information"],
-        userdefined_units = self._translator_result["Userdefined Units"],
-        analysis_preferences = self._translator_result["Analysis Preferences"],
-        materials = self._translator_result["Materials"],
-        mat_concrete04 = self._translator_result["Mat: Concrete04"],
-        mat_steel02 = self._translator_result["Mat: Steel02"],
-        mat_minmax = self._translator_result["Mat: Minmax"],
-        mat_imk = self._translator_result["Mat: IMK"],
-        materials_list = self._translator_result["Materials List"],
-        frame_sections = self._translator_result["Frame Sections"],
-        sec_fiber = self._translator_result["Sec: Fiber"],
-        sec_aggregator = self._translator_result["Sec: Aggregator"],
-        sections_list = self._translator_result["Sections List"],
-        slab_sections = self._translator_result["Slab Sections"],
-        storeys = self._translator_result["Storeys"],
-        point_objects = self._translator_result["Point Objects"],
-        line_objects = self._translator_result["Line Objects"],
-        surface_objects = self._translator_result["Surface Objects"],
-        nodes = self._generate_nodes(point_objects=point_objects),
-        restraints = self._translator_result["Restraints"],
+        nodes = self._generate_nodes()
+        self.node_builder = NodeBuilder(nodes)
+        beamcolumn_elements = self._generate_beamcolumn_elements()
+        restraints = self._translator_result["Restraints"]
         return ModelDataclass(
-            filepath_information=filepath_information,
-            project_information=project_information,
-            userdefined_units=userdefined_units,
-            analysis_preferences=analysis_preferences,
-            materials=materials,
-            mat_concrete04=mat_concrete04,
-            mat_steel02=mat_steel02,
-            mat_minmax=mat_minmax,
-            mat_imk=mat_imk,
-            materials_list=materials_list,
-            frame_sections=frame_sections,
-            sec_fiber=sec_fiber,
-            sec_aggregator=sec_aggregator,
-            sections_list=sections_list,
-            slab_sections=slab_sections,
-            storeys=storeys,
-            nodes=nodes,
-            restraints=restraints,
+            filepath_information = self._translator_result["Filepath Information"],
+            project_information = self._translator_result["Project Information"],
+            userdefined_units = self._translator_result["Userdefined Units"],
+            analysis_preferences = self._translator_result["Analysis Preferences"],
+            materials = self._translator_result["Materials"],
+            mat_concrete04 = self._translator_result["Mat: Concrete04"],
+            mat_steel02 = self._translator_result["Mat: Steel02"],
+            mat_minmax = self._translator_result["Mat: Minmax"],
+            mat_imk = self._translator_result["Mat: IMK"],
+            materials_list = self._translator_result["Materials List"],
+            frame_sections = self._translator_result["Frame Sections"],
+            sec_fiber = self._translator_result["Sec: Fiber"],
+            sec_aggregator = self._translator_result["Sec: Aggregator"],
+            sections_list = self._translator_result["Sections List"],
+            slab_sections = self._translator_result["Slab Sections"],
+            storeys = self._translator_result["Storeys"],
+            nodes = nodes,
+            restraints = restraints,
         )
     
     # SUPPORTING METHODS
-    def _generate_nodes(self, point_objects):
-        data = point_objects # Recall point_objects data
-        point_idx = data["Index"]
-        n = len(point_idx)
-        index = np.arange(n, dtype=np.int32)
+    def _generate_nodes(self):
+        point_objects = self._translator_result["Point Objects"] # Recalling point objects data
+        # Original nodes
+        n = len(point_objects["Index"])
+        unique_name = point_objects["Unique Name"]
+        tag = np.asarray(self._tagmanager.add(category="Node", n=n, names=unique_name), dtype=np.int32)
+        coords = point_objects["Coordinates"]
+        source = np.full(n, NodeSource.Original, dtype=np.int32)
+        original_nodes = {
+            "Unique Name": unique_name,
+            "Coordinates": coords,
+            "Source": source,
+        }
+
+        # Generated nodes
+
         nodes = Nodes(
-            index = index,
-            label = data["Unique Name"],
-            coords = data["Coordinates"],
-        )
+            index = np.arange(n, dtype=np.int32),
+            unique_name = unique_name,
+            tag = tag,
+            coords = coords,
+            source = source,
+        ) # Storing nodes data to dataclass
         return nodes
+
+    def _generate_beamcolumn_elements(self):
+        line_objects = self._translator_result["Line Objects"] # Recall line objects data
+        analysis_end_points_idx = line_objects["End Points Index"].copy()
+        for line_idx in line_objects["Index"]:
+            if not line_objects["Is Zero Length Element"][line_idx]:
+                continue
+            i_node_original = line_objects["End Points Index"][line_idx][ConnectionEnd.I_End]
+            j_node_original = line_objects["End Points Index"][line_idx][ConnectionEnd.J_End]
+            analysis_end_points_idx[line_idx][ConnectionEnd.I_End] = (self.node_builder.duplicate_node(
+                line_idx=line_idx,
+                end=ConnectionEnd.I_End,
+                original_node=i_node_original,
+                source=NodeSource.Zero_Length_Element,
+            ))
+            analysis_end_points_idx[line_idx][ConnectionEnd.J_End] = (self.node_builder.duplicate_node(
+                line_idx=line_idx,
+                end=ConnectionEnd.J_End,
+                original_node=j_node_original,
+                source=NodeSource.Zero_Length_Element,
+            ))
+            
+        return analysis_end_points_idx
+
         
-    def _generate_beamcolumn_elements(self, nodes):
-        data = self._modeldata.line_objects # Recall line_objects data
-        data_pointobj = self._modeldata.point_objects # Recall point_objects data
-        secs_list = self._modeldata.sections_list # Recall sections_list data
+    #def _generate_beamcolumn_elements(self, nodes):
+        data_lineobj = self._translator_result["Line Objects"] # Recall line objects data
+        data_pointobj = self._translator_result["Point Objects"] # Recall point objects data
+        secs_list = self._translator_result["Sections List"] # Recall sections list data
         element_type = np.fromiter((secs_list[sc].element_type[idx]
-            for sc, idx in zip(data.sec_class, data.sec_idx)), dtype="U15")
+            for sc, idx in zip(data_lineobj["Section Class"], data_lineobj["Section Index"])), dtype="U15")
         mask = (element_type == "Beam")
         #mask = (element_type == "Column") | (element_type == "Beam")
-        n = len(data.index[mask])
+        n = len(data_lineobj["Index"][mask])
         index = np.arange(n, dtype=np.int32)
-        label = data.unique_name[mask]
+        unique_name = data_lineobj["Unique Name"][mask]
         point_name = data_pointobj.unique_name
-        end_points_idx = data.end_points_idx[mask]
+        end_points_idx = data_lineobj.end_points_idx[mask]
         end_nodes_idx = retrieve_output_from_input(
             inputdata=end_points_idx,
             shared_data_in=point_name,
@@ -103,38 +128,7 @@ class ModelData:
         )
         return element_type
     
-    def _translate_point_objects(self, project_information):
-        sheet_name = "Point Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Point Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
-        coords = np.empty((n, 3), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Point object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            coords[i] = (
-                self._to_internalunits.length(value=row["X"]),
-                self._to_internalunits.length(value=row["Y"]),
-                self._to_internalunits.length(value=row["Z"]),
-            )
-        point_objects = PointObjects(
-            index = index,
-            unique_name = unique_name,
-            coords = coords,
-            name_to_idx = name_to_idx,
-        ) # Defining dataclass for each point object
-        ndim = project_information.ndim # Retrieve number of dimensional space
-        storey_elevations = np.unique(coords[:, 2]) if ndim == 3 else np.unique(coords[:, 1]) # Determine storey elevations
-        storeys = self._generate_storeys(storey_elevations=storey_elevations) # Generating Storey data from storey elevations
-        return point_objects, storeys
-
-    def _translate_line_objects(self, point_objects, project_information):
+    #def _translate_line_objects(self, point_objects, project_information):
         sheet_name = "Line Objects"
         data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Line Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
@@ -175,7 +169,7 @@ class ModelData:
         ) # Defining dataclass for each line object
         return line_objects
 
-    def _translate_surface_objects(self, line_objects, slab_sections):
+    #def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"
         data = self._reader.read(sheet_name=sheet_name, start_row=9) # Reading Sheet "Surface Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
@@ -242,3 +236,7 @@ class ModelData:
             dofs = dofs,
         ) # Defining dataclass for each restraint
         return restraints
+
+
+
+    

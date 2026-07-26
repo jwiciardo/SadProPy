@@ -279,13 +279,13 @@ class Nodes:
     unique_name: np.ndarray             # str, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
+    source: np.ndarray                  # int32, shape (N,)
 
 @dataclass(slots=True, frozen=True)
 class BeamColumnElements:
     index: np.ndarray                   # int32, shape (N,)
-    label: np.ndarray                   # str, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
-    end_offsets: np.ndarray             # float64, shape (N,2)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
@@ -296,6 +296,7 @@ class BeamColumnElements:
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     line_connectivity: np.ndarray       # int32, shape (N,max. connections)
     connection_end: np.ndarray          # int32, shape (N,max. connections)
+    end_offsets: np.ndarray             # float64, shape (N,2)
     name_to_tag: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)

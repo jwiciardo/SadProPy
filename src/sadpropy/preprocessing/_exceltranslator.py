@@ -276,7 +276,7 @@ class ExcelTranslator:
             mat_type = mat_type,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing material data to dataclass
+        ) # Storing materials data to dataclass
         self._mats_list.append(materials) # Append Materials Properties into Material Lists
         return materials
     
@@ -329,7 +329,7 @@ class ExcelTranslator:
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing material data to dataclass
+        ) # Storing materials data to dataclass
         self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into Material Lists
         return mat_concrete04
 
@@ -403,7 +403,7 @@ class ExcelTranslator:
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing material data to dataclass
+        ) # Storing materials data to dataclass
         self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into Material Lists
         return mat_steel02
 
@@ -453,7 +453,7 @@ class ExcelTranslator:
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx
-        ) # Storing material data to dataclass
+        ) # Storing materials data to dataclass
         self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into Material Lists
         return mat_minmax
     
@@ -505,7 +505,7 @@ class ExcelTranslator:
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing material data to dataclass
+        ) # Storing materials data to dataclass
         return mat_imk
     
     def _translate_frame_sections(self):
@@ -575,7 +575,7 @@ class ExcelTranslator:
             sec_model = sec_model,
             properties = properties,
             name_to_idx = name_to_idx
-        ) # Storing section data to dataclass
+        ) # Storing sections data to dataclass
         self._secs_list.append(frame_sections) # Append FrameSections Properties into Section Lists
         return frame_sections
     
@@ -664,7 +664,7 @@ class ExcelTranslator:
             sec_model = sec_model,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing section data to dataclass
+        ) # Storing sections data to dataclass
         self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section Lists
         return sec_fiber
     
@@ -741,7 +741,7 @@ class ExcelTranslator:
             aggregated_sec_idx = aggregated_sec_idx,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing section data to dataclass
+        ) # Storing sections data to dataclass
         self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into Section Lists
         return sec_aggregator
 
@@ -779,7 +779,7 @@ class ExcelTranslator:
             mats_idx = mats_idx,
             properties = properties,
             name_to_idx = name_to_idx,
-        ) # Storing slab section data to dataclass
+        ) # Storing slab sections data to dataclass
         return slab_sections
     
     def _translate_point_objects(self, project_information):
@@ -833,7 +833,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Line object name '{name}'")
             name_to_idx[name] = index[i]
             unique_name[i] = name
-            end_points_idx[i] = (point_objects.name_to_idx[str(row["I-End"])], point_objects.name_to_idx[str(row["J-End"])],)
+            end_points_idx[i] = (point_objects["Name to Index"][str(row["I-End"])], point_objects["Name to Index"][str(row["J-End"])],)
             end_offset_option[i] = str(row["End Offset"])
             end_offsets[i] = (
                 self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
@@ -903,7 +903,7 @@ class ExcelTranslator:
         idx_set = set()
         for i, row in enumerate(data):
             point_name = str(row["Point"])
-            idx = point_objects.name_to_idx[point_name]
+            idx = point_objects["Name to Index"][point_name]
             if idx in idx_set:
                 raise ValidationError(f"Duplicate Restraints at Point '{point_name}'")
             idx_set.add(idx)
