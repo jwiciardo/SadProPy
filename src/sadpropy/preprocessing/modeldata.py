@@ -10,7 +10,7 @@ from ._preproc_dataclass import (
     Restraints,
 )
 from ._exceltranslator import ExcelTranslator
-from ._nodegenerator import NodeBuilder
+from ._nodegenerator import autogenerate_nodes
 from sadpropy.utility import (
     UserDefinedUnits,
     section_properties,
@@ -33,9 +33,8 @@ class ModelData:
     
     def retrieve(self):
         nodes = self._generate_nodes()
-        self.node_builder = NodeBuilder(nodes)
-        beamcolumn_elements = self._generate_beamcolumn_elements()
-        restraints = self._translator_result["Restraints"]
+        #beamcolumn_elements = self._generate_beamcolumn_elements()
+        restraints = self._generate_restraints()
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
             project_information = self._translator_result["Project Information"],
@@ -60,31 +59,62 @@ class ModelData:
     # SUPPORTING METHODS
     def _generate_nodes(self):
         point_objects = self._translator_result["Point Objects"] # Recalling point objects data
-        # Original nodes
+        line_objects = self._translator_result["Line Objects"] # Recall line objects data
+
+        # Userdefined generated nodes
         n = len(point_objects["Index"])
-        unique_name = point_objects["Unique Name"]
-        tag = np.asarray(self._tagmanager.add(category="Node", n=n, names=unique_name), dtype=np.int32)
-        coords = point_objects["Coordinates"]
-        source = np.full(n, NodeSource.Original, dtype=np.int32)
-        original_nodes = {
-            "Unique Name": unique_name,
-            "Coordinates": coords,
-            "Source": source,
+        usr_unique_name = point_objects["Unique Name"]
+        usr_coords = point_objects["Coordinates"]
+        usr_generated_source = np.full(n, NodeSource.USR, dtype=np.int32)
+        usr_generated_from = np.empty(n, dtype="U15")
+        usr_line_to_nodes = {
+            line_idx: [iend_node, jend_node]
+            for line_idx, (iend_node, jend_node) in zip(line_objects["Index"], line_objects["End Points Index"])
         }
-
+        usr_nodes = {
+            "Unique Name": usr_unique_name,
+            "Coordinates": usr_coords,
+            "Generated Source": usr_generated_source,
+            "Generated From": usr_generated_from,
+            "Line to Nodes": usr_line_to_nodes,
+        }
         # Generated nodes
-
+        gen_unique_name, gen_coords, gen_generated_source, gen_generated_from, gen_line_to_nodes = autogenerate_nodes(
+            usr_nodes=usr_nodes,
+            line_objects=line_objects
+        )
+        unique_name = np.concatenate((
+            usr_unique_name,
+            np.asarray(gen_unique_name, dtype="U20"),
+        ))
+        coords = np.vstack((
+            usr_coords,
+            np.asarray(gen_coords, dtype=np.float64),
+        ))
+        generated_source = np.concatenate((
+            usr_generated_source,
+            np.asarray(gen_generated_source, dtype=np.int32),
+        ))
+        generated_from = np.concatenate((
+            usr_generated_from,
+            np.asarray(gen_generated_from, dtype="U15"),
+        ))
+        line_to_nodes = usr_line_to_nodes | gen_line_to_nodes
+        m = len(unique_name)
+        tag = np.asarray(self._tagmanager.add(category="Node", n=m, names=unique_name), dtype=np.int32)
         nodes = Nodes(
-            index = np.arange(n, dtype=np.int32),
+            index = np.arange(m, dtype=np.int32),
             unique_name = unique_name,
             tag = tag,
             coords = coords,
-            source = source,
+            generated_source = generated_source,
+            generated_from = generated_from,
+            line_to_nodes=line_to_nodes,
         ) # Storing nodes data to dataclass
         return nodes
 
     def _generate_beamcolumn_elements(self):
-        line_objects = self._translator_result["Line Objects"] # Recall line objects data
+        line_objects = self._translator_result["Line Objects"] # Recalling line objects data
         analysis_end_points_idx = line_objects["End Points Index"].copy()
         for line_idx in line_objects["Index"]:
             if not line_objects["Is Zero Length Element"][line_idx]:
@@ -208,33 +238,14 @@ class ModelData:
         ) # Defining dataclass for each surface object
         return surface_objects
     
-    def _translate_restraints(self, point_objects):
-        sheet_name="Restraints"
-        data = self._reader.read(sheet_name=sheet_name, start_row=10) # Reading Sheet "Restraints" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
-        point_idx = np.empty(n, dtype=np.int32)
-        dofs = np.empty((n, 6), dtype=np.int32)
-        idx_set = set()
-        for i, row in enumerate(data):
-            point_name = str(row["Point"])
-            idx = point_objects.name_to_idx[point_name]
-            if idx in idx_set:
-                raise ValidationError(f"Duplicate Restraints at Point '{point_name}'")
-            idx_set.add(idx)
-            point_idx[i] = idx
-            dofs[i] = (
-                int(row["UX"]),
-                int(row["UY"]),
-                int(row["UZ"]),
-                int(row["RX"]),
-                int(row["RY"]),
-                int(row["RZ"]),
-            )
+    def _generate_restraints(self):
+        restraints = self._translator_result["Restraints"] # Recalling restraints data
+        node_idx = restraints["Point Index"] # Recalling node index
+        dofs = restraints["DOFs"] # Recalling dofs
         restraints = Restraints(
-            point_idx = point_idx,
+            node_idx = node_idx,
             dofs = dofs,
-        ) # Defining dataclass for each restraint
+        ) # Storing restraints data to dataclass
         return restraints
 
 

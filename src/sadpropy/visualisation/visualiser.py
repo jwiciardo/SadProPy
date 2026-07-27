@@ -492,7 +492,7 @@ class Visualisation:
                     zorder=11,
                 ) # Plot marker for pinned restraints
 
-        for node, dof in zip(restraints.point_idx, restraints.dofs): # Loop over each node
+        for node, dof in zip(restraints.node_idx, restraints.dofs): # Loop over each node
             draw_restraint_symbol(coords=coords[node], dof=dof) # Plot marker for restraints
 
     # MAIN METHOD
@@ -520,15 +520,15 @@ class Visualisation:
         title = "Undeformed Model"
         ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         storeys = self._modeldata.storeys # Retrieve storeys data
-        nodes = self._modeldata.point_objects # Retrieve nodes data (need to change point_objects into nodes)
-        coords = self._modeldata.point_objects.coords # Retrieve nodes coordinates (need to change point_objects into nodes)
-        beamcolumn_elements = self._modeldata.line_objects # Retrieve beam column elements data (need to change line_objects into beamcolumn_elements)
-        elements_list = [beamcolumn_elements]
+        nodes = self._modeldata.nodes # Retrieve nodes data
+        coords = self._modeldata.nodes.coords # Retrieve nodes coordinates
+#        beamcolumn_elements = self._modeldata.line_objects # Retrieve beam column elements data (need to change line_objects into beamcolumn_elements)
+#        elements_list = [beamcolumn_elements]
         restraints = self._modeldata.restraints # Retrieve restraints data
         
         self._set_axes(ax=ax, title=title, view=view, coords=coords) # Set axes
         self._draw_global_axes(ax=ax, ndim=ndim, coords=coords, show_axes=show_global_axes) # Set global axes arrows
-        self._draw_local_axes(ax=ax, elements_list=elements_list, show_axes=show_local_axes) # Set local axes arrows
+#        self._draw_local_axes(ax=ax, elements_list=elements_list, show_axes=show_local_axes) # Set local axes arrows
         self._draw_grid(ax=ax, ndim=ndim, storeys=storeys, coords=coords, show_grids=show_grids) # Set gridlines
         if show_nodes: # Set condition if show_nodes is True or False
             self._plot_nodes(
@@ -537,14 +537,14 @@ class Visualisation:
                 coords=coords,
                 show_labels=show_node_labels,
             ) # Plot nodes if show_nodes is True
-        if show_elements: # Set condition if show_elements is True or False
-            self._plot_elements(
-                ax=ax,
-                coords=coords,
-                elements_list=elements_list,
-                colour_by=colour_by,
-                show_labels=show_element_labels,
-            ) # Plot nodes if show_elements is True
+#        if show_elements: # Set condition if show_elements is True or False
+#            self._plot_elements(
+#                ax=ax,
+#                coords=coords,
+#                elements_list=elements_list,
+#                colour_by=colour_by,
+#                show_labels=show_element_labels,
+#            ) # Plot nodes if show_elements is True
         if show_restraints: # Set condition if show_restraints is True or False
             self._plot_restraints(
                 ax=ax,

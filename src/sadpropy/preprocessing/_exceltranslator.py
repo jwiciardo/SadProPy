@@ -137,36 +137,53 @@ class ExcelTranslator:
 
     # HELPER METHOD
     def _validate_data(self, data, sheet_name, mandatory=True):
-        if len(data) > 0:
+        if len(data) > 0: # Set condition if number of data > 0 then return True
             return True
-        if mandatory:
+        if mandatory: # Set condition if mandatory is True then raise validation error (This condition will be run when number of data = 0)
             raise ValidationError(f"Sheet '{sheet_name}' is mandatory but contains no data.")
         return False
     
-    def _generate_storeys(self, storey_elevations): # Create Storey data
-        storeys = {}
-        for i, elev in reversed(list(enumerate(storey_elevations))):
-            if i == 0:
-                storey_name = "Base"
-                height = np.float64(0.0)
+    def _generate_storeys(self, storey_elevations):
+        storeys = {} # Predefined storeys dictionary
+        for i, elev in reversed(list(enumerate(storey_elevations))): # Loop over storey elevations
+            if i == 0: # Set condition if index == 0
+                storey_name = "Base" # If True define storey name as "Base" and height = 0.0
+                height = np.float64(0.0) 
             else:
-                storey_name = f"Storey{i}"
+                storey_name = f"Storey{i}" # If False define storey name as "Storey{index}" and storey height
                 height = elev - storey_elevations[i - 1]
             storeys[storey_name] = Storeys(
                 name=storey_name,
                 height=height,
                 elevation=elev,
-            )
+            ) # Store storeys data as dataclass
         return storeys
 
-    def _retrieve_material_index(self, mat_name): # Retrieve Material Index
-        for mat_class, mat in enumerate(self._mats_list):
-            mat_idx = mat.name_to_idx.get(mat_name)
-            if mat_idx is not None:
-                return mat_class, mat, mat_idx
-        raise ValidationError(f"Material '{mat_name}' not found.")
-    
-    def _retrieve_section_index(self, sec_name): # Retrieve Section index
+    def _retrieve_material_index(self, mats_name): # Retrieve Material Index
+        if isinstance(mats_name, str): # Set condition if materials name is a string return list of materials name
+            mats_name = [mats_name]
+        mat_class = np.empty(len(mats_name), dtype=np.int32) # Predefined material class array
+        mat_idx = np.empty(len(mats_name), dtype=np.int32) # Predefined material index array 
+        mat = [] # Predefined materials dataclass list
+        for i, mat_name in enumerate(mats_name): # Loop over materials name
+            found = False # Predefined found material in materials list
+            for cls, material in enumerate(self._mats_list): # Loop over materials list
+                idx = material.name_to_idx.get(mat_name) # Retrieving material index
+                if idx is not None: # Set condition if material index is not None
+                    mat_class[i] = cls # Return
+                    mat_idx[i] = idx
+                    mat.append(material)
+                    found = True
+                    break
+            if not found:
+                raise ValidationError(f"Material '{mat_name}' not found")
+        if len(mats_name) == 1:
+            return mat_class[0], mat[0], mat_idx[0]
+        return mat_class, mat, mat_idx
+
+    def _retrieve_section_index(self, secs_name): # Retrieve Section index
+        if isinstance(secs_name, str):
+            secs_name = [secs_name]
         for sec_class, sec in enumerate(self._secs_list):
             sec_idx = sec.name_to_idx.get(sec_name)
             if sec_idx is not None:
@@ -302,7 +319,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
@@ -359,7 +376,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base Material"]))
             base_mat_class[i] = mat_class
             base_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
@@ -429,7 +446,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Material name '{name}'")
             name_to_idx[name] = index[i]
             mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Base NL Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base NL Material"]))
             base_nl_mat_class[i] = mat_class
             base_nl_mat_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
@@ -537,7 +554,7 @@ class ExcelTranslator:
             sec_name[i] = name
             sec_shape[i] = str(row["Section Shape"])
             element_type[i] = (str(row["Element Type"]))
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
             mats_class[i] = mat_class
             mats_idx[i] = mat_idx
             mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
@@ -616,7 +633,7 @@ class ExcelTranslator:
             for j, column in enumerate(material_columns):
                 if row[column] is None:
                     continue
-                mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row[column]))
+                mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row[column]))
                 mats_class[i, j] = mat_class
                 mats_idx[i, j] = mat_idx
             for j in range(6):
@@ -705,7 +722,7 @@ class ExcelTranslator:
             for j, column in enumerate(material_columns):
                 if row[column] is None:
                     continue
-                mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row[column]))
+                mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row[column]))
                 mats_class[i, j] = mat_class
                 mats_idx[i, j] = mat_idx
             for j in range(6):
@@ -766,7 +783,7 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             sec_name[i] = name
             element_type[i] = (str(row["Element Type"]))
-            mat_class, _, mat_idx = self._retrieve_material_index(mat_name=str(row["Material"]))
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
             mats_class[i] = mat_class
             mats_idx[i] = mat_idx
             t = self._to_internalunits.length(value=row["t"])
@@ -916,8 +933,8 @@ class ExcelTranslator:
                 int(row["RY"]),
                 int(row["RZ"]),
             )
-        restraints = [
-            point_idx,
-            dofs,
-        ] # Storing restraints data to list
+        restraints = {
+            "Point Index": point_idx,
+            "DOFs": dofs,
+        } # Storing restraints data to dictionary
         return restraints

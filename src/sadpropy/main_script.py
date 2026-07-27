@@ -17,12 +17,11 @@ sections_list = modeldata.sections_list
 slab_sections = modeldata.slab_sections
 storeys = modeldata.storeys
 nodes = modeldata.nodes
-nodes2 = modeldata.nodes2
 
-#vis = Visualisation(modeldata)
-#vis.plot_undeformed_model(view="Isometric", colour_by="Section", show_grids=True,
-#                          show_nodes=True, show_elements=False, show_restraints=True,
-#                          show_node_labels=False, show_element_labels=False,
-#                          show_global_axes=True, show_local_axes=False)
+vis = Visualisation(modeldata)
+vis.plot_undeformed_model(view="Isometric", colour_by="Section", show_grids=True,
+                          show_nodes=True, show_elements=False, show_restraints=True,
+                          show_node_labels=False, show_element_labels=False,
+                          show_global_axes=True, show_local_axes=False)
 
-print(nodes, nodes2)
+print()

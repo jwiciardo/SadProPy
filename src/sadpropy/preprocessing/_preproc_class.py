@@ -156,7 +156,7 @@ class SectionShape:
         return self.shape[shape]
 
 class NodeSource(IntEnum):
-    ORI = 0 # Original source
+    USR = 0 # Userdefined Generated source
     ZLE = 1 # Zero Length Auto Generated source
     PZ = 2 # Panel Zone Auto Generated source
 

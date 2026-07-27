@@ -279,7 +279,9 @@ class Nodes:
     unique_name: np.ndarray             # str, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
-    source: np.ndarray                  # int32, shape (N,)
+    generated_source: np.ndarray        # int32, shape (N,)
+    generated_from: np.ndarray          # str, shape (N,)
+    line_to_nodes: dict[np.int32, list[np.int32, np.int32]]
 
 @dataclass(slots=True, frozen=True)
 class BeamColumnElements:
@@ -308,7 +310,7 @@ class Slabs:
 # PROPERTIES: RESTRAINTS
 @dataclass(slots=True, frozen=True)
 class Restraints:
-    point_idx: np.ndarray               # int32, shape (N,)
+    node_idx: np.ndarray                # int32, shape (N,)
     dofs: np.ndarray                    # int32, shape (N,6)
 
 # MODEL DATA
