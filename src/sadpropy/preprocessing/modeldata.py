@@ -58,8 +58,8 @@ class ModelData:
     
     # SUPPORTING METHODS
     def _generate_nodes(self):
-        point_objects = self._translator_result["Point Objects"] # Recalling point objects data
-        line_objects = self._translator_result["Line Objects"] # Recall line objects data
+        point_objects = self._translator_result["Point Objects"] # Recall point objects data
+        line_objects = self._translator_result["Line Objects"] # Recall objects data
 
         # Userdefined generated nodes
         n = len(point_objects["Index"])
@@ -83,22 +83,10 @@ class ModelData:
             usr_nodes=usr_nodes,
             line_objects=line_objects
         )
-        unique_name = np.concatenate((
-            usr_unique_name,
-            np.asarray(gen_unique_name, dtype="U20"),
-        ))
-        coords = np.vstack((
-            usr_coords,
-            np.asarray(gen_coords, dtype=np.float64),
-        ))
-        generated_source = np.concatenate((
-            usr_generated_source,
-            np.asarray(gen_generated_source, dtype=np.int32),
-        ))
-        generated_from = np.concatenate((
-            usr_generated_from,
-            np.asarray(gen_generated_from, dtype="U15"),
-        ))
+        unique_name = np.concatenate((usr_unique_name, np.asarray(gen_unique_name, dtype="U20")))
+        coords = np.vstack((usr_coords, np.asarray(gen_coords, dtype=np.float64)))
+        generated_source = np.concatenate((usr_generated_source, np.asarray(gen_generated_source, dtype=np.int32)))
+        generated_from = np.concatenate((usr_generated_from, np.asarray(gen_generated_from, dtype="U15")))
         line_to_nodes = usr_line_to_nodes | gen_line_to_nodes
         m = len(unique_name)
         tag = np.asarray(self._tagmanager.add(category="Node", n=m, names=unique_name), dtype=np.int32)
@@ -110,7 +98,7 @@ class ModelData:
             generated_source = generated_source,
             generated_from = generated_from,
             line_to_nodes=line_to_nodes,
-        ) # Storing nodes data to dataclass
+        ) # Store nodes data to dataclass
         return nodes
 
     def _generate_beamcolumn_elements(self):

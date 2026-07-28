@@ -159,7 +159,7 @@ class ExcelTranslator:
             ) # Store storeys data as dataclass
         return storeys
 
-    def _retrieve_material_index(self, mats_name): # Retrieve Material Index
+    def _retrieve_material_index(self, mats_name):
         if isinstance(mats_name, str): # Set condition if materials name is a string return list of materials name
             mats_name = [mats_name]
         mat_class = np.empty(len(mats_name), dtype=np.int32) # Predefined material class array
@@ -168,35 +168,63 @@ class ExcelTranslator:
         for i, mat_name in enumerate(mats_name): # Loop over materials name
             found = False # Predefined found material in materials list
             for cls, material in enumerate(self._mats_list): # Loop over materials list
-                idx = material.name_to_idx.get(mat_name) # Retrieving material index
+                idx = material.name_to_idx.get(mat_name) # Retrieve material index
                 if idx is not None: # Set condition if material index is not None
-                    mat_class[i] = cls # Return
+                    mat_class[i] = cls # Return material class, material index, and materials dataclass for index i
                     mat_idx[i] = idx
                     mat.append(material)
-                    found = True
+                    found = True # Set found to be True
                     break
-            if not found:
+            if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Material '{mat_name}' not found")
-        if len(mats_name) == 1:
-            return mat_class[0], mat[0], mat_idx[0]
+        if len(mats_name) == 1: # Set condition if number of materials name is 1
+            return mat_class[0], mat[0], mat_idx[0] # Return material class, material index, and materials dataclass for first index
         return mat_class, mat, mat_idx
 
-    def _retrieve_section_index(self, secs_name): # Retrieve Section index
-        if isinstance(secs_name, str):
+    def _retrieve_section_index(self, secs_name):
+        if isinstance(secs_name, str): # Set condition if sections name is a string return list of sections name
             secs_name = [secs_name]
-        for sec_class, sec in enumerate(self._secs_list):
-            sec_idx = sec.name_to_idx.get(sec_name)
-            if sec_idx is not None:
-                return sec_class, sec, sec_idx
-        raise ValidationError(f"Section '{sec_name}' not found.")
+        sec_class = np.empty(len(secs_name), dtype=np.int32) # Predefined section class array
+        sec_idx = np.empty(len(secs_name), dtype=np.int32) # Predefined section index array 
+        sec = [] # Predefined sections dataclass list
+        for i, sec_name in enumerate(secs_name): # Loop over sections name
+            found = False # Predefined found section in sections list
+            for cls, section in enumerate(self._secs_list): # Loop over sections list
+                idx = section.name_to_idx.get(sec_name) # Retrieve section index
+                if idx is not None: # Set condition if section index is not None
+                    sec_class[i] = cls # Return section class, section index, and sections dataclass for index i
+                    sec_idx[i] = idx
+                    sec.append(section)
+                    found = True # Set found to be True
+                    break
+            if not found: # Set condition if found is False return validation error
+                raise ValidationError(f"Section '{sec_name}' not found")
+        if len(secs_name) == 1: # Set condition if number of sections name is 1
+            return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
+        return sec_class, sec, sec_idx
     
-    def _retrieve_slabsection_index(self, sec_name, secs_list): # Retrieve Slab section index
-        for sec_class, sec in enumerate([secs_list]):
-            sec_idx = sec.name_to_idx.get(sec_name)
-            if sec_idx is not None:
-                return sec_class, sec, sec_idx
-        raise ValidationError(f"Section '{sec_name}' not found.")
-
+    def _retrieve_slabsection_index(self, secs_name, secs_list): # Retrieve Slab section 
+        if isinstance(secs_name, str): # Set condition if sections name is a string return list of sections name
+            secs_name = [secs_name]
+        sec_class = np.empty(len(secs_name), dtype=np.int32) # Predefined section class array
+        sec_idx = np.empty(len(secs_name), dtype=np.int32) # Predefined section index array 
+        sec = [] # Predefined sections dataclass list
+        for i, sec_name in enumerate(secs_name): # Loop over sections name
+            found = False # Predefined found section in sections list
+            for cls, section in enumerate(secs_list): # Loop over sections list
+                idx = section.name_to_idx.get(sec_name) # Retrieve section index
+                if idx is not None: # Set condition if section index is not None
+                    sec_class[i] = cls # Return section class, section index, and sections dataclass for index i
+                    sec_idx[i] = idx
+                    sec.append(section)
+                    found = True # Set found to be True
+                    break
+            if not found: # Set condition if found is False return validation error
+                raise ValidationError(f"Section '{sec_name}' not found")
+        if len(secs_name) == 1: # Set condition if number of sections name is 1
+            return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
+        return sec_class, sec, sec_idx
+        
     # SUPPORTING METHODS
     def _translate_filepath_information(self):
         filepath_information = FilePathInformation(
@@ -623,7 +651,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Section name '{name}'")
             name_to_idx[name] = index[i]
             sec_name[i] = name
-            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=str(row["Base Section"]))
+            sec_class, _, sec_idx = self._retrieve_section_index(secs_name=str(row["Base Section"]))
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
@@ -713,7 +741,7 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Section name '{name}'")
             name_to_idx[name] = index[i]
             sec_name[i] = name
-            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=str(row["Base Section"]))
+            sec_class, _, sec_idx = self._retrieve_section_index(secs_name=str(row["Base Section"]))
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
@@ -856,7 +884,7 @@ class ExcelTranslator:
                 self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
                 self._to_internalunits.length(value=row["J-End Offset Length"] if row["J-End Offset Length"] is not None else 0.0),
             )
-            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(sec_name=str(row["Section"]))
+            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(secs_name=str(row["Section"]))
             is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
         line_objects = {
             "Index": index,
@@ -896,8 +924,8 @@ class ExcelTranslator:
                 surface_name=name,
             )
             sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(
-                sec_name=str(row["Section"]),
-                secs_list=slab_sections,
+                secs_name=str(row["Section"]),
+                secs_list=[slab_sections],
             )
         surface_objects = {
             "Index": index,

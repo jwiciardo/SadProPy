@@ -24,4 +24,4 @@ vis.plot_undeformed_model(view="Isometric", colour_by="Section", show_grids=True
                           show_node_labels=False, show_element_labels=False,
                           show_global_axes=True, show_local_axes=False)
 
-print()
+print(nodes)
