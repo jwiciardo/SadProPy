@@ -1,4 +1,9 @@
 import numpy as np
+from ._nodegenerator import autogenerate_nodes
+from ._elementconnectivity import (
+    generate_beam_element_local_axes,
+    generate_beam_element_connectivity,
+)
 from ._preproc_class import (
     NodeSource,
     ConnectionEnd,
@@ -10,7 +15,6 @@ from ._preproc_dataclass import (
     Restraints,
 )
 from ._exceltranslator import ExcelTranslator
-from ._nodegenerator import autogenerate_nodes
 from sadpropy.utility import (
     UserDefinedUnits,
     section_properties,
@@ -33,7 +37,7 @@ class ModelData:
     
     def retrieve(self):
         nodes = self._generate_nodes()
-        #beamcolumn_elements = self._generate_beamcolumn_elements()
+        beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
         restraints = self._generate_restraints()
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
@@ -53,6 +57,7 @@ class ModelData:
             slab_sections = self._translator_result["Slab Sections"],
             storeys = self._translator_result["Storeys"],
             nodes = nodes,
+            beamcolumn_elements = beamcolumn_elements,
             restraints = restraints,
         )
     
@@ -67,7 +72,7 @@ class ModelData:
         usr_coords = point_objects["Coordinates"]
         usr_generated_source = np.full(n, NodeSource.USR, dtype=np.int32)
         usr_generated_from = np.empty(n, dtype="U15")
-        usr_line_to_nodes = {
+        usr_line_to_end_nodes = {
             line_idx: [iend_node, jend_node]
             for line_idx, (iend_node, jend_node) in zip(line_objects["Index"], line_objects["End Points Index"])
         }
@@ -76,10 +81,10 @@ class ModelData:
             "Coordinates": usr_coords,
             "Generated Source": usr_generated_source,
             "Generated From": usr_generated_from,
-            "Line to Nodes": usr_line_to_nodes,
+            "Line to End Nodes": usr_line_to_end_nodes,
         }
         # Generated nodes
-        gen_unique_name, gen_coords, gen_generated_source, gen_generated_from, gen_line_to_nodes = autogenerate_nodes(
+        gen_unique_name, gen_coords, gen_generated_source, gen_generated_from, gen_line_to_end_nodes = autogenerate_nodes(
             usr_nodes=usr_nodes,
             line_objects=line_objects
         )
@@ -87,9 +92,10 @@ class ModelData:
         coords = np.vstack((usr_coords, np.asarray(gen_coords, dtype=np.float64)))
         generated_source = np.concatenate((usr_generated_source, np.asarray(gen_generated_source, dtype=np.int32)))
         generated_from = np.concatenate((usr_generated_from, np.asarray(gen_generated_from, dtype="U15")))
-        line_to_nodes = usr_line_to_nodes | gen_line_to_nodes
+        self._line_to_end_nodes_map = usr_line_to_end_nodes | gen_line_to_end_nodes
         m = len(unique_name)
         tag = np.asarray(self._tagmanager.add(category="Node", n=m, names=unique_name), dtype=np.int32)
+        name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
         nodes = Nodes(
             index = np.arange(m, dtype=np.int32),
             unique_name = unique_name,
@@ -97,32 +103,44 @@ class ModelData:
             coords = coords,
             generated_source = generated_source,
             generated_from = generated_from,
-            line_to_nodes=line_to_nodes,
+            name_to_idx=name_to_idx,
         ) # Store nodes data to dataclass
         return nodes
 
-    def _generate_beamcolumn_elements(self):
-        line_objects = self._translator_result["Line Objects"] # Recalling line objects data
+    def _generate_beamcolumn_elements(self, nodes):
+        ndim = self._translator_result["Project Information"].ndim # Recall number of dimensional space
+        line_objects = self._translator_result["Line Objects"] # Recall line objects data
         analysis_end_points_idx = line_objects["End Points Index"].copy()
-        for line_idx in line_objects["Index"]:
-            if not line_objects["Is Zero Length Element"][line_idx]:
-                continue
-            i_node_original = line_objects["End Points Index"][line_idx][ConnectionEnd.I_End]
-            j_node_original = line_objects["End Points Index"][line_idx][ConnectionEnd.J_End]
-            analysis_end_points_idx[line_idx][ConnectionEnd.I_End] = (self.node_builder.duplicate_node(
-                line_idx=line_idx,
-                end=ConnectionEnd.I_End,
-                original_node=i_node_original,
-                source=NodeSource.Zero_Length_Element,
-            ))
-            analysis_end_points_idx[line_idx][ConnectionEnd.J_End] = (self.node_builder.duplicate_node(
-                line_idx=line_idx,
-                end=ConnectionEnd.J_End,
-                original_node=j_node_original,
-                source=NodeSource.Zero_Length_Element,
-            ))
-            
-        return analysis_end_points_idx
+
+        n = len(line_objects["Index"])
+        unique_name = line_objects["Unique Name"]
+        end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"]], dtype=np.int32)
+        sec_class = line_objects["Section Class"]
+        sec_idx = line_objects["Section Index"]
+        centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beam_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        element_connectivity, connection_end = generate_beam_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
+        tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
+        print()
+        beamcolumn_Elements = BeamColumnElements(
+            index = np.arange(n, dtype=np.int32),
+            unique_name = unique_name,
+            tag = tag,
+            end_nodes_idx = end_nodes_idx,
+            sec_class = sec_class,
+            sec_idx = sec_idx,
+            centroids = centroids,
+            length = length,
+            local_x = local_x,
+            local_y = local_y,
+            local_z = local_z,
+            rotation_matrix = rotation_matrix,
+            element_connectivity = element_connectivity,
+            connection_end = connection_end,
+            end_offsets = None,
+            name_to_idx = name_to_idx,
+        )
+        return beamcolumn_Elements
 
         
     #def _generate_beamcolumn_elements(self, nodes):

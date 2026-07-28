@@ -435,7 +435,7 @@ class Visualisation:
             model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
             offset = 0.005 * model_size # Set label offset
             for i in elements.index: # Loop for each element index
-                inode, jnode = elements.end_points_idx[i] # Retrieve element end nodes index (need to change end_points_idx into end_nodes_idx)
+                inode, jnode = elements.end_nodes_idx[i] # Retrieve element end nodes index
                 p1 = coords[inode] # Retreive I-node coordinates
                 p2 = coords[jnode] # Retreive J-node coordinates
                 ax.plot(
@@ -522,13 +522,13 @@ class Visualisation:
         storeys = self._modeldata.storeys # Retrieve storeys data
         nodes = self._modeldata.nodes # Retrieve nodes data
         coords = self._modeldata.nodes.coords # Retrieve nodes coordinates
-#        beamcolumn_elements = self._modeldata.line_objects # Retrieve beam column elements data (need to change line_objects into beamcolumn_elements)
-#        elements_list = [beamcolumn_elements]
+        beamcolumn_elements = self._modeldata.beamcolumn_elements # Retrieve beam column elements data
+        elements_list = [beamcolumn_elements]
         restraints = self._modeldata.restraints # Retrieve restraints data
         
         self._set_axes(ax=ax, title=title, view=view, coords=coords) # Set axes
         self._draw_global_axes(ax=ax, ndim=ndim, coords=coords, show_axes=show_global_axes) # Set global axes arrows
-#        self._draw_local_axes(ax=ax, elements_list=elements_list, show_axes=show_local_axes) # Set local axes arrows
+        self._draw_local_axes(ax=ax, elements_list=elements_list, show_axes=show_local_axes) # Set local axes arrows
         self._draw_grid(ax=ax, ndim=ndim, storeys=storeys, coords=coords, show_grids=show_grids) # Set gridlines
         if show_nodes: # Set condition if show_nodes is True or False
             self._plot_nodes(
@@ -537,14 +537,14 @@ class Visualisation:
                 coords=coords,
                 show_labels=show_node_labels,
             ) # Plot nodes if show_nodes is True
-#        if show_elements: # Set condition if show_elements is True or False
-#            self._plot_elements(
-#                ax=ax,
-#                coords=coords,
-#                elements_list=elements_list,
-#                colour_by=colour_by,
-#                show_labels=show_element_labels,
-#            ) # Plot nodes if show_elements is True
+        if show_elements: # Set condition if show_elements is True or False
+            self._plot_elements(
+                ax=ax,
+                coords=coords,
+                elements_list=elements_list,
+                colour_by=colour_by,
+                show_labels=show_element_labels,
+            ) # Plot nodes if show_elements is True
         if show_restraints: # Set condition if show_restraints is True or False
             self._plot_restraints(
                 ax=ax,
