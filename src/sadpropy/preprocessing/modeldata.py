@@ -119,7 +119,6 @@ class ModelData:
         n = len(line_objects["Index"][mask])
         unique_name = line_objects["Unique Name"][mask]
         end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
-        
         centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beam_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
         element_connectivity, connection_end = generate_beam_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
@@ -130,6 +129,7 @@ class ModelData:
             unique_name = unique_name,
             tag = tag,
             end_nodes_idx = end_nodes_idx,
+            element_type = element_type,
             sec_class = sec_class,
             sec_idx = sec_idx,
             centroids = centroids,

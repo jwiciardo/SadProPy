@@ -231,36 +231,6 @@ class SlabSections:
     
 # STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
-class PointObjects:
-    index: np.ndarray                   # int32, shape (N,)
-    unique_name: np.ndarray             # str, shape (N,)
-    coords: np.ndarray                  # float64, shape (N,3)
-    name_to_idx: dict[str, np.int32]
-
-@dataclass(slots=True, frozen=True)
-class LineObjects:
-    index: np.ndarray                   # int32, shape (N,)
-    unique_name: np.ndarray             # str, shape (N,)
-    end_points_idx: np.ndarray          # int32, shape (N,2)
-    element_type: np.ndarray            # str, shape(N,)
-    sec_class: np.ndarray               # int32, shape (N,)
-    sec_idx: np.ndarray                 # int32, shape (N,)
-    is_zero_length_element: np.ndarray  # bool, shape (N,)
-    end_offset_option: np.ndarray       # str, shape (N,)
-    end_offsets: np.ndarray             # float64, shape (N,2)
-    name_to_idx: dict[str, np.int32]
-
-@dataclass(slots=True, frozen=True)
-class SurfaceObjects:
-    index: np.ndarray                   # int32, shape (N,)
-    unique_name: np.ndarray             # str, shape (N,)
-    edges_idx: np.ndarray               # int32, shape (N,4)
-    vertices_idx: np.ndarray            # int32, shape (N,4)
-    sec_class: np.ndarray               # int32, shape (N,)
-    sec_idx: np.ndarray                 # int32, shape (N,)
-    name_to_idx: dict[str, np.int32]
-
-@dataclass(slots=True, frozen=True)
 class Storeys:
     name: str
     height: float
@@ -283,6 +253,7 @@ class BeamColumnElements:
     unique_name: np.ndarray             # str, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
+    element_type: np.ndarray            # str, shape(N,)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)

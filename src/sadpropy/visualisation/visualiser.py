@@ -412,7 +412,7 @@ class Visualisation:
                     if colour_by == "Section": # Get section name if colour_by is "Section"
                         categories[i] = section.sec_name[elements.sec_idx[i]]
                     elif colour_by == "Element Type": # Get element type if colour_by is "Element Type"
-                        categories[i] = section.element_type[elements.sec_idx[i]]
+                        categories[i] = elements.element_type[i]
                     elif colour_by == "Material": # Get material name if colour_by is "Material"
                         categories[i] = material.mat_name[section.mats_idx[elements.sec_idx[i]][0]]
                     else:
