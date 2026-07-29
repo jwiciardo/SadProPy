@@ -135,7 +135,6 @@ class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
-    element_type: np.ndarray            # str, shape (N,)
     mats_class: np.ndarray              # int32, shape (N,1)
     mats_idx: np.ndarray                # int32, shape (N,1)
     mat_type: np.ndarray                # str, shape (N,)
@@ -148,7 +147,6 @@ class Sec_Fiber:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
-    element_type: np.ndarray            # str, shape (N,)
     base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
     integration_type: np.ndarray        # str, shape (N,)
@@ -165,7 +163,6 @@ class Sec_Fiber:
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
             sec_shape=np.empty(0, dtype="U32"),
-            element_type=np.empty(0, dtype="U15"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
             integration_type=np.empty(0, dtype="U15"),
@@ -182,7 +179,6 @@ class Sec_Aggregator:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
-    element_type: np.ndarray            # str, shape (N,)
     base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
     mats_class: np.ndarray              # int32, shape (N,6)
@@ -200,7 +196,6 @@ class Sec_Aggregator:
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
             sec_shape=np.empty(0, dtype="U32"),
-            element_type=np.empty(0, dtype="U15"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
             mats_class=np.empty((0, 6), dtype=np.int32),
@@ -218,9 +213,8 @@ class Sec_Aggregator:
 class SlabSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
-    element_type: np.ndarray            # str, shape (N,)
-    mats_class: np.ndarray               # int32, shape (N,1)
-    mats_idx: np.ndarray                 # int32, shape (N,1)
+    mats_class: np.ndarray              # int32, shape (N,1)
+    mats_idx: np.ndarray                # int32, shape (N,1)
     properties: np.ndarray              # float64, shape (N,)
     name_to_idx: dict[str, np.int32]
 
@@ -229,7 +223,6 @@ class SlabSections:
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
-            element_type=np.empty(0, dtype="U15"),
             mats_class=np.empty((0, 1), dtype=np.int32),
             mats_idx=np.empty((0, 1), dtype=np.int32),
             properties=np.empty((0, len(SectionAggregatorProperties)), dtype=np.float64),
@@ -249,6 +242,7 @@ class LineObjects:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
     end_points_idx: np.ndarray          # int32, shape (N,2)
+    element_type: np.ndarray            # str, shape(N,)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     is_zero_length_element: np.ndarray  # bool, shape (N,)

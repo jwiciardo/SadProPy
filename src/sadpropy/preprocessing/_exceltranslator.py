@@ -555,13 +555,12 @@ class ExcelTranslator:
     
     def _translate_frame_sections(self):
         sheet_name = "Frame Sections"
-        data = self._reader.read(sheet_name=sheet_name, start_row=16) # Reading Sheet "Frame Sections" in the Input file
+        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Frame Sections" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         sec_shape = np.empty(n, dtype="U32")
-        element_type = np.empty(n, dtype="U15")
         mats_class = np.empty((n, 1), dtype=np.int32)
         mats_idx = np.empty((n, 1), dtype=np.int32)
         mat_type = np.empty(n, dtype="U15")
@@ -581,7 +580,6 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             sec_name[i] = name
             sec_shape[i] = str(row["Section Shape"])
-            element_type[i] = (str(row["Element Type"]))
             mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
             mats_class[i] = mat_class
             mats_idx[i] = mat_idx
@@ -613,7 +611,6 @@ class ExcelTranslator:
             index = index,
             sec_name = sec_name,
             sec_shape = sec_shape,
-            element_type = element_type,
             mats_class = mats_class,
             mats_idx = mats_idx,
             mat_type = mat_type,
@@ -635,7 +632,6 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         sec_shape = np.empty(n, dtype="U32")
-        element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
         integration_type = np.empty(n, dtype="U15")
@@ -655,7 +651,6 @@ class ExcelTranslator:
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
-            element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
             integration_type[i] = str(row["Integration Type"])
             material_columns = ["Material", "Material 2", "Material 3"]
             for j, column in enumerate(material_columns):
@@ -699,7 +694,6 @@ class ExcelTranslator:
             index = index,
             sec_name = sec_name,
             sec_shape = sec_shape,
-            element_type = element_type,
             base_sec_class = base_sec_class,
             base_sec_idx = base_sec_idx,
             integration_type = integration_type,
@@ -724,7 +718,6 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
         sec_shape = np.empty(n, dtype="U32")
-        element_type = np.empty(n, dtype="U15")
         base_sec_class = np.empty(n, dtype=np.int32)
         base_sec_idx = np.empty(n, dtype=np.int32)
         mats_class = np.full((n, 6), -1, dtype=np.int32)
@@ -745,7 +738,6 @@ class ExcelTranslator:
             base_sec_class[i] = sec_class
             base_sec_idx[i] = sec_idx
             sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
-            element_type[i] = self._secs_list[sec_class].element_type[sec_idx]
             material_columns = ["Material", "Material 2", "Material 3", "Material 4", "Material 5", "Material 6"]
             for j, column in enumerate(material_columns):
                 if row[column] is None:
@@ -775,7 +767,6 @@ class ExcelTranslator:
             index = index,
             sec_name = sec_name,
             sec_shape = sec_shape,
-            element_type = element_type,
             base_sec_class = base_sec_class,
             base_sec_idx = base_sec_idx,
             mats_class = mats_class,
@@ -792,14 +783,13 @@ class ExcelTranslator:
 
     def _translate_slab_sections(self):
         sheet_name = "Slab Sections"
-        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Slab Sections" in the Input file
+        data = self._reader.read(sheet_name=sheet_name, start_row=6) # Reading Sheet "Slab Sections" in the Input file
         if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
             slab_sections = []
             return slab_sections
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.empty(n, dtype="U32")
-        element_type = np.empty(n, dtype="U15")
         mats_class = np.empty((n, 1), dtype=np.int32)
         mats_idx = np.empty((n, 1), dtype=np.int32)
         properties = np.zeros((n, len(SlabSectionProperties)), dtype=np.float64)
@@ -810,7 +800,6 @@ class ExcelTranslator:
                 raise ValidationError(f"Duplicate Section name '{name}'")
             name_to_idx[name] = index[i]
             sec_name[i] = name
-            element_type[i] = (str(row["Element Type"]))
             mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
             mats_class[i] = mat_class
             mats_idx[i] = mat_idx
@@ -819,7 +808,6 @@ class ExcelTranslator:
         slab_sections = SlabSections(
             index = index,
             sec_name = sec_name,
-            element_type = element_type,
             mats_class = mats_class,
             mats_idx = mats_idx,
             properties = properties,
@@ -860,12 +848,13 @@ class ExcelTranslator:
 
     def _translate_line_objects(self, point_objects):
         sheet_name = "Line Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Line Objects" in the Input file
+        data = self._reader.read(sheet_name=sheet_name, start_row=14) # Reading Sheet "Line Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         end_points_idx = np.empty((n, 2), dtype=np.int32)
+        element_type = np.empty(n, dtype="U15")
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         is_zero_length_element = np.empty(n, dtype=bool)
@@ -879,6 +868,7 @@ class ExcelTranslator:
             name_to_idx[name] = index[i]
             unique_name[i] = name
             end_points_idx[i] = (point_objects["Name to Index"][str(row["I-End"])], point_objects["Name to Index"][str(row["J-End"])],)
+            element_type[i] = (str(row["Element Type"]))
             end_offset_option[i] = str(row["End Offset"])
             end_offsets[i] = (
                 self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
@@ -890,6 +880,7 @@ class ExcelTranslator:
             "Index": index,
             "Unique Name": unique_name,
             "End Points Index": end_points_idx,
+            "Element Type": element_type,
             "End Offset Option": end_offset_option,
             "End Offsets": end_offsets,
             "Section Class": sec_class,
@@ -901,13 +892,14 @@ class ExcelTranslator:
 
     def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=9) # Reading Sheet "Surface Objects" in the Input file
+        data = self._reader.read(sheet_name=sheet_name, start_row=10) # Reading Sheet "Surface Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
+        element_type = np.empty(n, dtype="U15")
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
         name_to_idx = {}
@@ -923,6 +915,7 @@ class ExcelTranslator:
                 line_objects=line_objects,
                 surface_name=name,
             )
+            element_type[i] = (str(row["Element Type"]))
             sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(
                 secs_name=str(row["Section"]),
                 secs_list=[slab_sections],
@@ -932,6 +925,7 @@ class ExcelTranslator:
             "Unique Name": unique_name,
             "Edges Index": edges_idx,
             "Vertices Index": vertices_idx,
+            "Element Type": element_type,
             "Section Class": sec_class,
             "Section Index": sec_idx,
             "Name to Index": name_to_idx,

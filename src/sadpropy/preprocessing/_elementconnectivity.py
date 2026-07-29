@@ -103,13 +103,13 @@ def generate_beam_element_connectivity(nodes, end_nodes_index):
         connection_end[i, :m] = end_nodes_connections[i] # Store end node into connection end array
     return element_connectivity, connection_end
 
-def generate_auto_end_offsets(line_connectivity, connection_end, sec_class, sec_idx, secs_list, sec_data):
-    n = len(line_connectivity)
+def autogenerate_end_offsets(element_connectivity, connection_end, sec_class, sec_idx, secs_list, sec_data):
+    n = len(element_connectivity)
     props_class = PropertiesClassRegistry()._get_sec_props_class(sec_class=sec_class)
     end_offsets = np.zeros((n, 2), dtype=np.float64)
     for i in range(n):
-        for j in range(line_connectivity.shape[1]):
-            connected_line = line_connectivity[i, j]
+        for j in range(element_connectivity.shape[1]):
+            connected_line = element_connectivity[i, j]
             if connected_line < 0:
                 continue
             if sec_data[i].sec_shape == SectionShape().shape["Rectangular"]:

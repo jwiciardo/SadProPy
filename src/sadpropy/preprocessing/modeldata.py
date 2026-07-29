@@ -110,18 +110,21 @@ class ModelData:
     def _generate_beamcolumn_elements(self, nodes):
         ndim = self._translator_result["Project Information"].ndim # Recall number of dimensional space
         line_objects = self._translator_result["Line Objects"] # Recall line objects data
-        analysis_end_points_idx = line_objects["End Points Index"].copy()
+        secs_list = self._translator_result["Sections List"] # Recall sections list data
 
-        n = len(line_objects["Index"])
-        unique_name = line_objects["Unique Name"]
-        end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"]], dtype=np.int32)
         sec_class = line_objects["Section Class"]
         sec_idx = line_objects["Section Index"]
+        element_type = line_objects["Element Type"]
+        mask = (element_type == "Column") | (element_type == "Beam")
+        n = len(line_objects["Index"][mask])
+        unique_name = line_objects["Unique Name"][mask]
+        end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
+        
         centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beam_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
         element_connectivity, connection_end = generate_beam_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
-        print()
+        print(n)
         beamcolumn_Elements = BeamColumnElements(
             index = np.arange(n, dtype=np.int32),
             unique_name = unique_name,
@@ -142,27 +145,12 @@ class ModelData:
         )
         return beamcolumn_Elements
 
-        
-    #def _generate_beamcolumn_elements(self, nodes):
-        data_lineobj = self._translator_result["Line Objects"] # Recall line objects data
-        data_pointobj = self._translator_result["Point Objects"] # Recall point objects data
-        secs_list = self._translator_result["Sections List"] # Recall sections list data
-        element_type = np.fromiter((secs_list[sc].element_type[idx]
-            for sc, idx in zip(data_lineobj["Section Class"], data_lineobj["Section Index"])), dtype="U15")
-        mask = (element_type == "Beam")
-        #mask = (element_type == "Column") | (element_type == "Beam")
-        n = len(data_lineobj["Index"][mask])
-        index = np.arange(n, dtype=np.int32)
-        unique_name = data_lineobj["Unique Name"][mask]
-        point_name = data_pointobj.unique_name
-        end_points_idx = data_lineobj.end_points_idx[mask]
-        end_nodes_idx = retrieve_output_from_input(
-            inputdata=end_points_idx,
-            shared_data_in=point_name,
-            outputdata=nodes.index, 
-            shared_data_out=nodes.label,
-        )
-        return element_type
+#        end_nodes_idx = retrieve_output_from_input(
+#            inputdata=end_points_idx,
+#            shared_data_in=point_name,
+#            outputdata=nodes.index, 
+#            shared_data_out=nodes.label,
+#        )
     
     #def _translate_line_objects(self, point_objects, project_information):
         sheet_name = "Line Objects"
