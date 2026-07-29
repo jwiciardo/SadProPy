@@ -1,7 +1,14 @@
 import numpy as np
 from ._exceptions import ValidationError
 
-__all__ = ["retrieve_output_from_input", "generate_local_axes", "generate_line_connectivity", "get_edges_and_vertices_from_surface"]
+__all__ = ["project_to_local_axes", "retrieve_output_from_input", "get_edges_and_vertices_from_surface"]
+
+# PROJECT TO LOCAL AXES
+def project_to_local_axes(values, local_x, local_y, local_z):
+    x = values @ local_x
+    y = values @ local_y
+    z = values @ local_z
+    return x, y, z
 
 # RETRIEVE OUTPUT DATA FROM INPUT DATA WHICH SHARED COMMON TABLE
 def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_data_out):

@@ -6,6 +6,7 @@ from ._preproc_class import (
     ConnectionEnd,
 )
 from sadpropy.utility._exceptions import ValidationError
+from sadpropy.utility.helperfunc import project_to_local_axes
 
 # GENERATE LOCAL AXES
 def _compute_beam_element_centroids(inode_coords, jnode_coords):
@@ -47,21 +48,19 @@ def generate_beam_element_local_axes(nodes, end_nodes_index, ndim):
 
 # GENERATE ELEMENT CONNECTIVITY
 def _get_parent_node(nodes, child_node):
-    nodes_generated_from = nodes.generated_from
-    node_name_to_idx = nodes.name_to_idx
-    if nodes_generated_from[child_node] != "":
-        parent_node = node_name_to_idx[nodes_generated_from[child_node]]
+    nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
+    node_name_to_idx = nodes.name_to_idx # Retrieve node index from node name
+    if nodes_generated_from[child_node] != "": # Set condition if parent name of generated node is not empty
+        parent_node = node_name_to_idx[nodes_generated_from[child_node]] # If True, return parent node index
     else:
-        parent_node = child_node
+        parent_node = child_node # If False, generated node is parent node then return generated node index
     return parent_node
 
 def _map_node_to_beam_element(nodes, end_nodes_index):
-    nodes_generated_from = nodes.generated_from
-    node_name_to_idx = nodes.name_to_idx
     node_to_beam_element = defaultdict(list) # Predefined node to element dictionary
     for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(end_nodes_index): # Loop over end nodes index
-        iend_node_idx = _get_parent_node(nodes=nodes, child_node=iend_node_idx)
-        jend_node_idx = _get_parent_node(nodes=nodes, child_node=jend_node_idx)
+        iend_node_idx = _get_parent_node(nodes=nodes, child_node=iend_node_idx) # Get parrent node of I-end node
+        jend_node_idx = _get_parent_node(nodes=nodes, child_node=jend_node_idx) # Get parrent node of J-end node
         node_to_beam_element[int(iend_node_idx)].append(ele_idx) # Append line index into key: I-end point index
         node_to_beam_element[int(jend_node_idx)].append(ele_idx) # Append line index into key: J-end point index
     return node_to_beam_element
@@ -103,7 +102,34 @@ def generate_beam_element_connectivity(nodes, end_nodes_index):
         connection_end[i, :m] = end_nodes_connections[i] # Store end node into connection end array
     return element_connectivity, connection_end
 
-def autogenerate_end_offsets(element_connectivity, connection_end, sec_class, sec_idx, secs_list, sec_data):
+# AUTOGENERATE END OFFSETS
+def autogenerate_end_offsets(element_connectivity, connection_end, centroids, local_x, local_y, local_z, tol=1e-9):
+    for ele_idx, connected_ele in enumerate(element_connectivity):
+        connected_elements = connected_ele[connected_ele != -1]
+        connected_end = connection_end[ele_idx]
+        connected_end = connected_end[connected_end != -1]
+        current_ele_centroids = centroids[ele_idx]
+        connected_ele_centroids = centroids[connected_elements]
+        delta = connected_ele_centroids - current_ele_centroids
+        dx, dy, dz = project_to_local_axes(
+            values=delta,
+            local_x=local_x[ele_idx],
+            local_y=local_y[ele_idx],
+            local_z=local_z[ele_idx],
+        )
+        delta_local = np.column_stack((dx, dy, dx))
+        same_plane = np.abs(dz) < tol
+        not_collinear = np.abs(dy) >= tol
+        mask = same_plane & not_collinear
+        connected_elements = connected_elements[mask]
+        connected_end = connected_end[mask]
+        print(len(connected_elements))
+
+        print(connected_elements)
+
+    return 0
+
+#def autogenerate_end_offsets(element_connectivity, connection_end, sec_class, sec_idx, secs_list, sec_data):
     n = len(element_connectivity)
     props_class = PropertiesClassRegistry()._get_sec_props_class(sec_class=sec_class)
     end_offsets = np.zeros((n, 2), dtype=np.float64)

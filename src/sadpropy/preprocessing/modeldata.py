@@ -3,6 +3,7 @@ from ._nodegenerator import autogenerate_nodes
 from ._elementconnectivity import (
     generate_beam_element_local_axes,
     generate_beam_element_connectivity,
+    autogenerate_end_offsets,
 )
 from ._preproc_class import (
     NodeSource,
@@ -38,7 +39,7 @@ class ModelData:
     def retrieve(self):
         nodes = self._generate_nodes()
         beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
-        restraints = self._generate_restraints()
+        restraints = self._generate_restraints(nodes=nodes)
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
             project_information = self._translator_result["Project Information"],
@@ -63,8 +64,8 @@ class ModelData:
     
     # SUPPORTING METHODS
     def _generate_nodes(self):
-        point_objects = self._translator_result["Point Objects"] # Recall point objects data
-        line_objects = self._translator_result["Line Objects"] # Recall objects data
+        point_objects = self._translator_result["Point Objects"] # Retrieve point objects data
+        line_objects = self._translator_result["Line Objects"] # Retriev objects data
 
         # Userdefined generated nodes
         n = len(point_objects["Index"])
@@ -108,10 +109,8 @@ class ModelData:
         return nodes
 
     def _generate_beamcolumn_elements(self, nodes):
-        ndim = self._translator_result["Project Information"].ndim # Recall number of dimensional space
-        line_objects = self._translator_result["Line Objects"] # Recall line objects data
-        secs_list = self._translator_result["Sections List"] # Recall sections list data
-
+        ndim = self._translator_result["Project Information"].ndim # Retrieve number of dimensional space
+        line_objects = self._translator_result["Line Objects"] # Retrieve line objects data
         sec_class = line_objects["Section Class"]
         sec_idx = line_objects["Section Index"]
         element_type = line_objects["Element Type"]
@@ -122,8 +121,16 @@ class ModelData:
         centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beam_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
         element_connectivity, connection_end = generate_beam_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        end_offsets = autogenerate_end_offsets(
+            element_connectivity=element_connectivity,
+            connection_end=connection_end,
+            centroids=centroids,
+            local_x=local_x,
+            local_y=local_y,
+            local_z=local_z,
+        )
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
-        print(n)
+        print()
         beamcolumn_Elements = BeamColumnElements(
             index = np.arange(n, dtype=np.int32),
             unique_name = unique_name,
@@ -142,7 +149,7 @@ class ModelData:
             connection_end = connection_end,
             end_offsets = None,
             name_to_idx = name_to_idx,
-        )
+        ) # Store beamcolumn elements data to dataclass
         return beamcolumn_Elements
 
 #        end_nodes_idx = retrieve_output_from_input(
@@ -151,47 +158,6 @@ class ModelData:
 #            outputdata=nodes.index, 
 #            shared_data_out=nodes.label,
 #        )
-    
-    #def _translate_line_objects(self, point_objects, project_information):
-        sheet_name = "Line Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Line Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
-        end_points_idx = np.empty((n, 2), dtype=np.int32)
-        sec_class = np.empty(n, dtype=np.int32)
-        sec_idx = np.empty(n, dtype=np.int32)
-        is_zero_length_element = np.empty(n, dtype=bool)
-        end_offset_option = np.empty(n, dtype="U22")
-        end_offsets = np.empty((n, 2), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Line object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            end_points_idx[i] = (point_objects.name_to_idx[str(row["I-End"])], point_objects.name_to_idx[str(row["J-End"])],)
-            end_offset_option[i] = str(row["End Offset"])
-            end_offsets[i] = (
-                self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
-                self._to_internalunits.length(value=row["J-End Offset Length"] if row["J-End Offset Length"] is not None else 0.0),
-            )
-            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(sec_name=str(row["Section"]))
-            is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
-        line_objects = LineObjects(
-            index = index,
-            unique_name = unique_name,
-            end_points_idx = end_points_idx,
-            end_offset_option = end_offset_option,
-            end_offsets = end_offsets,
-            sec_class = sec_class,
-            sec_idx = sec_idx,
-            is_zero_length_element = is_zero_length_element,
-            name_to_idx = name_to_idx,
-        ) # Defining dataclass for each line object
-        return line_objects
 
     #def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"
@@ -232,14 +198,20 @@ class ModelData:
         ) # Defining dataclass for each surface object
         return surface_objects
     
-    def _generate_restraints(self):
-        restraints = self._translator_result["Restraints"] # Recalling restraints data
-        node_idx = restraints["Point Index"] # Recalling node index
-        dofs = restraints["DOFs"] # Recalling dofs
+    def _generate_restraints(self, nodes):
+        restraints = self._translator_result["Restraints"] # Retrieve restraints data
+        n = len(restraints["Point Index"]) # Determine number of restrained point index
+        node_idx = np.empty(n, dtype=np.int32) # Predefined node index array
+        for i, pt_idx in enumerate(restraints["Point Index"]): # Loop over restrained point index
+            if nodes.generated_from[pt_idx] != "": # Set condition if parent name of restrained point is not empty
+                node_idx[i] = nodes.name_to_idx[nodes.generated_from[pt_idx]] # If True, return parent node index
+            else:
+                node_idx[i] = pt_idx  # If False, generated node is parent node then return generated node index
+        dofs = restraints["DOFs"] # Retrieve dofs
         restraints = Restraints(
             node_idx = node_idx,
             dofs = dofs,
-        ) # Storing restraints data to dataclass
+        ) # Store restraints data to dataclass
         return restraints
 
 

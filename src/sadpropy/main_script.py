@@ -18,11 +18,12 @@ slab_sections = modeldata.slab_sections
 storeys = modeldata.storeys
 nodes = modeldata.nodes
 beamcolumn_elements = modeldata.beamcolumn_elements
+restraints = modeldata.restraints
 
 vis = Visualisation(modeldata)
-vis.plot_undeformed_model(view="Isometric", colour_by="Element Type", show_grids=True,
+vis.plot_undeformed_model(view="Isometric", colour_by="Section", show_grids=True,
                           show_nodes=True, show_elements=True, show_restraints=True,
-                          show_node_labels=False, show_element_labels=False,
+                          show_node_labels=False, show_element_labels=True,
                           show_global_axes=True, show_local_axes=False)
 
 print()

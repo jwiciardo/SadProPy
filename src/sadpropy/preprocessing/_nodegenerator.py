@@ -21,6 +21,7 @@ def get_duplicate(self, line_idx, end, source,):
     )
     return self._generated_node_map[key]
 
+# AUTOGENERATE NODES
 def autogenerate_nodes(usr_nodes, line_objects):
     usr_unique_name = usr_nodes["Unique Name"] # Recall node unique name
     usr_coords = usr_nodes["Coordinates"] # Recall node coordinates
