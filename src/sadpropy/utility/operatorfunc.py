@@ -1,11 +1,12 @@
 import numpy as np
 from sadpropy.preprocessing._preproc_class import FrameSectionProperties, FiberSectionProperties
+from .tolerance import Tolerance
 from ._exceptions import ValidationError
 
 __all__ = ["significant_figures", "rayleigh_damping_coefficients", "rebar_area", "section_properties", "fibersection_properties"]
 
 # NUMERICAL CORRECTION
-def significant_figures(x, tol=1e-12):
+def significant_figures(x, tol=Tolerance.FLOAT):
     try:
         return [0.0 if abs(float(v)) < tol else float(v) for v in x]
     except TypeError:
@@ -126,31 +127,31 @@ def _rectangular_concrete_fibersection(properties):
      barCoords_bot = [] # Local axis coordinate of bottom bars centroid
      barCoords_int = [] # Local axis coordinate of intermediate bars centroid
      
-     for i in range(len(h)):
+     for idx in range(len(h)):
           # Top bar
-          zTop = np.linspace(-zCore[i], zCore[i], nBars_top[i])
-          yTop = np.full(nBars_top[i], yCore[i])
+          zTop = np.linspace(-zCore[idx], zCore[idx], nBars_top[idx])
+          yTop = np.full(nBars_top[idx], yCore[idx])
           top = np.column_stack((yTop, zTop))
           barCoords_top.append(top)
-          Izbar[i] += np.sum(Ibar_top[i] + Abar_top[i] * top[:,1]**2)
-          Iybar[i] += np.sum(Ibar_top[i] + Abar_top[i] * top[:,0]**2)
+          Izbar[idx] += np.sum(Ibar_top[idx] + Abar_top[idx] * top[:,1]**2)
+          Iybar[idx] += np.sum(Ibar_top[idx] + Abar_top[idx] * top[:,0]**2)
           
           # Bottom bar
-          zBot = np.linspace(-zCore[i], zCore[i], nBars_bot[i])
-          yBot = np.full(nBars_bot[i], -yCore[i])
+          zBot = np.linspace(-zCore[idx], zCore[idx], nBars_bot[idx])
+          yBot = np.full(nBars_bot[idx], -yCore[idx])
           bot = np.column_stack((yBot, zBot))
           barCoords_bot.append(bot)
-          Izbar[i] += np.sum(Ibar_bot[i] + Abar_bot[i] * bot[:,1]**2)
-          Iybar[i] += np.sum(Ibar_bot[i] + Abar_bot[i] * bot[:,0]**2)
+          Izbar[idx] += np.sum(Ibar_bot[idx] + Abar_bot[idx] * bot[:,1]**2)
+          Iybar[idx] += np.sum(Ibar_bot[idx] + Abar_bot[idx] * bot[:,0]**2)
 
           # Intermediate bar
-          ySide = np.linspace(yCore[i], -yCore[i], nBars_side[i] + 2,)[1:-1]
-          left = np.column_stack((ySide, np.full_like(ySide, -zCore[i]),))
-          right = np.column_stack((ySide, np.full_like(ySide, zCore[i]),))
+          ySide = np.linspace(yCore[idx], -yCore[idx], nBars_side[idx] + 2,)[1:-1]
+          left = np.column_stack((ySide, np.full_like(ySide, -zCore[idx]),))
+          right = np.column_stack((ySide, np.full_like(ySide, zCore[idx]),))
           intermediate = np.vstack((left, right))
           barCoords_int.append(intermediate)
-          Izbar[i] += np.sum(Ibar_int[i] + Abar_int[i] * intermediate[:,1]**2)
-          Iybar[i] += np.sum(Ibar_int[i] + Abar_int[i] * intermediate[:,0]**2)
+          Izbar[idx] += np.sum(Ibar_int[idx] + Abar_int[idx] * intermediate[:,1]**2)
+          Iybar[idx] += np.sum(Ibar_int[idx] + Abar_int[idx] * intermediate[:,0]**2)
      Iz = Izc + Izbar # Second moment of area of section about local z axis
      Iy = Iyc + Iybar # Second moment of area of section about local y axis
      return (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,)

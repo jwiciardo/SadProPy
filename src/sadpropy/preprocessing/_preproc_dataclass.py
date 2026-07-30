@@ -264,7 +264,9 @@ class BeamColumnElements:
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     element_connectivity: np.ndarray    # int32, shape (N,Max. connections)
     connections_end: np.ndarray         # int32, shape (N,Max. connections)
-    end_offsets: np.ndarray             # float64, shape (N,2)
+    rigid_zone_factor: np.ndarray       # float64, shape (N,)
+    offsets_length: np.ndarray          # float64, shape (N,2)
+    end_offsets: np.ndarray             # float64, shape (N,6)
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)

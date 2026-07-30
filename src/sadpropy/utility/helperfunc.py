@@ -1,14 +1,23 @@
 import numpy as np
 from ._exceptions import ValidationError
 
-__all__ = ["project_to_local_axes", "retrieve_output_from_input", "get_edges_and_vertices_from_surface"]
+__all__ = ["transform_to_global_axes", "transform_to_local_axes", "retrieve_output_from_input", "get_edges_and_vertices_from_surface"]
 
-# PROJECT TO LOCAL AXES
-def project_to_local_axes(values, rotation_matrix):
-    values = np.asarray(values)
-    if values.ndim == 1:
+# TRASNFORM TO GLOBAL AXES
+def transform_to_global_axes(values, rotation_matrix):
+    values = np.asarray(values) # Make values into an array
+    if values.ndim == 1: # Set condition if dimension of array in values is 1 (3,) return projection to local axes
+        return rotation_matrix @ values
+    elif values.ndim == 2: # Set condition if dimension of array in values is 2 (N,3) return projection to local axes
+        return values @ rotation_matrix.T
+    raise ValidationError("Values must have shape (3,) or (N,3)")
+
+# TRANSFORM TO LOCAL AXES
+def transform_to_local_axes(values, rotation_matrix):
+    values = np.asarray(values) # Make values into an array
+    if values.ndim == 1: # Set condition if dimension of array in values is 1 (3,) return projection to local axes
         return rotation_matrix.T @ values
-    elif values.ndim == 2:
+    elif values.ndim == 2: # Set condition if dimension of array in values is 2 (N,3) return projection to local axes
         return values @ rotation_matrix
     raise ValidationError("Values must have shape (3,) or (N,3)")
 

@@ -137,21 +137,21 @@ class ExcelTranslator:
 
     # HELPER METHOD
     def _validate_data(self, data, sheet_name, mandatory=True):
-        if len(data) > 0: # Set condition if number of data > 0 then return True
+        if len(data) > 0: # Set condition if number of rows in data > 0 then return True
             return True
-        if mandatory: # Set condition if mandatory is True then raise validation error (This condition will be run when number of data = 0)
+        if mandatory: # Set condition if mandatory is True then raise validation error (This condition will be run when number of rows in data = 0)
             raise ValidationError(f"Sheet '{sheet_name}' is mandatory but contains no data.")
         return False
     
     def _generate_storeys(self, storey_elevations):
         storeys = {} # Predefined storeys dictionary
-        for i, elev in reversed(list(enumerate(storey_elevations))): # Loop over storey elevations
-            if i == 0: # Set condition if index == 0
+        for idx, elev in reversed(list(enumerate(storey_elevations))): # Loop over storey elevations
+            if idx == 0: # Set condition if index == 0
                 storey_name = "Base" # If True define storey name as "Base" and height = 0.0
                 height = np.float64(0.0) 
             else:
-                storey_name = f"Storey{i}" # If False define storey name as "Storey{index}" and storey height
-                height = elev - storey_elevations[i - 1]
+                storey_name = f"Storey{idx}" # If False define storey name as "Storey{index}" and storey height
+                height = elev - storey_elevations[idx - 1]
             storeys[storey_name] = Storeys(
                 name=storey_name,
                 height=height,
@@ -177,7 +177,7 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Material '{mat_name}' not found")
-        if len(mats_name) == 1: # Set condition if number of materials name is 1
+        if len(mats_name) == 1: # Set condition if number of rows in materials name is 1
             return mat_class[0], mat[0], mat_idx[0] # Return material class, material index, and materials dataclass for first index
         return mat_class, mat, mat_idx
 
@@ -199,7 +199,7 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Section '{sec_name}' not found")
-        if len(secs_name) == 1: # Set condition if number of sections name is 1
+        if len(secs_name) == 1: # Set condition if number of rows in sections name is 1
             return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
         return sec_class, sec, sec_idx
     
@@ -221,7 +221,7 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Section '{sec_name}' not found")
-        if len(secs_name) == 1: # Set condition if number of sections name is 1
+        if len(secs_name) == 1: # Set condition if number of rows in sections name is 1
             return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
         return sec_class, sec, sec_idx
         
@@ -848,7 +848,7 @@ class ExcelTranslator:
 
     def _translate_line_objects(self, point_objects):
         sheet_name = "Line Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=14) # Reading Sheet "Line Objects" in the Input file
+        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Line Objects" in the Input file
         self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
         n = len(data)
         index = np.arange(n, dtype=np.int32)
@@ -857,9 +857,10 @@ class ExcelTranslator:
         element_type = np.empty(n, dtype="U15")
         sec_class = np.empty(n, dtype=np.int32)
         sec_idx = np.empty(n, dtype=np.int32)
+        is_auto_end_offsets = np.empty(n, dtype=bool)
+        rigid_zone_factor = np.empty(n, dtype=np.float64)
+        offsets_length = np.empty((n, 2), dtype=np.float64)
         is_zero_length_element = np.empty(n, dtype=bool)
-        end_offset_option = np.empty(n, dtype="U22")
-        end_offsets = np.empty((n, 2), dtype=np.float64)
         name_to_idx = {}
         for i, row in enumerate(data):
             name = str(row["Unique Name"])
@@ -869,8 +870,9 @@ class ExcelTranslator:
             unique_name[i] = name
             end_points_idx[i] = (point_objects["Name to Index"][str(row["I-End"])], point_objects["Name to Index"][str(row["J-End"])],)
             element_type[i] = (str(row["Element Type"]))
-            end_offset_option[i] = str(row["End Offset"])
-            end_offsets[i] = (
+            is_auto_end_offsets[i] = (str(row["End Offset"]).strip().lower() == "auto from connectivity")
+            rigid_zone_factor[i] = row["Rigid Zone Factor"]
+            offsets_length[i] = (
                 self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
                 self._to_internalunits.length(value=row["J-End Offset Length"] if row["J-End Offset Length"] is not None else 0.0),
             )
@@ -881,10 +883,11 @@ class ExcelTranslator:
             "Unique Name": unique_name,
             "End Points Index": end_points_idx,
             "Element Type": element_type,
-            "End Offset Option": end_offset_option,
-            "End Offsets": end_offsets,
             "Section Class": sec_class,
             "Section Index": sec_idx,
+            "Is Auto End Offsets": is_auto_end_offsets,
+            "Rigid Zone Factor": rigid_zone_factor,
+            "Offsets Length": offsets_length,
             "Is Zero Length Element": is_zero_length_element,
             "Name to Index": name_to_idx,
         } # Storing line objects data to dictionary
