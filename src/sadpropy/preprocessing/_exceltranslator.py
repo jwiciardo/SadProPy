@@ -27,6 +27,8 @@ from ._preproc_class import (
     SectionAggregatorProperties,
     SlabSectionProperties,
 )
+from ._materialdata import get_material_properties
+from ._sectiondata import get_section_properties
 from sadpropy.utility import (
     ConverterToInternalUnits,
     UserDefinedUnits,
@@ -35,8 +37,6 @@ from sadpropy.utility import (
 )
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
-from sadpropy.utility._materialdata import get_material_properties
-from sadpropy.utility._sectiondata import get_section_properties
 from sadpropy.utility.helperfunc import get_edges_and_vertices_from_surface
 
 

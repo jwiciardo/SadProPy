@@ -4,11 +4,13 @@ from ._exceptions import ValidationError
 __all__ = ["project_to_local_axes", "retrieve_output_from_input", "get_edges_and_vertices_from_surface"]
 
 # PROJECT TO LOCAL AXES
-def project_to_local_axes(values, local_x, local_y, local_z):
-    x = values @ local_x
-    y = values @ local_y
-    z = values @ local_z
-    return x, y, z
+def project_to_local_axes(values, rotation_matrix):
+    values = np.asarray(values)
+    if values.ndim == 1:
+        return rotation_matrix.T @ values
+    elif values.ndim == 2:
+        return values @ rotation_matrix
+    raise ValidationError("Values must have shape (3,) or (N,3)")
 
 # RETRIEVE OUTPUT DATA FROM INPUT DATA WHICH SHARED COMMON TABLE
 def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_data_out):

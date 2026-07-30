@@ -1,8 +1,8 @@
 import numpy as np
 from ._nodegenerator import autogenerate_nodes
 from ._elementconnectivity import (
-    generate_beam_element_local_axes,
-    generate_beam_element_connectivity,
+    generate_beamcolumn_element_local_axes,
+    generate_beamcolumn_element_connectivity,
     autogenerate_end_offsets,
 )
 from ._preproc_class import (
@@ -118,16 +118,19 @@ class ModelData:
         n = len(line_objects["Index"][mask])
         unique_name = line_objects["Unique Name"][mask]
         end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
-        centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beam_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
-        element_connectivity, connection_end = generate_beam_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
+        centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        element_connectivity, connections_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         end_offsets = autogenerate_end_offsets(
+            secs_list=self._translator_result["Sections List"],
+            sec_class=sec_class,
+            sec_idx=sec_idx,
+            element_type=element_type,
             element_connectivity=element_connectivity,
-            connection_end=connection_end,
+            connections_end=connections_end,
             centroids=centroids,
             local_x=local_x,
-            local_y=local_y,
-            local_z=local_z,
+            rotation_matrix=rotation_matrix,
         )
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
         print()
@@ -146,7 +149,7 @@ class ModelData:
             local_z = local_z,
             rotation_matrix = rotation_matrix,
             element_connectivity = element_connectivity,
-            connection_end = connection_end,
+            connections_end = connections_end,
             end_offsets = None,
             name_to_idx = name_to_idx,
         ) # Store beamcolumn elements data to dataclass

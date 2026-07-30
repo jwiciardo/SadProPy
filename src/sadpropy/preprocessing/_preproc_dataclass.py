@@ -263,7 +263,7 @@ class BeamColumnElements:
     local_z: np.ndarray | None          # int32, shape (N,3)
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     element_connectivity: np.ndarray    # int32, shape (N,Max. connections)
-    connection_end: np.ndarray          # int32, shape (N,Max. connections)
+    connections_end: np.ndarray         # int32, shape (N,Max. connections)
     end_offsets: np.ndarray             # float64, shape (N,2)
     name_to_idx: dict[str, np.int32]
 
