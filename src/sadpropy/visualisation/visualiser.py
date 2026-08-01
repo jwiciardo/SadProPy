@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.path import Path
 import numpy as np
+from ._vis_class import StructuralSymbols
 from sadpropy.utility._exceptions import ValidationError
+from sadpropy.utility.helperfunc import transform_to_local_axes
 
 __all__ = ["Visualisation"]
 
@@ -51,6 +54,24 @@ class Visualisation:
         }
 
     # HELPER METHOD
+    def _draw_symbol(self, ax, symbol, node_coords, rotation_matrix, scale, colour, linewidth):
+        vertices = symbol.vertices.copy()
+        vertices *= scale
+        vertices = transform_to_local_axes(
+            values=vertices,
+            rotation_matrix=rotation_matrix,
+        )
+        vertices += node_coords
+        for i, j in symbol.segments:
+            ax.plot(
+                [vertices[i,0], vertices[j,0]],
+                [vertices[i,1], vertices[j,1]],
+                [vertices[i,2], vertices[j,2]],
+                color=colour,
+                linewidth=linewidth,
+                zorder=10,
+            )
+
     def _set_axes(self, ax, title, view, coords):
         ax.set_title(title, fontsize=15, pad=0) # Set title for a plot
         elev, azim = self._views[view] # Retrieve elevation and azimuth for views
@@ -75,6 +96,7 @@ class Visualisation:
                 arrow_length, 0, 0,
                 color="red",
                 linewidth=linewidth,
+                zorder=10,
             ) # Plot X-axis arrow
             ax.text(
                 ox + arrow_length,
@@ -84,6 +106,7 @@ class Visualisation:
                 color="red",
                 fontsize=10,
                 weight="bold",
+                zorder=10,
             ) # Plot X-axis label
 
             if ndim == 3:
@@ -92,6 +115,7 @@ class Visualisation:
                     0, arrow_length, 0,
                     color="green",
                     linewidth=linewidth,
+                    zorder=10,
                 ) # Plot Y-axis arrow
                 ax.text(
                     ox,
@@ -101,6 +125,7 @@ class Visualisation:
                     color="green",
                     fontsize=10,
                     weight="bold",
+                    zorder=10,
                 ) # Plot Y-axis label
 
                 ax.quiver(
@@ -108,6 +133,7 @@ class Visualisation:
                     0, 0, arrow_length,
                     color="blue",
                     linewidth=linewidth,
+                    zorder=10,
                 ) # Plot Z-axis arrow
                 ax.text(
                     ox,
@@ -117,6 +143,7 @@ class Visualisation:
                     color="blue",
                     fontsize=10,
                     weight="bold",
+                    zorder=10,
                 ) # Plot Z-axis label
             else:
                 ax.quiver(
@@ -124,12 +151,14 @@ class Visualisation:
                     arrow_length, 0,
                     color="red",
                     linewidth=linewidth,
+                    zorder=10,
                 ) # Plot X-axis arrow
                 ax.quiver(
                     ox, oy,
                     0, arrow_length,
                     color="green",
                     linewidth=linewidth,
+                    zorder=10,
                 ) # Plot Y-axis arrow
                 ax.text(
                     ox + arrow_length,
@@ -138,6 +167,7 @@ class Visualisation:
                     color="red",
                     fontsize=10,
                     weight="bold",
+                    zorder=10,
                 ) # Plot X-axis label
                 ax.text(
                     ox,
@@ -146,6 +176,7 @@ class Visualisation:
                     color="green",
                     fontsize=10,
                     weight="bold",
+                    zorder=10,
                 ) # Plot Y-axis label
 
     def _draw_local_axes(self, ax, elements_list, show_axes, linewidth=1.2):
@@ -162,18 +193,21 @@ class Visualisation:
                         *(arrow_length * lx),
                         color="red",
                         linewidth=linewidth,
+                        zorder=10,
                     )
                     ax.quiver(
                         c[0], c[1], c[2],
                         *(arrow_length * ly),
                         color="green",
                         linewidth=linewidth,
+                        zorder=10,
                     )
                     ax.quiver(
                         c[0], c[1], c[2],
                         *(arrow_length * lz),
                         color="blue",
                         linewidth=linewidth,
+                        zorder=10,
                     )
                     tip_x = c + arrow_length * lx
                     ax.text(
@@ -183,6 +217,7 @@ class Visualisation:
                         "x",
                         color="red",
                         fontsize=8,
+                        zorder=10,
                     )
                     tip_y = c + arrow_length * ly
                     ax.text(
@@ -192,6 +227,7 @@ class Visualisation:
                         "y",
                         color="green",
                         fontsize=8,
+                        zorder=10,
                     )
                     tip_z = c + arrow_length * lz
                     ax.text(
@@ -201,6 +237,7 @@ class Visualisation:
                         "z",
                         color="blue",
                         fontsize=8,
+                        zorder=10,
                     )
 
     def _draw_grid(self, ax, ndim, storeys, coords, show_grids, colour="lightgray", linewidth=1.2, linestyle="--"):
@@ -271,6 +308,7 @@ class Visualisation:
                             edgecolor=colour,
                             linewidth=linewidth,
                         ),
+                        zorder=0,
                     )
                 else:
                     ax.plot(
@@ -296,6 +334,7 @@ class Visualisation:
                             edgecolor=colour,
                             linewidth=linewidth,
                         ),
+                        zorder=0,
                     )
             
             for y, label in zip(yticks, ylabels):
@@ -326,6 +365,7 @@ class Visualisation:
                             edgecolor=colour,
                             linewidth=linewidth,
                         ),
+                        zorder=0,
                     )
 
                     for x in xticks: # Loop over xticks
@@ -362,6 +402,7 @@ class Visualisation:
                             edgecolor=colour,
                             linewidth=linewidth,
                         ),
+                        zorder=0,
                     )
     
     def _plot_nodes(self, ax, nodes, coords, show_labels, marker="o", markersize=10, colour="black"):
@@ -373,6 +414,7 @@ class Visualisation:
             c=colour,
             marker=marker,
             depthshade=True,
+            zorder=1,
         ) # Plot nodes
 
         if show_labels: # Set condition if show_labels is True or False
@@ -389,9 +431,10 @@ class Visualisation:
                     color="black",
                     ha="left",
                     va="bottom",
+                    zorder=1,
                 ) # Plot nodes labels
     
-    def _plot_elements(self, ax, coords, elements_list, colour_by, show_labels, linewidth=1.2):
+    def _plot_elements(self, ax, coords, end_offsets, rigid_zone_factor, elements_list, colour_by, show_labels, linewidth=1.2):
         def get_element_colour(elements):
             if elements is None: # Return nothing if there are no elements
                 return
@@ -436,15 +479,36 @@ class Visualisation:
             offset = 0.005 * model_size # Set label offset
             for i in elements.index: # Loop for each element index
                 inode, jnode = elements.end_nodes_idx[i] # Retrieve element end nodes index
-                p1 = coords[inode] # Retreive I-node coordinates
-                p2 = coords[jnode] # Retreive J-node coordinates
+                ni = coords[inode] # Retreive I-node coordinates
+                nj = coords[jnode] # Retreive J-node coordinates
+                eoi = end_offsets[i][:3] # Retrieve I-end offset vector
+                eoj = end_offsets[i][3:] # Retrieve J-end offset vector
+                noi = ni + eoi # Determine I-node offset coordinate
+                noj = nj + eoj # Determine J-node offset coordinate
                 ax.plot(
-                    [p1[0], p2[0]],
-                    [p1[1], p2[1]],
-                    [p1[2], p2[2]],
+                    [ni[0], noi[0]],
+                    [ni[1], noi[1]],
+                    [ni[2], noi[2]],
+                    color=colours[i],
+                    linewidth=3.0,
+                    zorder=2,
+                ) # Plot I-end offset
+                ax.plot(
+                    [noi[0], noj[0]],
+                    [noi[1], noj[1]],
+                    [noi[2], noj[2]],
                     color=colours[i],
                     linewidth=linewidth,
+                    zorder=2,
                 ) # Plot elements
+                ax.plot(
+                    [noj[0], nj[0]],
+                    [noj[1], nj[1]],
+                    [noj[2], nj[2]],
+                    color=colours[i],
+                    linewidth=3.0,
+                    zorder=2,
+                ) # Plot J-end offset
 
                 if show_labels: # Set condition if show_labels is True or False
                     c = elements.centroids[i] # Retrieve centroid of the elements
@@ -455,6 +519,7 @@ class Visualisation:
                         elements.unique_name[i],
                         fontsize=8,
                         color="black",
+                        zorder=2,
                     ) # Plot nodes labels
             
             # Generate legends
@@ -471,29 +536,62 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
-    def _plot_restraints(self, ax, coords, restraints, marker_size=80, colour="black"):
+    def _plot_restraints(self, ax, coords, rotation_matrix, restraints, marker_size=80, colour="black"):
         def draw_restraint_symbol(coords, dof):
+            verts = np.array([
+                [-0.5, -0.25],
+                [ 0.5, -0.25],
+                [ 0.5,  0.25],
+                [-0.5,  0.25],
+                [-0.5, -0.25],
+            ])
+            marker = Path(verts)
             if np.all(dof):
                 ax.scatter(
                     *coords,
-                    marker="s",
+                    marker=marker,
                     s=marker_size,
                     c=colour,
                     edgecolors=colour,
-                    zorder=11,
+                    zorder=3,
                 ) # Plot marker for fixed restraints
-            elif np.array_equal(dof, [1,1,1,0,0,0]):
-                ax.scatter(
-                    *coords,
-                    marker="^",
-                    s=marker_size,
-                    c=colour,
-                    edgecolors=colour,
-                    zorder=11,
-                ) # Plot marker for pinned restraints
 
-        for node, dof in zip(restraints.node_idx, restraints.dofs): # Loop over each node
-            draw_restraint_symbol(coords=coords[node], dof=dof) # Plot marker for restraints
+
+#        def draw_restraint_symbol(coords, dof):
+#            if np.all(dof):
+#                ax.scatter(
+#                    *coords,
+#                    marker="s",
+#                    s=marker_size,
+#                    c=colour,
+#                    edgecolors=colour,
+#                    zorder=3,
+#                ) # Plot marker for fixed restraints
+#            elif np.array_equal(dof, [1,1,1,0,0,0]):
+#               ax.scatter(
+#                    *coords,
+#                    marker="^",
+#                    s=marker_size,
+#                    c=colour,
+#                    edgecolors=colour,
+#                    zorder=3,
+#                ) # Plot marker for pinned restraints
+        symbol = StructuralSymbols.fixed()
+        model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
+        scale = 0.02 * model_size # Set symbol size
+
+        for node, dof in zip(restraints.node_idx, restraints.dofs): # Loop over each node\
+            if np.all(dof):
+                self._draw_symbol(
+                    ax=ax,
+                    symbol=symbol,
+                    node_coords=coords[node],
+                    rotation_matrix=rotation_matrix,
+                    scale=scale,
+                    colour=colour,
+                    linewidth=1.2,
+                )
+#            draw_restraint_symbol(coords=coords[node], dof=dof) # Plot marker for restraints
 
     # MAIN METHOD
     def plot_undeformed_model(
@@ -516,15 +614,23 @@ class Visualisation:
         ):
         fig = plt.figure(figsize=(12, 10)) # Start plotting figure
         ax = fig.add_subplot(111, projection="3d") # Add axis in 3D
-        
+
+        # General Data
         title = "Undeformed Model"
         ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         storeys = self._modeldata.storeys # Retrieve storeys data
+
+        # Nodes
         nodes = self._modeldata.nodes # Retrieve nodes data
-        coords = self._modeldata.nodes.coords # Retrieve nodes coordinates
-        beamcolumn_elements = self._modeldata.beamcolumn_elements # Retrieve beam column elements data
-        elements_list = [beamcolumn_elements]
+        coords = nodes.coords # Retrieve nodes coordinates data
         restraints = self._modeldata.restraints # Retrieve restraints data
+
+        # Elements
+        beamcolumn_elements = self._modeldata.beamcolumn_elements # Retrieve beam column elements data
+        beamcolumn_rot_matrix = beamcolumn_elements.rotation_matrix # Retrieve beam column elements rotation matrix data
+        beamcolumn_end_offsets = beamcolumn_elements.end_offsets # Retrieve beam column elements end offsets data
+        beamcolumn_rigid_zone_factor = beamcolumn_elements.rigid_zone_factor # Retrieve beam column elements rigid zone factor data
+        elements_list = [beamcolumn_elements]
         
         self._set_axes(ax=ax, title=title, view=view, coords=coords) # Set axes
         self._draw_global_axes(ax=ax, ndim=ndim, coords=coords, show_axes=show_global_axes) # Set global axes arrows
@@ -541,6 +647,8 @@ class Visualisation:
             self._plot_elements(
                 ax=ax,
                 coords=coords,
+                end_offsets=beamcolumn_end_offsets,
+                rigid_zone_factor=beamcolumn_rigid_zone_factor,
                 elements_list=elements_list,
                 colour_by=colour_by,
                 show_labels=show_element_labels,
@@ -549,6 +657,7 @@ class Visualisation:
             self._plot_restraints(
                 ax=ax,
                 coords=coords,
+                rotation_matrix=beamcolumn_rot_matrix,
                 restraints=restraints,
             ) # Plot nodes if show_restraints is True
         

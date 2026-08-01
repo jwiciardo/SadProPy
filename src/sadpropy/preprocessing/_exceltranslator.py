@@ -322,7 +322,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(materials) # Append Materials Properties into Material Lists
+        self._mats_list.append(materials) # Append Materials Properties into Material List
         return materials
     
     def _translate_mat_concrete04(self):
@@ -375,7 +375,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into Material Lists
+        self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into Material List
         return mat_concrete04
 
     def _translate_mat_steel02(self):
@@ -449,7 +449,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into Material Lists
+        self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into Material List
         return mat_steel02
 
     def _translate_mat_minmax(self):
@@ -499,7 +499,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into Material Lists
+        self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into Material List
         return mat_minmax
     
     def _translate_mat_imk(self):
@@ -618,7 +618,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing sections data to dataclass
-        self._secs_list.append(frame_sections) # Append FrameSections Properties into Section Lists
+        self._secs_list.append(frame_sections) # Append FrameSections Properties into Section List
         return frame_sections
     
     def _translate_sec_fiber(self):
@@ -704,7 +704,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing sections data to dataclass
-        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section Lists
+        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section List
         return sec_fiber
     
     def _translate_sec_aggregator(self):
@@ -778,7 +778,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing sections data to dataclass
-        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into Section Lists
+        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into Section List
         return sec_aggregator
 
     def _translate_slab_sections(self):
@@ -944,10 +944,10 @@ class ExcelTranslator:
         dofs = np.empty((n, 6), dtype=np.int32)
         idx_set = set()
         for i, row in enumerate(data):
-            point_name = str(row["Point"])
-            idx = point_objects["Name to Index"][point_name]
+            name = str(row["Point"])
+            idx = point_objects["Name to Index"][name]
             if idx in idx_set:
-                raise ValidationError(f"Duplicate Restraints at Point '{point_name}'")
+                raise ValidationError(f"Duplicate Restraints at Point '{name}'")
             idx_set.add(idx)
             point_idx[i] = idx
             dofs[i] = (

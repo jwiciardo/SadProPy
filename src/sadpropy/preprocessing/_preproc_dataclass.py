@@ -262,8 +262,10 @@ class BeamColumnElements:
     local_y: np.ndarray                 # int32, shape (N,3)
     local_z: np.ndarray | None          # int32, shape (N,3)
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
-    element_connectivity: np.ndarray    # int32, shape (N,Max. connections)
-    connections_end: np.ndarray         # int32, shape (N,Max. connections)
+    elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
+    shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
+    current_elements_end: np.ndarray    # int32, shape (N,Max. connections)
+    neighbour_elements_end: np.ndarray  # int32, shape (N,Max. connections)
     rigid_zone_factor: np.ndarray       # float64, shape (N,)
     offsets_length: np.ndarray          # float64, shape (N,2)
     end_offsets: np.ndarray             # float64, shape (N,6)
@@ -279,6 +281,8 @@ class Slabs:
 @dataclass(slots=True, frozen=True)
 class Restraints:
     node_idx: np.ndarray                # int32, shape (N,)
+    node_name: np.ndarray               # str, shape (N,)
+    node_tag: np.ndarray                # int32, shape (N,)
     dofs: np.ndarray                    # int32, shape (N,6)
 
 # MODEL DATA

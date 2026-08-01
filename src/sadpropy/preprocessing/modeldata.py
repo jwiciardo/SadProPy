@@ -16,6 +16,7 @@ from ._preproc_dataclass import (
 from ._preproc_class import NodeSource
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
+from sadpropy.utility.helperfunc import get_parent_node
 
 
 __all__ = ["ModelData"]
@@ -27,6 +28,9 @@ class ModelData:
 
         # TRANSLATE INPUTFILE AND STORE TO MODEL DATA
         self._translator_result = ExcelTranslator().translate()
+
+        # DICTIONARY LIST
+        self._elements_list = []
     
     def retrieve(self):
         nodes = self._generate_nodes()
@@ -57,7 +61,7 @@ class ModelData:
     # SUPPORTING METHODS
     def _generate_nodes(self):
         point_objects = self._translator_result["Point Objects"] # Retrieve point objects data
-        line_objects = self._translator_result["Line Objects"] # Retriev objects data
+        line_objects = self._translator_result["Line Objects"] # Retrieve line objects data
 
         # Userdefined generated nodes
         n = len(point_objects["Index"])
@@ -111,10 +115,12 @@ class ModelData:
         unique_name = line_objects["Unique Name"][mask]
         end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
         centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
-        element_connectivity, connections_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
+        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         is_auto_end_offsets = line_objects["Is Auto End Offsets"]
         rigid_zone_factor = line_objects["Rigid Zone Factor"]
+        print(elements_connectivity)
+        print(shared_connected_nodes)
         # Userdefined end offsets
         usr_offsets_length = line_objects["Offsets Length"]
         
@@ -124,8 +130,8 @@ class ModelData:
             sec_class=sec_class,
             sec_idx=sec_idx,
             element_type=element_type,
-            element_connectivity=element_connectivity,
-            connections_end=connections_end,
+            elements_connectivity=elements_connectivity,
+            current_elements_end=current_elements_end,
             centroids=centroids,
             rotation_matrix=rotation_matrix,
         )
@@ -135,8 +141,7 @@ class ModelData:
             rotation_matrix=rotation_matrix,
         )
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
-        print(rigid_zone_factor)
-        beamcolumn_Elements = BeamColumnElements(
+        beamcolumn_elements = BeamColumnElements(
             index = np.arange(n, dtype=np.int32),
             unique_name = unique_name,
             tag = tag,
@@ -150,14 +155,17 @@ class ModelData:
             local_y = local_y,
             local_z = local_z,
             rotation_matrix = rotation_matrix,
-            element_connectivity = element_connectivity,
-            connections_end = connections_end,
+            elements_connectivity = elements_connectivity,
+            shared_connected_nodes = shared_connected_nodes,
+            current_elements_end = current_elements_end,
+            neighbour_elements_end = neighbour_elements_end,
             rigid_zone_factor = rigid_zone_factor,
             offsets_length = offsets_length,
             end_offsets = end_offsets,
             name_to_idx = name_to_idx,
         ) # Store beamcolumn elements data to dataclass
-        return beamcolumn_Elements
+        self._elements_list.append(beamcolumn_elements) # Append BeamColumnElements into Elements List
+        return beamcolumn_elements
 
     #def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"
@@ -198,18 +206,17 @@ class ModelData:
         ) # Defining dataclass for each surface object
         return surface_objects
     
-    def _generate_restraints(self, nodes):
+    def _generate_restraints(self, nodes, ):
         restraints = self._translator_result["Restraints"] # Retrieve restraints data
-        n = len(restraints["Point Index"]) # Determine number of rows in restrained point index
-        node_idx = np.empty(n, dtype=np.int32) # Predefined node index array
-        for i, pt_idx in enumerate(restraints["Point Index"]): # Loop over restrained point index
-            if nodes.generated_from[pt_idx] != "": # Set condition if parent name of restrained point is not empty
-                node_idx[i] = nodes.name_to_idx[nodes.generated_from[pt_idx]] # If True, return parent node index
-            else:
-                node_idx[i] = pt_idx  # If False, generated node is parent node then return generated node index
+        point_idx = restraints["Point Index"] # Retrieve point index
+        node_idx = get_parent_node(nodes, point_idx) # Get node index
+        node_name = nodes.unique_name[node_idx] # Retrieve node name
+        node_tag = nodes.tag[node_idx] # Retrieve node tag
         dofs = restraints["DOFs"] # Retrieve dofs
         restraints = Restraints(
             node_idx = node_idx,
+            node_name = node_name,
+            node_tag = node_tag,
             dofs = dofs,
         ) # Store restraints data to dataclass
         return restraints

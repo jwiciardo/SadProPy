@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 from ._preproc_class import ConnectionEnd
 from ._sectiondata import get_section_properties
-from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_local_axes
+from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_local_axes, get_parent_node
 from sadpropy.utility.tolerance import Tolerance
 
 # GENERATE LOCAL AXES
@@ -40,75 +40,88 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         return (centroids, length, local_x, local_y, None, rotation_matrix)
 
 # GENERATE ELEMENT CONNECTIVITY
-def _get_parent_node(nodes, child_node):
-    nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
-    node_name_to_idx = nodes.name_to_idx # Retrieve node index from node name
-    if nodes_generated_from[child_node] != "": # Set condition if parent name of generated node is not empty
-        parent_node = node_name_to_idx[nodes_generated_from[child_node]] # If True, return parent node index
-    else:
-        parent_node = child_node # If False, generated node is parent node then return generated node index
-    return parent_node
-
-def _map_node_to_beamcolumn_element(nodes, end_nodes_index):
+def _map_node_to_beamcolumn_element(iend_nodes_idx, jend_nodes_idx):
     node_to_beamcolumn_element = defaultdict(list) # Predefined node to element dictionary
-    for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(end_nodes_index): # Loop over end nodes index
-        iend_node_idx = _get_parent_node(nodes=nodes, child_node=iend_node_idx) # Get parrent node of I-end node
-        jend_node_idx = _get_parent_node(nodes=nodes, child_node=jend_node_idx) # Get parrent node of J-end node
+    for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(zip(iend_nodes_idx, jend_nodes_idx)): # Loop over end nodes index
         node_to_beamcolumn_element[int(iend_node_idx)].append(ele_idx) # Append line index into key: I-end point index
         node_to_beamcolumn_element[int(jend_node_idx)].append(ele_idx) # Append line index into key: J-end point index
     return node_to_beamcolumn_element
 
 def generate_beamcolumn_element_connectivity(nodes, end_nodes_index):
-    node_to_beamcolumn_element_map = _map_node_to_beamcolumn_element(
-        nodes=nodes,
-        end_nodes_index=end_nodes_index
-    ) # Build node to beam-column element map
     n = len(end_nodes_index) # Determine number of rows in end nodes index
+    iend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,0]) # Get parent node of I-end node
+    jend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,1]) # Get parent node of J-end node
+    node_to_beamcolumn_element_map = _map_node_to_beamcolumn_element(
+        iend_nodes_idx=iend_nodes_idx,
+        jend_nodes_idx=jend_nodes_idx,
+    ) # Build node to beam-column element map
     connected_elements = [] # Predefined connected elements list
-    connection_end = [] # Predefined connection end list
+    shared_nodes = []  # Predefined shared nodes list
+    elements_end = [] # Predefined current elements end list
+    connected_elements_end = [] # Predefined connected elements end list
     max_connections = 0 # Predefined maximum number of connections
-    for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(end_nodes_index): # Loop over end nodes index
-        iend_node_idx = _get_parent_node(nodes=nodes, child_node=iend_node_idx) # Retrieve parent node of I-end node
-        jend_node_idx = _get_parent_node(nodes=nodes, child_node=jend_node_idx) # Retrieve parent node of J-end node
+    for ele_idx in range(n): # Loop over end nodes index
         conn_element = [] # Predefined connected element list
-        conn_end = [] # Predefined connection end list
-        for i_ele_idx in node_to_beamcolumn_element_map[iend_node_idx]: # Loop over element index of I-end node
-            if i_ele_idx == ele_idx: # Set condition if element index of I-end node is same as element index in current looping then skip the remaining code
+        shared_node = [] # Predefined share node list
+        element_end = [] # Predefined current element end list
+        conn_element_end = [] # Predefined connected element end list
+        iend_node_idx = iend_nodes_idx[ele_idx] # Retrieve I-end node index
+        for conn_ele_idx_iend in node_to_beamcolumn_element_map[iend_node_idx]: # Loop over connected element indices on I-end node
+            if conn_ele_idx_iend == ele_idx: # Set condition if connected element index on I-end node is same as current element index then skip the remaining code
                 continue
-            conn_element.append(i_ele_idx) # Append element index of I-end node into connected element list
-            conn_end.append(ConnectionEnd.I_End) # Append end node class into end node connection list
-        for j_ele_idx in node_to_beamcolumn_element_map[jend_node_idx]: # Loop over element index of J-end node
-            if j_ele_idx == ele_idx: # Set condition if element index of J-end node is same as element index in current looping then skip the remaining code
+            conn_element.append(conn_ele_idx_iend) # Append connected element index on I-end node into connected element list
+            shared_node.append(iend_node_idx) # Append I-end node index into shared node list
+            element_end.append(ConnectionEnd.I_End) # Append I-end node class into current element end list
+            if iend_nodes_idx[conn_ele_idx_iend] == iend_node_idx: # Set condition if end node of connected element index is on I-end node
+                conn_element_end.append(ConnectionEnd.I_End) # If True, append I-end node class into connected element end list
+            else:
+                conn_element_end.append(ConnectionEnd.J_End) # Otherwise, append J-end node class into connected element end list
+
+        jend_node_idx = jend_nodes_idx[ele_idx] # Retrieve J-end node index
+        for conn_ele_idx_jend in node_to_beamcolumn_element_map[jend_node_idx]: # Loop over connected element indices on J-end node
+            if conn_ele_idx_jend == ele_idx: # Set condition if connected element index on J-end node is same as current element index then skip the remaining code
                 continue
-            conn_element.append(j_ele_idx) # Append element index of J-end node into connected element list
-            conn_end.append(ConnectionEnd.J_End) # Append end node class into end node connection list
+            conn_element.append(conn_ele_idx_jend) # Append connected element index on J-end node into connected element list
+            shared_node.append(jend_node_idx) # Append J-end node index into shared node list
+            element_end.append(ConnectionEnd.J_End) # Append J-end node class into current element end list
+            if jend_nodes_idx[conn_ele_idx_jend] == jend_node_idx: # Set condition if end node of connected element index is on J-end node
+                conn_element_end.append(ConnectionEnd.J_End) # If True, append J-end node class into connected element end list
+            else:
+                conn_element_end.append(ConnectionEnd.I_End) # Otherwise, append I-end node class into connected element end list
+
         connected_elements.append(np.asarray(conn_element, dtype=np.int32)) # Append connected element list into connected elements list
-        connection_end.append(np.asarray(conn_end, dtype=np.int32)) # Append connection end list into connections end list
-        max_connections = max(max_connections, len(connected_elements)) # Determine maximum number of connections
-    element_connectivity = np.full((n, max_connections), -1, dtype=np.int32) # Predefined element connectivity array (N, Max_Conn)
-    connections_end = np.full((n, max_connections), -1, dtype=np.int32) # Predefined connections end array (N, Max_Conn)
-    for idx in range(n): # Loop over index of end nodes data
-        m = len(connected_elements[idx]) # Determine number of connected elements
+        shared_nodes.append(np.asarray(shared_node, dtype=np.int32)) # Append shared node list into shared nodes list
+        elements_end.append(np.asarray(element_end, dtype=np.int32)) # Append current element end list into current elements end list
+        connected_elements_end.append(np.asarray(conn_element_end, dtype=np.int32)) # Append connected element end list into connected elements end list
+        max_connections = max(max_connections, len(conn_element)) # Determine maximum number of connections
+    elements_connectivity = np.full((n, max_connections), -1, dtype=np.int32) # Predefined elements connectivity array (N, Max. Conn)
+    shared_connected_nodes = np.full((n, max_connections), -1, dtype=np.int32) # Predefined shared connected nodes array (N, Max. Conn)
+    current_elements_end = np.full((n, max_connections), -1, dtype=np.int32) # Predefined current elements end array (N, Max. Conn)
+    neighbour_elements_end = np.full((n, max_connections), -1, dtype=np.int32) # Predefined neighbour elements end array (N, Max. Conn)
+    for ele_idx in range(n): # Loop over end nodes index
+        m = len(connected_elements[ele_idx]) # Determine number of connected elements
         if m == 0: # Set condition if there is no connected element then skip the remaining code
             continue
-        element_connectivity[idx, :m] = connected_elements[idx] # Store connected elements in element connectivity array
-        connections_end[idx, :m] = connection_end[idx] # Store connection end class into connection end array
-    return element_connectivity, connections_end
+        elements_connectivity[ele_idx, :m] = connected_elements[ele_idx] # Store connected elements into elements connectivity array
+        shared_connected_nodes[ele_idx, :m] = shared_nodes[ele_idx] # Store shared nodes into shared connected nodes array
+        current_elements_end[ele_idx, :m] = elements_end[ele_idx] # Store elements end class into current elements end class array
+        neighbour_elements_end[ele_idx, :m] = connected_elements_end[ele_idx] # Store connected elements end class into neighbour elements end class array
+    return elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end
 
 # AUTOGENERATE END OFFSETS
 def _compute_offsets_length(
         element_type,
         centroids,
         rotation_matrix,
-        filtered_element_connectivity,
-        filtered_connections_end,
+        filtered_elements_connectivity,
+        filtered_current_elements_end,
         sec_dim,
         tol=Tolerance.LENGTH,
     ):
-    n = len(filtered_element_connectivity) # Determine number of rows in filtered elements connectivity
+    n = len(filtered_elements_connectivity) # Determine number of rows in filtered elements connectivity
     offsets_length = np.zeros((n, 2), dtype=np.float64) # Predefined offsets length array
-    for ele_idx, connected_elements in enumerate(filtered_element_connectivity): # Loop over filtered elements connectivity
-        connection_end = filtered_connections_end[ele_idx] # Retrieve connection end 
+    for ele_idx, connected_elements in enumerate(filtered_elements_connectivity): # Loop over filtered elements connectivity
+        connection_end = filtered_current_elements_end[ele_idx] # Retrieve current elements end 
         current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element index
         connected_ele_centroids = centroids[connected_elements] # Retrieve centroids for connected elements
         delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroid and current element centroids
@@ -131,20 +144,20 @@ def _compute_offsets_length(
                     offset_length = h_conn / 2.0 # Compute offset length  
                 elif np.abs(dy_i) < tol: # Set condition if beam lies on xz plane
                     offset_length = b_conn / 2.0 # Compute offset length 
-            if conn_end == ConnectionEnd.I_End: # Set condition if connected end is on I-End
+            if conn_end == ConnectionEnd.I_End: # Set condition if connected end is on I-end
                 iend_offset_length = max(iend_offset_length, offset_length) if element_type[ele_idx] != "Column" else 0.0 # If True, compute I-end offset length
             else:
                 jend_offset_length = max(jend_offset_length, offset_length) # Otherwise, compute J-end offset length
-        offsets_length[ele_idx] = (iend_offset_length, jend_offset_length) # Store I-End and J-End offsets length into offsets length array
+        offsets_length[ele_idx] = (iend_offset_length, jend_offset_length) # Store I-end and J-end offsets length into offsets length array
     return offsets_length
 
-def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, element_connectivity, connections_end, centroids, rotation_matrix, tol=Tolerance.LENGTH):
-    n = len(element_connectivity) # Determine number of rows in element connectivity
-    filtered_element_connectivity = [] # Predefined filtered element connectivity list
-    filtered_connections_end = [] # Predefined filtered connections end list
-    for ele_idx, connected_elements in enumerate(element_connectivity): # Loop over element connectivity
+def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrix, tol=Tolerance.LENGTH):
+    n = len(elements_connectivity) # Determine number of rows in elements connectivity
+    filtered_elements_connectivity = [] # Predefined filtered elements connectivity list
+    filtered_current_elements_end = [] # Predefined filtered current elements end list
+    for ele_idx, connected_elements in enumerate(elements_connectivity): # Loop over elements connectivity
         connected_elements = connected_elements[connected_elements != -1] # Filter none (-1) values in connected elements
-        connection_end = connections_end[ele_idx] # Retrieve connections end data
+        connection_end = current_elements_end[ele_idx] # Retrieve current elements end data
         connection_end = connection_end[connection_end != -1] # Filter none (-1) values in connection end
         current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element index
         connected_ele_centroids = centroids[connected_elements] # Retrieve centroids for connected elements
@@ -161,8 +174,8 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
             xy_plane = np.abs(dz) < tol # Define mask for local xy plane
             not_collinear = np.abs(dy) >= tol # Define mask for non collinear element
             mask = xy_plane & not_collinear # Define mask to filter beam elements
-            filtered_element_connectivity.append(connected_elements[mask]) # Append filtered result to filtered element connectivity
-            filtered_connections_end.append(connection_end[mask]) # Append filtered result to filtered connection end
+            filtered_elements_connectivity.append(connected_elements[mask]) # Append filtered result to filtered elements connectivity
+            filtered_current_elements_end.append(connection_end[mask]) # Append filtered result to filtered current elements end
         elif element_type[ele_idx] == "Column": # Set condition if element type is "Column"
             # Local xy plane
             xy_plane = np.abs(dz) < tol # Define mask for local xy plane
@@ -176,8 +189,8 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
             xz_mask = xz_plane & not_collinear_xz # Define mask to filter column elements in local xz plane
             filtered_elements_xz = connected_elements[xz_mask] # Retreive filtered result of connected elements in local xz plane
             filtered_ends_xz = connection_end[xz_mask] # Retrieve filtered result of connection end in local xz plane
-            filtered_element_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered element connectivity
-            filtered_connections_end.append(np.concatenate((filtered_end_xy, filtered_ends_xz))) # Append filtered result to filtered connection end
+            filtered_elements_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered elements connectivity
+            filtered_current_elements_end.append(np.concatenate((filtered_end_xy, filtered_ends_xz))) # Append filtered result to filtered current elements end
     sec_props = get_section_properties(
         secs_list=secs_list,
         sec_class=sec_class,
@@ -189,8 +202,8 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
         element_type=element_type,
         centroids=centroids,
         rotation_matrix=rotation_matrix,
-        filtered_element_connectivity=filtered_element_connectivity,
-        filtered_connections_end=filtered_connections_end,
+        filtered_elements_connectivity=filtered_elements_connectivity,
+        filtered_current_elements_end=filtered_current_elements_end,
         sec_dim=sec_dim,
     ) # Retrieve offsets length
     return offsets_length
@@ -200,16 +213,16 @@ def generate_end_offsets(offsets_length, rotation_matrix):
     end_offsets = np.zeros((n, 6), dtype=np.float64) # Predefined end offsets array
     for ele_idx in range(n):
         iend_offset_length, jend_offset_length = offsets_length[ele_idx] # Unpack offsets length
-        iend_offset_local_vector = np.array((iend_offset_length, 0.0, 0.0), dtype=np.float64) # Define I-End offset local vector
+        iend_offset_local_vector = np.array((iend_offset_length, 0.0, 0.0), dtype=np.float64) # Define I-end offset local vector
         iend_offset_global_vector = transform_to_global_axes(
             values=iend_offset_local_vector,
             rotation_matrix=rotation_matrix[ele_idx],
         ) # Transform I-End offset local vector to global axes
-        jend_offset_local_vector = np.array((-jend_offset_length, 0.0, 0.0), dtype=np.float64) # Define J-End offset local vector
+        jend_offset_local_vector = np.array((-jend_offset_length, 0.0, 0.0), dtype=np.float64) # Define J-end offset local vector
         jend_offset_global_vector = transform_to_global_axes(
             values=jend_offset_local_vector,
             rotation_matrix=rotation_matrix[ele_idx],
         ) # Transform J-End offset local vector to global axes
-        offsets_vector = np.concatenate((iend_offset_global_vector, jend_offset_global_vector)) # Concatenate I-End and J-End offsets vector
+        offsets_vector = np.concatenate((iend_offset_global_vector, jend_offset_global_vector)) # Concatenate I-end and J-end offsets vector
         end_offsets[ele_idx] = offsets_vector # Store offsets vector into end offsets array
     return end_offsets

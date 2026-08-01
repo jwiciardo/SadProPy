@@ -5,22 +5,6 @@ from ._preproc_class import (
 )
 from sadpropy.utility._exceptions import ValidationError
 
-def has_duplicate(self, line_idx, end, source,):
-    key = (
-        int(line_idx),
-        int(end),
-        int(source),
-    )
-    return key in self._generated_node_map
-
-def get_duplicate(self, line_idx, end, source,):
-    key = (
-        int(line_idx),
-        int(end),
-            int(source),
-    )
-    return self._generated_node_map[key]
-
 # AUTOGENERATE NODES
 def autogenerate_nodes(usr_nodes, line_objects):
     usr_unique_name = usr_nodes["Unique Name"] # Recall node unique name

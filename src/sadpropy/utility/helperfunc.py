@@ -1,7 +1,17 @@
 import numpy as np
 from ._exceptions import ValidationError
 
-__all__ = ["transform_to_global_axes", "transform_to_local_axes", "retrieve_output_from_input", "get_edges_and_vertices_from_surface"]
+__all__ = ["retrieve_output_from_input", "transform_to_global_axes", "transform_to_local_axes", "get_parent_node", "get_edges_and_vertices_from_surface"]
+
+# RETRIEVE OUTPUT DATA FROM INPUT DATA WHICH SHARED COMMON TABLE
+def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_data_out):
+    shared = shared_data_in[inputdata]
+    lookup = dict(zip(shared_data_out, outputdata))
+    try:
+        outputdata_converted = np.vectorize(lookup.__getitem__)(shared)
+    except KeyError as e:
+        raise ValidationError(f"Shared value {e.args[0]!r} not found in output shared data")
+    return outputdata_converted.astype(np.int32)
 
 # TRASNFORM TO GLOBAL AXES
 def transform_to_global_axes(values, rotation_matrix):
@@ -21,15 +31,27 @@ def transform_to_local_axes(values, rotation_matrix):
         return values @ rotation_matrix
     raise ValidationError("Values must have shape (3,) or (N,3)")
 
-# RETRIEVE OUTPUT DATA FROM INPUT DATA WHICH SHARED COMMON TABLE
-def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_data_out):
-    shared = shared_data_in[inputdata]
-    lookup = dict(zip(shared_data_out, outputdata))
-    try:
-        outputdata_converted = np.vectorize(lookup.__getitem__)(shared)
-    except KeyError as e:
-        raise ValidationError(f"Shared value {e.args[0]!r} not found in output shared data")
-    return outputdata_converted.astype(np.int32)
+# GET PARENT NODE
+def get_parent_node(nodes, child_node):
+    nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
+    node_name_to_idx = nodes.name_to_idx # Retrieve node index from node name
+    # Scalar case
+    if np.isscalar(child_node): # Set condition if child node is scalar
+        if nodes_generated_from[child_node] != "": # Set condition if parent name of generated node is not empty string
+            return node_name_to_idx[nodes_generated_from[child_node]] # If True, return parent node index
+        parent_node = child_node # Otherwise, generated node is parent node then return generated node index
+        return parent_node
+
+    # Array case
+    child_node = np.asarray(child_node, dtype=np.int32) # Make child node as an array
+    parent_node = child_node.copy() # Set default value of parent node that is same as child node
+    mask = nodes_generated_from[child_node] != "" # Filter parent name of generated node is not empty string
+    if np.any(mask): # Set condition if any parent name of generated node is not empty string
+        parent_node[mask] = [
+            node_name_to_idx[name]
+            for name in nodes_generated_from[child_node][mask]
+        ] # If True, get parent node index from name to index dictionary
+    return parent_node
 
 # GET EDGES AND VERTICES FROM SURFACE
 def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
