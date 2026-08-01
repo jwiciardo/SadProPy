@@ -54,9 +54,9 @@ class Visualisation:
         }
 
     # HELPER METHOD
-    def _draw_symbol(self, ax, symbol, node_coords, rotation_matrix, scale, colour, linewidth):
+    def _draw_symbol(self, ax, symbol, node_coords, rotation_matrix, size, colour, linewidth):
         vertices = symbol.vertices.copy()
-        vertices *= scale
+        vertices *= size
         vertices = transform_to_local_axes(
             values=vertices,
             rotation_matrix=rotation_matrix,
@@ -536,62 +536,21 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
-    def _plot_restraints(self, ax, coords, rotation_matrix, restraints, marker_size=80, colour="black"):
-        def draw_restraint_symbol(coords, dof):
-            verts = np.array([
-                [-0.5, -0.25],
-                [ 0.5, -0.25],
-                [ 0.5,  0.25],
-                [-0.5,  0.25],
-                [-0.5, -0.25],
-            ])
-            marker = Path(verts)
-            if np.all(dof):
-                ax.scatter(
-                    *coords,
-                    marker=marker,
-                    s=marker_size,
-                    c=colour,
-                    edgecolors=colour,
-                    zorder=3,
-                ) # Plot marker for fixed restraints
-
-
-#        def draw_restraint_symbol(coords, dof):
-#            if np.all(dof):
-#                ax.scatter(
-#                    *coords,
-#                    marker="s",
-#                    s=marker_size,
-#                    c=colour,
-#                    edgecolors=colour,
-#                    zorder=3,
-#                ) # Plot marker for fixed restraints
-#            elif np.array_equal(dof, [1,1,1,0,0,0]):
-#               ax.scatter(
-#                    *coords,
-#                    marker="^",
-#                    s=marker_size,
-#                    c=colour,
-#                    edgecolors=colour,
-#                    zorder=3,
-#                ) # Plot marker for pinned restraints
-        symbol = StructuralSymbols.fixed()
+    def _plot_restraints(self, ax, coords, rotation_matrix, restraints, colour="black", linewidth=1.2):
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
-        scale = 0.02 * model_size # Set symbol size
+        symbol_size = 0.02 * model_size # Set symbol size
 
-        for node, dof in zip(restraints.node_idx, restraints.dofs): # Loop over each node\
+        for node, dof in zip(restraints.node_idx, restraints.dofs): # Loop over each node
             if np.all(dof):
                 self._draw_symbol(
                     ax=ax,
-                    symbol=symbol,
+                    symbol=StructuralSymbols.fixed(),
                     node_coords=coords[node],
                     rotation_matrix=rotation_matrix,
-                    scale=scale,
+                    size=symbol_size,
                     colour=colour,
-                    linewidth=1.2,
-                )
-#            draw_restraint_symbol(coords=coords[node], dof=dof) # Plot marker for restraints
+                    linewidth=linewidth,
+                ) # Plot marker for restraints
 
     # MAIN METHOD
     def plot_undeformed_model(
@@ -657,7 +616,7 @@ class Visualisation:
             self._plot_restraints(
                 ax=ax,
                 coords=coords,
-                rotation_matrix=beamcolumn_rot_matrix,
+                rotation_matrix=np.eye(3), # Define rotation matrix as identity matrix
                 restraints=restraints,
             ) # Plot nodes if show_restraints is True
         
