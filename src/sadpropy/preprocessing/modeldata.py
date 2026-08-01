@@ -119,8 +119,6 @@ class ModelData:
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         is_auto_end_offsets = line_objects["Is Auto End Offsets"]
         rigid_zone_factor = line_objects["Rigid Zone Factor"]
-        print(elements_connectivity)
-        print(shared_connected_nodes)
         # Userdefined end offsets
         usr_offsets_length = line_objects["Offsets Length"]
         
@@ -206,7 +204,8 @@ class ModelData:
         ) # Defining dataclass for each surface object
         return surface_objects
     
-    def _generate_restraints(self, nodes, ):
+    def _generate_restraints(self, nodes):
+        elements = self._elements_list # Retrieve elements list
         restraints = self._translator_result["Restraints"] # Retrieve restraints data
         point_idx = restraints["Point Index"] # Retrieve point index
         node_idx = get_parent_node(nodes, point_idx) # Get node index

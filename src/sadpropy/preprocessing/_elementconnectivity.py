@@ -121,10 +121,10 @@ def _compute_offsets_length(
     n = len(filtered_elements_connectivity) # Determine number of rows in filtered elements connectivity
     offsets_length = np.zeros((n, 2), dtype=np.float64) # Predefined offsets length array
     for ele_idx, connected_elements in enumerate(filtered_elements_connectivity): # Loop over filtered elements connectivity
-        connection_end = filtered_current_elements_end[ele_idx] # Retrieve current elements end 
-        current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element index
+        elements_end = filtered_current_elements_end[ele_idx] # Retrieve current elements end 
+        current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element
         connected_ele_centroids = centroids[connected_elements] # Retrieve centroids for connected elements
-        delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroid and current element centroids
+        delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroids and current element centroids
         delta_local = transform_to_local_axes(
             values=delta,
             rotation_matrix=rotation_matrix[ele_idx],
@@ -132,9 +132,10 @@ def _compute_offsets_length(
         dx = delta_local[:, 0] # Unpack dx from delta local
         dy = delta_local[:, 1] # Unpack dy from delta local
         dz = delta_local[:, 2] # Unpack dz from delta local
+
         iend_offset_length = 0.0 # Predefined I-end offset length
         jend_offset_length = 0.0 # Predefined J-end offset length
-        for conn_element, conn_end, dy_i, dz_i in zip(connected_elements, connection_end, dy, dz):
+        for conn_element, element_end, dy_i, dz_i in zip(connected_elements, elements_end, dy, dz): # Loop over elements connectivity
             h_conn, b_conn = sec_dim[conn_element] # Retrieve section dimension
             offset_length = 0.0 # Predefined offset length
             if element_type[ele_idx] == "Column": # Set condition if element type is "Column"
@@ -144,7 +145,7 @@ def _compute_offsets_length(
                     offset_length = h_conn / 2.0 # Compute offset length  
                 elif np.abs(dy_i) < tol: # Set condition if beam lies on xz plane
                     offset_length = b_conn / 2.0 # Compute offset length 
-            if conn_end == ConnectionEnd.I_End: # Set condition if connected end is on I-end
+            if element_end == ConnectionEnd.I_End: # Set condition if current element end is on I-end
                 iend_offset_length = max(iend_offset_length, offset_length) if element_type[ele_idx] != "Column" else 0.0 # If True, compute I-end offset length
             else:
                 jend_offset_length = max(jend_offset_length, offset_length) # Otherwise, compute J-end offset length
@@ -152,16 +153,15 @@ def _compute_offsets_length(
     return offsets_length
 
 def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrix, tol=Tolerance.LENGTH):
-    n = len(elements_connectivity) # Determine number of rows in elements connectivity
     filtered_elements_connectivity = [] # Predefined filtered elements connectivity list
     filtered_current_elements_end = [] # Predefined filtered current elements end list
     for ele_idx, connected_elements in enumerate(elements_connectivity): # Loop over elements connectivity
         connected_elements = connected_elements[connected_elements != -1] # Filter none (-1) values in connected elements
-        connection_end = current_elements_end[ele_idx] # Retrieve current elements end data
-        connection_end = connection_end[connection_end != -1] # Filter none (-1) values in connection end
-        current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element index
+        element_end = current_elements_end[ele_idx] # Retrieve current element end data
+        element_end = element_end[element_end != -1] # Filter none (-1) values in element end
+        current_ele_centroids = centroids[ele_idx] # Retrieve centroids for current element
         connected_ele_centroids = centroids[connected_elements] # Retrieve centroids for connected elements
-        delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroid and current element centroids 
+        delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroids and current element centroids 
         delta_local = transform_to_local_axes(
             values=delta,
             rotation_matrix=rotation_matrix[ele_idx],
@@ -171,24 +171,24 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
         dz = delta_local[:, 2] # Unpack dz from delta local
 
         if element_type[ele_idx] == "Beam": # Set condition if element type is "Beam"
-            xy_plane = np.abs(dz) < tol # Define mask for local xy plane
-            not_collinear = np.abs(dy) >= tol # Define mask for non collinear element
-            mask = xy_plane & not_collinear # Define mask to filter beam elements
+            xy_plane = np.abs(dz) < tol # Define filter local xy plane
+            not_collinear = np.abs(dy) >= tol # Define filter non collinear element
+            mask = xy_plane & not_collinear # Define filter beam elements
             filtered_elements_connectivity.append(connected_elements[mask]) # Append filtered result to filtered elements connectivity
-            filtered_current_elements_end.append(connection_end[mask]) # Append filtered result to filtered current elements end
+            filtered_current_elements_end.append(element_end[mask]) # Append filtered result to filtered current element end
         elif element_type[ele_idx] == "Column": # Set condition if element type is "Column"
             # Local xy plane
-            xy_plane = np.abs(dz) < tol # Define mask for local xy plane
-            not_collinear_xy = np.abs(dy) >= tol # Define mask for non collinear element in local xy plane
-            xy_mask = xy_plane & not_collinear_xy # Define mask to filter column elements in local xy plane
+            xy_plane = np.abs(dz) < tol # Define filter local xy plane
+            not_collinear_xy = np.abs(dy) >= tol # Define filter non collinear element in local xy plane
+            xy_mask = xy_plane & not_collinear_xy # Define filter column elements in local xy plane
             filtered_elements_xy = connected_elements[xy_mask] # Retreive filtered result of connected elements in local xy plane
-            filtered_end_xy = connection_end[xy_mask] # Retrieve filtered result of connection end in local xy plane
+            filtered_end_xy = element_end[xy_mask] # Retrieve filtered result of current element end in local xy plane
             # Local xz plane
-            xz_plane = np.abs(dy) < tol # Define mask for local xz plane
-            not_collinear_xz = np.abs(dz) >= tol # Define mask for non collinear element in local xz plane
-            xz_mask = xz_plane & not_collinear_xz # Define mask to filter column elements in local xz plane
+            xz_plane = np.abs(dy) < tol # Define filter local xz plane
+            not_collinear_xz = np.abs(dz) >= tol # Define filter non collinear element in local xz plane
+            xz_mask = xz_plane & not_collinear_xz # Define filter column elements in local xz plane
             filtered_elements_xz = connected_elements[xz_mask] # Retreive filtered result of connected elements in local xz plane
-            filtered_ends_xz = connection_end[xz_mask] # Retrieve filtered result of connection end in local xz plane
+            filtered_ends_xz = element_end[xz_mask] # Retrieve filtered result of current element end in local xz plane
             filtered_elements_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered elements connectivity
             filtered_current_elements_end.append(np.concatenate((filtered_end_xy, filtered_ends_xz))) # Append filtered result to filtered current elements end
     sec_props = get_section_properties(

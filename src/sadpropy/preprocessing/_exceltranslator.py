@@ -203,7 +203,7 @@ class ExcelTranslator:
             return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
         return sec_class, sec, sec_idx
     
-    def _retrieve_slabsection_index(self, secs_name, secs_list): # Retrieve Slab section 
+    def _retrieve_slabsection_index(self, secs_name, secs_list): # Retrieve slab section 
         if isinstance(secs_name, str): # Set condition if sections name is a string return list of sections name
             secs_name = [secs_name]
         sec_class = np.empty(len(secs_name), dtype=np.int32) # Predefined section class array
@@ -322,7 +322,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(materials) # Append Materials Properties into Material List
+        self._mats_list.append(materials) # Append Materials Properties into material list
         return materials
     
     def _translate_mat_concrete04(self):
@@ -375,7 +375,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into Material List
+        self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into material list
         return mat_concrete04
 
     def _translate_mat_steel02(self):
@@ -449,7 +449,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into Material List
+        self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into material list
         return mat_steel02
 
     def _translate_mat_minmax(self):
@@ -499,7 +499,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing materials data to dataclass
-        self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into Material List
+        self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into material list
         return mat_minmax
     
     def _translate_mat_imk(self):
@@ -618,7 +618,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx
         ) # Storing sections data to dataclass
-        self._secs_list.append(frame_sections) # Append FrameSections Properties into Section List
+        self._secs_list.append(frame_sections) # Append FrameSections Properties into section list
         return frame_sections
     
     def _translate_sec_fiber(self):
@@ -704,7 +704,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing sections data to dataclass
-        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into Section List
+        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into section list
         return sec_fiber
     
     def _translate_sec_aggregator(self):
@@ -778,7 +778,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing sections data to dataclass
-        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into Section List
+        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into section list
         return sec_aggregator
 
     def _translate_slab_sections(self):
