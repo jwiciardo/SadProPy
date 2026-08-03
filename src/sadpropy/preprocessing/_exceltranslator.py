@@ -89,6 +89,7 @@ class ExcelTranslator:
         
         # DICTIONARY LIST
         self._mats_list = []
+        self._spring_mats_list = []
         self._secs_list = []
 
     # MAIN METHOD: EXCEL TRANSLATOR
@@ -551,6 +552,7 @@ class ExcelTranslator:
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
+        self._spring_mats_list.append(mat_imk) # Append Materials Properties into spring material list
         return mat_imk
     
     def _translate_frame_sections(self):

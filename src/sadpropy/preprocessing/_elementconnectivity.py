@@ -26,7 +26,7 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         local_y = np.cross(local_z, local_x) # Determine local y-axis using cross product of local z-axis and local x-axis
         local_y /= np.linalg.norm(local_y, axis=1)[:, None] # Normalise local y-axis
         rotation_matrix = np.stack((local_x, local_y, local_z), axis=2) # Build rotation matrix 3x3 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, local_z, rotation_matrix)
+        return (centroids, length, rotation_matrix)
     else: # 2D Structure
         inode_coords = inode_coords[:2] # Retrieve I-end node coordinates (X, Y)
         jnode_coords = jnode_coords[:2] # Retrieve J-end node coordinates (X, Y)
@@ -37,7 +37,7 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         local_x = np.column_stack((cx, cy)) # Determine local x-axis
         local_y = np.column_stack((-cy, cx)) # Determine local y-axis
         rotation_matrix = np.stack((local_x, local_y), axis=2) # Build rotation matrix 2x2 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, None, rotation_matrix)
+        return (centroids, length, rotation_matrix)
 
 # GENERATE ELEMENT CONNECTIVITY
 def _map_node_to_beamcolumn_element(iend_nodes_idx, jend_nodes_idx):
@@ -171,22 +171,22 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
         dz = delta_local[:, 2] # Unpack dz from delta local
 
         if element_type[ele_idx] == "Beam": # Set condition if element type is "Beam"
-            xy_plane = np.abs(dz) < tol # Define filter local xy plane
-            not_collinear = np.abs(dy) >= tol # Define filter non collinear element
-            mask = xy_plane & not_collinear # Define filter beam elements
+            xy_plane = np.abs(dz) < tol # Define filter for local xy plane
+            not_collinear = np.abs(dy) >= tol # Define filter for non collinear element
+            mask = xy_plane & not_collinear # Define filter for beam elements
             filtered_elements_connectivity.append(connected_elements[mask]) # Append filtered result to filtered elements connectivity
             filtered_current_elements_end.append(element_end[mask]) # Append filtered result to filtered current element end
         elif element_type[ele_idx] == "Column": # Set condition if element type is "Column"
             # Local xy plane
-            xy_plane = np.abs(dz) < tol # Define filter local xy plane
-            not_collinear_xy = np.abs(dy) >= tol # Define filter non collinear element in local xy plane
-            xy_mask = xy_plane & not_collinear_xy # Define filter column elements in local xy plane
+            xy_plane = np.abs(dz) < tol # Define filter for local xy plane
+            not_collinear_xy = np.abs(dy) >= tol # Define filter for non collinear element in local xy plane
+            xy_mask = xy_plane & not_collinear_xy # Define filter for column elements in local xy plane
             filtered_elements_xy = connected_elements[xy_mask] # Retreive filtered result of connected elements in local xy plane
             filtered_end_xy = element_end[xy_mask] # Retrieve filtered result of current element end in local xy plane
             # Local xz plane
-            xz_plane = np.abs(dy) < tol # Define filter local xz plane
-            not_collinear_xz = np.abs(dz) >= tol # Define filter non collinear element in local xz plane
-            xz_mask = xz_plane & not_collinear_xz # Define filter column elements in local xz plane
+            xz_plane = np.abs(dy) < tol # Define filter for local xz plane
+            not_collinear_xz = np.abs(dz) >= tol # Define filter for non collinear element in local xz plane
+            xz_mask = xz_plane & not_collinear_xz # Define filter for column elements in local xz plane
             filtered_elements_xz = connected_elements[xz_mask] # Retreive filtered result of connected elements in local xz plane
             filtered_ends_xz = element_end[xz_mask] # Retrieve filtered result of current element end in local xz plane
             filtered_elements_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered elements connectivity

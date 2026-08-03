@@ -434,7 +434,7 @@ class Visualisation:
                     zorder=1,
                 ) # Plot nodes labels
     
-    def _plot_elements(self, ax, coords, end_offsets, rigid_zone_factor, elements_list, colour_by, show_labels, linewidth=1.2):
+    def _plot_elements(self, ax, coords, elements_list, colour_by, show_labels, linewidth=1.2):
         def get_element_colour(elements):
             if elements is None: # Return nothing if there are no elements
                 return
@@ -474,6 +474,8 @@ class Visualisation:
             return colours, categories, category_colours
         
         for elements in elements_list: # Loop over elements_list
+            end_offsets = elements.end_offsets # Retrieve elements end offsets
+            rigid_zone_factor = elements.rigid_zone_factor # Retrieve elements rigid zone factor
             colours, _, category_colours = get_element_colour(elements=elements) # Get element colour
             model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
             offset = 0.005 * model_size # Set label offset
@@ -481,8 +483,8 @@ class Visualisation:
                 inode, jnode = elements.end_nodes_idx[i] # Retrieve element end nodes index
                 ni = coords[inode] # Retreive I-node coordinates
                 nj = coords[jnode] # Retreive J-node coordinates
-                eoi = end_offsets[i][:3] # Retrieve I-end offset vector
-                eoj = end_offsets[i][3:] # Retrieve J-end offset vector
+                eoi = end_offsets[i][:3] * rigid_zone_factor[i] # Retrieve I-end offset vector
+                eoj = end_offsets[i][3:] * rigid_zone_factor[i] # Retrieve J-end offset vector
                 noi = ni + eoi # Determine I-node offset coordinate
                 noj = nj + eoj # Determine J-node offset coordinate
                 ax.plot(
@@ -536,6 +538,46 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
+    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, show_labels, marker="o", markersize=10, colour="black", linewidth=1.2):
+        model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
+        offset = 0.005 * model_size # Set child node offset (for visibility purpose)
+        for i in zerolength_elements.index: # Loop for each element index
+            parent_node, child_node = zerolength_elements.end_nodes_idx[i] # Retrieve element end nodes index
+            n_parent = coords[parent_node] # Retreive parent node coordinates
+            n_child = coords[child_node] # Retreive child node coordinates
+            vec_dir = zerolength_elements.vector_direction # Retrieve vector direction
+            n_child_offset = n_child + offset * vec_dir[i]
+            ax.scatter(
+                n_child_offset[0],
+                n_child_offset[1],
+                n_child_offset[2],
+                s=markersize,
+                c=colour,
+                marker=marker,
+                depthshade=True,
+                zorder=2,
+            ) # Plot child nodes
+            ax.plot(
+                [n_parent[0], n_child_offset[0]],
+                [n_parent[1], n_child_offset[1]],
+                [n_parent[2], n_child_offset[2]],
+                color=colour,
+                alpha=0.0,
+                linewidth=linewidth,
+                zorder=2,
+            ) # Plot I-end offset
+            
+            if show_labels: # Set condition if show_labels is True or False
+                ax.text(
+                    n_child_offset[0] + offset,
+                    n_child_offset[1] + offset,
+                    n_child_offset[2] + offset,
+                    zerolength_elements.unique_name[i],
+                    fontsize=8,
+                    color="black",
+                    zorder=2,
+                ) # Plot nodes labels        
+
     def _plot_restraints(self, ax, coords, rotation_matrix, restraints, colour="black", linewidth=1.2):
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
         symbol_size = 0.02 * model_size # Set symbol size
@@ -586,10 +628,8 @@ class Visualisation:
 
         # Elements
         beamcolumn_elements = self._modeldata.beamcolumn_elements # Retrieve beam column elements data
-        beamcolumn_rot_matrix = beamcolumn_elements.rotation_matrix # Retrieve beam column elements rotation matrix data
-        beamcolumn_end_offsets = beamcolumn_elements.end_offsets # Retrieve beam column elements end offsets data
-        beamcolumn_rigid_zone_factor = beamcolumn_elements.rigid_zone_factor # Retrieve beam column elements rigid zone factor data
-        elements_list = [beamcolumn_elements]
+        elements_list = self._modeldata.elements_list # Retrieve elements list
+        zerolength_elements = self._modeldata.zerolength_elements # Retrieve zero length elements data
         
         self._set_axes(ax=ax, title=title, view=view, coords=coords) # Set axes
         self._draw_global_axes(ax=ax, ndim=ndim, coords=coords, show_axes=show_global_axes) # Set global axes arrows
@@ -606,12 +646,17 @@ class Visualisation:
             self._plot_elements(
                 ax=ax,
                 coords=coords,
-                end_offsets=beamcolumn_end_offsets,
-                rigid_zone_factor=beamcolumn_rigid_zone_factor,
                 elements_list=elements_list,
                 colour_by=colour_by,
                 show_labels=show_element_labels,
             ) # Plot nodes if show_elements is True
+            self._plot_zerolength_elements(
+                ax=ax,
+                coords=coords,
+                zerolength_elements=zerolength_elements,
+                show_labels=show_element_labels,
+            )
+
         if show_restraints: # Set condition if show_restraints is True or False
             self._plot_restraints(
                 ax=ax,

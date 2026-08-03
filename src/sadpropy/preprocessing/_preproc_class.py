@@ -127,8 +127,11 @@ class PropertiesClassRegistry:
         Concrete04Properties, # Index 1
         Steel02Properties, # Index 2
         MinMaxProperties, # Index 3
-        IMKProperties, # Index 4
     ], dtype=object)
+
+    SPRING_MATERIALS = np.array([
+            IMKProperties, # Index 0
+        ], dtype=object)
 
     SECTIONS = np.array([
         FrameSectionProperties, # Index 0
@@ -138,6 +141,9 @@ class PropertiesClassRegistry:
 
     def _get_mat_props_class(self, mat_class):
         return self.MATERIALS[mat_class]
+
+    def _get_spring_mat_props_class(self, mat_class):
+            return self.SPRING_MATERIALS[mat_class]
     
     def _get_sec_props_class(self, sec_class):
         return self.SECTIONS[sec_class]

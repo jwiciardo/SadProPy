@@ -7,10 +7,12 @@ from ._elementconnectivity import (
     autogenerate_offsets_length,
     generate_end_offsets,
 )
+from ._zerolengthelements import zerolength_element_direction
 from ._preproc_dataclass import (
     ModelDataclass,
     Nodes,
     BeamColumnElements,
+    ZeroLengthElements,
     Restraints,
 )
 from ._preproc_class import NodeSource
@@ -35,6 +37,7 @@ class ModelData:
     def retrieve(self):
         nodes = self._generate_nodes()
         beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
+        zerolength_elements = self._generate_zero_length_elements(nodes=nodes)
         restraints = self._generate_restraints(nodes=nodes)
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
@@ -55,6 +58,8 @@ class ModelData:
             storeys = self._translator_result["Storeys"],
             nodes = nodes,
             beamcolumn_elements = beamcolumn_elements,
+            zerolength_elements = zerolength_elements,
+            elements_list = self._elements_list,
             restraints = restraints,
         )
     
@@ -114,7 +119,7 @@ class ModelData:
         n = len(line_objects["Index"][mask])
         unique_name = line_objects["Unique Name"][mask]
         end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
-        centroids, length, local_x, local_y, local_z, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        centroids, length, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
         elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         is_auto_end_offsets = line_objects["Is Auto End Offsets"]
@@ -149,9 +154,6 @@ class ModelData:
             sec_idx = sec_idx,
             centroids = centroids,
             length = length,
-            local_x = local_x,
-            local_y = local_y,
-            local_z = local_z,
             rotation_matrix = rotation_matrix,
             elements_connectivity = elements_connectivity,
             shared_connected_nodes = shared_connected_nodes,
@@ -164,6 +166,35 @@ class ModelData:
         ) # Store beamcolumn elements data to dataclass
         self._elements_list.append(beamcolumn_elements) # Append BeamColumnElements into Elements List
         return beamcolumn_elements
+
+    def _generate_zero_length_elements(self, nodes):
+        ndim = self._translator_result["Project Information"].ndim # Retrieve number of dimensional space
+        nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
+        child_nodes = np.asarray([node_idx for node_idx in nodes.index[nodes_generated_from != ""]], dtype=np.int32) # Filter empty string values in nodes index
+        parent_nodes = get_parent_node(nodes=nodes, child_node=child_nodes) # Get parent node
+        n = len(child_nodes)
+        unique_name = np.empty(n, dtype="U15")
+        end_nodes_idx = np.empty((n, 2), dtype=np.int32)
+        for i in range(n):
+            name = f"ZL{i}"
+            unique_name[i] = name
+            end_nodes_idx[i] = [parent_nodes[i], child_nodes[i]]
+        tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        element_type = np.full(n, f"Zero Length", dtype="U15")
+        vec_dir = zerolength_element_direction(nodes, self._elements_list, child_nodes)
+#        print(element_type, len(element_type))
+        zerolength_elements = ZeroLengthElements(
+            index = np.arange(n, dtype=np.int32),
+            unique_name = unique_name,
+            tag = tag,
+            end_nodes_idx = end_nodes_idx,
+            element_type = element_type,
+            vector_direction = vec_dir,
+            name_to_idx = None
+        ) # Store zerolength elements data to dataclass
+        return zerolength_elements
+
+
 
     #def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"

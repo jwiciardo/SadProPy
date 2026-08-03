@@ -258,9 +258,6 @@ class BeamColumnElements:
     sec_idx: np.ndarray                 # int32, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
-    local_x: np.ndarray                 # int32, shape (N,3)
-    local_y: np.ndarray                 # int32, shape (N,3)
-    local_z: np.ndarray | None          # int32, shape (N,3)
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
     shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
@@ -270,6 +267,22 @@ class BeamColumnElements:
     offsets_length: np.ndarray          # float64, shape (N,2)
     end_offsets: np.ndarray             # float64, shape (N,6)
     name_to_idx: dict[str, np.int32]
+
+@dataclass(slots=True, frozen=True)
+class ZeroLengthElements:
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
+    end_nodes_idx: np.ndarray           # int32, shape (N,2)
+    element_type: np.ndarray            # str, shape(N,)
+    vector_direction: np.ndarray        # float64, shape (N,3)
+    name_to_idx: dict[str, np.int32]
+
+
+
+
+
+
 
 @dataclass(slots=True, frozen=True)
 class Slabs:
@@ -306,6 +319,8 @@ class ModelDataclass:
     storeys: Storeys
     nodes: Nodes
     beamcolumn_elements: BeamColumnElements
+    zerolength_elements: ZeroLengthElements
+    elements_list: list
 
     restraints: Restraints
 

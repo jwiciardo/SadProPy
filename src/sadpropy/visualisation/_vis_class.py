@@ -27,8 +27,8 @@ class StructuralSymbols:
         ], dtype=np.int32)
         return Symbol3D(vertices, segments)
 
-    @staticmethod
-    def pinned():
+#    @staticmethod
+#    def pinned():
         vertices = np.array([
             [0.0, 0.0, 0.6],
             [0.0, -0.6, -0.6],
@@ -42,8 +42,8 @@ class StructuralSymbols:
         ], dtype=np.int32)
         return Symbol3D(vertices, segments)
 
-    @staticmethod
-    def roller():
+#    @staticmethod
+#    def roller():
         vertices = np.array([
             [0.0, 0.0, 0.6],
             [0.0, -0.6, -0.4],
