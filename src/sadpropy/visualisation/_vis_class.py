@@ -27,6 +27,29 @@ class StructuralSymbols:
         ], dtype=np.int32)
         return Symbol3D(vertices, segments)
 
+    @staticmethod
+    def spring():
+        vertices = np.array([
+            [0.00, 0.00, 0.00],
+            [0.10, 0.15, 0.00],
+            [0.20, -0.15, 0.00],
+            [0.30, 0.15, 0.00],
+            [0.40, -0.15, 0.00],
+            [0.50, 0.15, 0.00],
+            [0.60, -0.15, 0.00],
+            [0.70, 0.00, 0.00],
+        ], dtype=np.float64)
+        segments = (
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+        )
+        return Symbol3D(vertices, segments)
+
 #    @staticmethod
 #    def pinned():
         vertices = np.array([

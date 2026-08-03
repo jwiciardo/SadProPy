@@ -35,6 +35,7 @@ class AnalysisPreferences:
 class Materials:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     mat_type: np.ndarray                # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,7)
     name_to_idx: dict[str, np.int32]
@@ -43,6 +44,7 @@ class Materials:
 class Mat_Concrete04:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     mat_type: np.ndarray                # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
@@ -55,6 +57,7 @@ class Mat_Concrete04:
         return cls(
             index=np.empty(0, dtype=np.int32),
             mat_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             mat_type=np.empty(0, dtype="U15"),
             base_mat_class=np.empty(0, dtype=np.int32),
             base_mat_idx=np.empty(0, dtype=np.int32),
@@ -67,6 +70,7 @@ class Mat_Concrete04:
 class Mat_Steel02:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     mat_type: np.ndarray                # str, shape (N,)
     base_mat_class: np.ndarray          # int32, shape (N,)
     base_mat_idx: np.ndarray            # int32, shape (N,)
@@ -79,6 +83,7 @@ class Mat_Steel02:
         return cls(
             index=np.empty(0, dtype=np.int32),
             mat_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             mat_type=np.empty(0, dtype="U15"),
             base_mat_class=np.empty(0, dtype=np.int32),
             base_mat_idx=np.empty(0, dtype=np.int32),
@@ -91,6 +96,7 @@ class Mat_Steel02:
 class Mat_MinMax:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     mat_type: np.ndarray                # str, shape (N,)
     base_nl_mat_class: np.ndarray       # int32, shape (N,)
     base_nl_mat_idx: np.ndarray         # int32, shape (N,)
@@ -103,6 +109,7 @@ class Mat_MinMax:
         return cls(
             index=np.empty(0, dtype=np.int32),
             mat_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             mat_type=np.empty(0, dtype="U15"),
             base_nl_mat_class=np.empty(0, dtype=np.int32),
             base_nl_mat_idx=np.empty(0, dtype=np.int32),
@@ -115,6 +122,7 @@ class Mat_MinMax:
 class Mat_IMK:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     mat_model: np.ndarray               # str, shape (N,)
     properties: np.ndarray              # float64, shape (N,27)
     name_to_idx: dict[str, np.int32]
@@ -124,6 +132,7 @@ class Mat_IMK:
         return cls(
             index=np.empty(0, dtype=np.int32),
             mat_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             mat_model=np.empty(0, dtype="U15"),
             properties=np.empty((0, len(IMKProperties)), dtype=np.float64),
             name_to_idx={},
@@ -134,6 +143,7 @@ class Mat_IMK:
 class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
     mats_class: np.ndarray              # int32, shape (N,1)
     mats_idx: np.ndarray                # int32, shape (N,1)
@@ -146,10 +156,12 @@ class FrameSections:
 class Sec_Fiber:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
     base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
     integration_type: np.ndarray        # str, shape (N,)
+    integration_tag: np.ndarray         # int32, shape (N,)
     mats_class: np.ndarray              # float64, shape (N,3) --> mat_1, mat_2, mat_3
     mats_idx: np.ndarray                # float64, shape (N,3) --> mat_1, mat_2, mat_3
     mat_type: np.ndarray                # str, shape (N,)
@@ -162,10 +174,12 @@ class Sec_Fiber:
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             sec_shape=np.empty(0, dtype="U32"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
             integration_type=np.empty(0, dtype="U15"),
+            integration_tag=np.empty(0, dtype=np.int32),
             mats_class=np.empty((0, 3), dtype=np.int32),
             mats_idx=np.empty((0, 3), dtype=np.int32),
             mat_type=np.empty(0, dtype="U15"),
@@ -178,6 +192,7 @@ class Sec_Fiber:
 class Sec_Aggregator:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
+    tag: np.ndarray                     # int32, shape (N,)
     sec_shape: np.ndarray               # str, shape (N,)
     base_sec_class: np.ndarray          # int32, shape (N,)
     base_sec_idx: np.ndarray            # int32, shape (N,)
@@ -195,6 +210,7 @@ class Sec_Aggregator:
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
+            tag=np.empty(0, dtype=np.int32),
             sec_shape=np.empty(0, dtype="U32"),
             base_sec_class=np.empty(0, dtype=np.int32),
             base_sec_idx=np.empty(0, dtype=np.int32),
@@ -259,6 +275,7 @@ class BeamColumnElements:
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
     rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
+    transformation_tag: np.ndarray      # int32, shape (N,)
     elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
     shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
     current_elements_end: np.ndarray    # int32, shape (N,Max. connections)
@@ -275,14 +292,8 @@ class ZeroLengthElements:
     tag: np.ndarray                     # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
     element_type: np.ndarray            # str, shape(N,)
-    vector_direction: np.ndarray        # float64, shape (N,3)
+    rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     name_to_idx: dict[str, np.int32]
-
-
-
-
-
-
 
 @dataclass(slots=True, frozen=True)
 class Slabs:

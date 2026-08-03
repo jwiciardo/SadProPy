@@ -1,9 +1,9 @@
 import numpy as np
 from ._preproc_class import ConnectionEnd
 
-def zerolength_element_direction(nodes, elements_list, child_nodes):
+def generate_zerolength_element_local_axes(ndim, elements_list, child_nodes):
     n = len(child_nodes)
-    vec_dir = np.zeros((n, 3), dtype=np.float64)
+    rotation_matrix = np.empty((n, 3, 3), dtype=np.float64) if ndim == 3 else np.empty((n, 2, 2), dtype=np.float64)
     for node_idx, child_node in enumerate(child_nodes):
         for elements in elements_list:
             mask = np.any(elements.end_nodes_idx == child_node, axis=1)
@@ -11,12 +11,8 @@ def zerolength_element_direction(nodes, elements_list, child_nodes):
                 continue
             ele_idx = np.flatnonzero(mask)[0]
             iend_node_idx = elements.end_nodes_idx[ele_idx][ConnectionEnd.I_End]
-            jend_node_idx = elements.end_nodes_idx[ele_idx][ConnectionEnd.J_End]
-            if child_node == iend_node_idx:
-                vec = nodes.coords[jend_node_idx] - nodes.coords[iend_node_idx]
-            else:
-                vec = nodes.coords[iend_node_idx] - nodes.coords[jend_node_idx]
-            vec /= np.linalg.norm(vec)
-            vec_dir[node_idx] = vec
+            rotation_matrix[node_idx] = elements.rotation_matrix[ele_idx]
+            if child_node != iend_node_idx:
+                rotation_matrix[node_idx][:, 0] *= -1
             break
-    return vec_dir
+    return rotation_matrix

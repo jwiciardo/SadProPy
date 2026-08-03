@@ -26,7 +26,7 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         local_y = np.cross(local_z, local_x) # Determine local y-axis using cross product of local z-axis and local x-axis
         local_y /= np.linalg.norm(local_y, axis=1)[:, None] # Normalise local y-axis
         rotation_matrix = np.stack((local_x, local_y, local_z), axis=2) # Build rotation matrix 3x3 for transforming global to local axes and local to global axes
-        return (centroids, length, rotation_matrix)
+        return (centroids, length, local_x, local_y, local_z, rotation_matrix)
     else: # 2D Structure
         inode_coords = inode_coords[:2] # Retrieve I-end node coordinates (X, Y)
         jnode_coords = jnode_coords[:2] # Retrieve J-end node coordinates (X, Y)
@@ -37,7 +37,7 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         local_x = np.column_stack((cx, cy)) # Determine local x-axis
         local_y = np.column_stack((-cy, cx)) # Determine local y-axis
         rotation_matrix = np.stack((local_x, local_y), axis=2) # Build rotation matrix 2x2 for transforming global to local axes and local to global axes
-        return (centroids, length, rotation_matrix)
+        return (centroids, length, local_x, local_y, local_z, rotation_matrix)
 
 # GENERATE ELEMENT CONNECTIVITY
 def _map_node_to_beamcolumn_element(iend_nodes_idx, jend_nodes_idx):
@@ -226,3 +226,29 @@ def generate_end_offsets(offsets_length, rotation_matrix):
         offsets_vector = np.concatenate((iend_offset_global_vector, jend_offset_global_vector)) # Concatenate I-end and J-end offsets vector
         end_offsets[ele_idx] = offsets_vector # Store offsets vector into end offsets array
     return end_offsets
+
+# GENERATE GEOMETRIC TRANSFORMATION
+def _map_vectorz_to_name(element_type, vec_z):
+    names = []
+    for ele_type, vec in zip(element_type, vec_z):
+        axis = np.argmax(np.abs(vec))
+        if axis == 0:
+            z_dir = "z_in_X"
+        elif axis == 1:
+            z_dir = "z_in_Y"
+        else:
+            z_dir = "z_in_Z"
+        names.append(f"{ele_type}-{z_dir}")
+    vectorz_to_name = {
+        tuple(vec): name
+        for name, vec in zip(names, vec_z)
+    }
+    return vectorz_to_name
+
+def generate_geometric_transformation(element_type, vec_z):
+    geometric_transf = np.unique(vec_z, axis=0)
+    vectorz_to_name = _map_vectorz_to_name(element_type=element_type, vec_z=vec_z)
+    geometric_transf_name = []
+    for vec in geometric_transf:
+        geometric_transf_name.append(vectorz_to_name[tuple(vec)])
+    return geometric_transf, geometric_transf_name

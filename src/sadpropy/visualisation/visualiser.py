@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.path import Path
 import numpy as np
 from ._vis_class import StructuralSymbols
 from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility.helperfunc import transform_to_local_axes
+from sadpropy.utility.helperfunc import transform_to_global_axes
 
 __all__ = ["Visualisation"]
 
@@ -57,7 +56,7 @@ class Visualisation:
     def _draw_symbol(self, ax, symbol, node_coords, rotation_matrix, size, colour, linewidth):
         vertices = symbol.vertices.copy()
         vertices *= size
-        vertices = transform_to_local_axes(
+        vertices = transform_to_global_axes(
             values=vertices,
             rotation_matrix=rotation_matrix,
         )
@@ -538,40 +537,28 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
-    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, show_labels, marker="o", markersize=10, colour="black", linewidth=1.2):
+    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, rotation_matrix, show_labels, marker="o", markersize=10, colour="black", linewidth=1.2):
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
-        offset = 0.005 * model_size # Set child node offset (for visibility purpose)
+        offset = 0.005 * model_size  # Set label offset
+        symbol_size = 0.02 * model_size # Set symbol size
         for i in zerolength_elements.index: # Loop for each element index
-            parent_node, child_node = zerolength_elements.end_nodes_idx[i] # Retrieve element end nodes index
-            n_parent = coords[parent_node] # Retreive parent node coordinates
-            n_child = coords[child_node] # Retreive child node coordinates
-            vec_dir = zerolength_elements.vector_direction # Retrieve vector direction
-            n_child_offset = n_child + offset * vec_dir[i]
-            ax.scatter(
-                n_child_offset[0],
-                n_child_offset[1],
-                n_child_offset[2],
-                s=markersize,
-                c=colour,
-                marker=marker,
-                depthshade=True,
-                zorder=2,
-            ) # Plot child nodes
-            ax.plot(
-                [n_parent[0], n_child_offset[0]],
-                [n_parent[1], n_child_offset[1]],
-                [n_parent[2], n_child_offset[2]],
-                color=colour,
-                alpha=0.0,
+            child_node = zerolength_elements.end_nodes_idx[i][1] # Retrieve element child nodes index
+            n_child = coords[child_node] # Retreive child node coordinates           
+            self._draw_symbol(
+                ax=ax,
+                symbol=StructuralSymbols.spring(),
+                node_coords=n_child,
+                rotation_matrix=rotation_matrix[i],
+                size=symbol_size,
+                colour=colour,
                 linewidth=linewidth,
-                zorder=2,
-            ) # Plot I-end offset
+            ) # Plot marker for restraints
             
             if show_labels: # Set condition if show_labels is True or False
                 ax.text(
-                    n_child_offset[0] + offset,
-                    n_child_offset[1] + offset,
-                    n_child_offset[2] + offset,
+                    n_child[0] - offset,
+                    n_child[1] - offset,
+                    n_child[2] - offset,
                     zerolength_elements.unique_name[i],
                     fontsize=8,
                     color="black",
@@ -654,6 +641,7 @@ class Visualisation:
                 ax=ax,
                 coords=coords,
                 zerolength_elements=zerolength_elements,
+                rotation_matrix=zerolength_elements.rotation_matrix,
                 show_labels=show_element_labels,
             )
 

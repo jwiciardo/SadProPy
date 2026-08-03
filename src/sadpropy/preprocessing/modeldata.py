@@ -6,8 +6,9 @@ from ._elementconnectivity import (
     generate_beamcolumn_element_connectivity,
     autogenerate_offsets_length,
     generate_end_offsets,
+    generate_geometric_transformation,
 )
-from ._zerolengthelements import zerolength_element_direction
+from ._zerolengthelements import generate_zerolength_element_local_axes
 from ._preproc_dataclass import (
     ModelDataclass,
     Nodes,
@@ -118,10 +119,12 @@ class ModelData:
         mask = (element_type == "Column") | (element_type == "Beam")
         n = len(line_objects["Index"][mask])
         unique_name = line_objects["Unique Name"][mask]
-        end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
-        centroids, length, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
-        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
+        centroids, length, vec_x, vec_y, vec_z, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        geometric_transf, geometric_transf_name = generate_geometric_transformation(element_type=element_type, vec_z=vec_z)
+        transformation_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(geometric_transf), names=geometric_transf_name), dtype=np.int32)
+        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         is_auto_end_offsets = line_objects["Is Auto End Offsets"]
         rigid_zone_factor = line_objects["Rigid Zone Factor"]
         # Userdefined end offsets
@@ -155,6 +158,7 @@ class ModelData:
             centroids = centroids,
             length = length,
             rotation_matrix = rotation_matrix,
+            transformation_tag = transformation_tag,
             elements_connectivity = elements_connectivity,
             shared_connected_nodes = shared_connected_nodes,
             current_elements_end = current_elements_end,
@@ -181,16 +185,16 @@ class ModelData:
             end_nodes_idx[i] = [parent_nodes[i], child_nodes[i]]
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         element_type = np.full(n, f"Zero Length", dtype="U15")
-        vec_dir = zerolength_element_direction(nodes, self._elements_list, child_nodes)
-#        print(element_type, len(element_type))
+        rotation_matrix = generate_zerolength_element_local_axes(ndim=ndim, elements_list=self._elements_list, child_nodes=child_nodes)
+        name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
         zerolength_elements = ZeroLengthElements(
             index = np.arange(n, dtype=np.int32),
             unique_name = unique_name,
             tag = tag,
             end_nodes_idx = end_nodes_idx,
             element_type = element_type,
-            vector_direction = vec_dir,
-            name_to_idx = None
+            rotation_matrix = rotation_matrix,
+            name_to_idx = name_to_idx,
         ) # Store zerolength elements data to dataclass
         return zerolength_elements
 

@@ -35,6 +35,7 @@ from sadpropy.utility import (
     section_properties,
     fibersection_properties,
 )
+from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
 from sadpropy.utility.helperfunc import get_edges_and_vertices_from_surface
@@ -86,6 +87,7 @@ class ExcelTranslator:
         self._reader = ExcelReader(inputfile_path=self._inputfile_path)
         self._units = self._translate_userdefined_units()
         self._to_internalunits = ConverterToInternalUnits(units=self._units)
+        self._tagmanager = TagManager()
         
         # DICTIONARY LIST
         self._mats_list = []
@@ -113,6 +115,11 @@ class ExcelTranslator:
             slab_sections=slab_sections,
         )
         restraints = self._translate_restraints(point_objects=point_objects)
+        point_loads = self._translate_point_loads()
+        concentrated_line_loads = self._translate_concentrated_line_loads()
+        distributed_line_loads = self._translate_distributed_line_loads()
+        surface_loads = self._translate_surface_loads()
+        print(surface_loads)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -134,6 +141,10 @@ class ExcelTranslator:
             "Line Objects": line_objects,
             "Surface Objects": surface_objects,
             "Restraints": restraints,
+            "Point Loads": point_loads,
+            "Concentrated Line Loads": concentrated_line_loads,
+            "Distributed Line Loads": distributed_line_loads,
+            "Surface Loads": surface_loads,
         }
 
     # HELPER METHOD
@@ -314,11 +325,13 @@ class ExcelTranslator:
             fy = self._to_internalunits.stress(value=row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
             fu = self._to_internalunits.stress(value=row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
             properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
+        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.nu]
         properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
         materials = Materials(
             index = index,
             mat_name = mat_name,
+            tag = tag,
             mat_type = mat_type,
             properties = properties,
             name_to_idx = name_to_idx,
@@ -359,6 +372,7 @@ class ExcelTranslator:
             et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
             beta = row["beta"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
+        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         base_mat_props = get_material_properties(
             mats_list=self._mats_list,
             mat_class=base_mat_class,
@@ -369,6 +383,7 @@ class ExcelTranslator:
         mat_concrete04 = Mat_Concrete04(
             index = index,
             mat_name = mat_name,
+            tag=tag,
             mat_type = mat_type,
             base_mat_class = base_mat_class,
             base_mat_idx = base_mat_idx,
@@ -423,6 +438,7 @@ class ExcelTranslator:
             a4 = row["a4"]
             f_init = self._to_internalunits.stress(value=row["f_init"])
             properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R0, cR1, cR2, a1, a2, a3, a4, f_init,) # Look at Steel02Properties class in _propertiesclass.py to find definition of variables
+        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         base_mat_props = get_material_properties(
             mats_list=self._mats_list,
             mat_class=base_mat_class,
@@ -443,6 +459,7 @@ class ExcelTranslator:
         mat_steel02 = Mat_Steel02(
             index = index,
             mat_name = mat_name,
+            tag=tag,
             mat_type = mat_type,
             base_mat_class = base_mat_class,
             base_mat_idx = base_mat_idx,
@@ -483,6 +500,7 @@ class ExcelTranslator:
             ec_max = row["ecmax"]
             et_max = row["etmax"]
             properties[i] = (0.0, 0.0, 0.0, 0.0, ec_max, et_max,) # Look at MinMaxProperties class in _propertiesclass.py to find definition of variables
+        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         base_nl_mat_props = get_material_properties(
             mats_list=self._mats_list,
             mat_class=base_nl_mat_class,
@@ -493,6 +511,7 @@ class ExcelTranslator:
         mat_minmax = Mat_MinMax(
             index = index,
             mat_name = mat_name,
+            tag=tag,
             mat_type = mat_type,
             base_nl_mat_class = base_nl_mat_class,
             base_nl_mat_idx = base_nl_mat_idx,
@@ -538,6 +557,7 @@ class ExcelTranslator:
                 K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
                 theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
             ) # Look at IMKProperties class in _propertiesclass.py to find definition of variables
+        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         K0, my_pos, my_neg, theta_p_pos, theta_p_neg = properties[:, IMKProperties.K0], properties[:, IMKProperties.My_pos], properties[:, IMKProperties.My_neg], properties[:, IMKProperties.theta_p_pos], properties[:, IMKProperties.theta_p_neg] # Recal K0, my_pos, my_neg, theta_p_pos and theta_p_neg arrays
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
@@ -548,6 +568,7 @@ class ExcelTranslator:
         mat_imk = Mat_IMK(
             index = index,
             mat_name = mat_name,
+            tag=tag,
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
@@ -596,6 +617,7 @@ class ExcelTranslator:
             IyMod[i] = row["IyMod"]
             JxxMod[i] = row["JxxMod"]
             properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
         (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(
             sec_shape=sec_shape,
             mat_type=mat_type, 
@@ -612,6 +634,7 @@ class ExcelTranslator:
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,
+            tag=tag,
             sec_shape = sec_shape,
             mats_class = mats_class,
             mats_idx = mats_idx,
@@ -671,6 +694,8 @@ class ExcelTranslator:
             bar_dia_bot, bar_dia_int = self._to_internalunits.length(value=row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
             properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, cover, nbars_top, 
                              nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int, 0.0, 0.0, 0.0)
+        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
+        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n, names=integration_type), dtype=np.int32)
         base_sec_props = get_section_properties(
             secs_list=self._secs_list,
             sec_class=base_sec_class,
@@ -695,10 +720,12 @@ class ExcelTranslator:
         sec_fiber = Sec_Fiber(
             index = index,
             sec_name = sec_name,
+            tag=tag,
             sec_shape = sec_shape,
             base_sec_class = base_sec_class,
             base_sec_idx = base_sec_idx,
             integration_type = integration_type,
+            integration_tag = integration_tag,
             mats_class = mats_class,
             mats_idx = mats_idx,
             mat_type = mat_type,
@@ -756,6 +783,7 @@ class ExcelTranslator:
                 agg_sec_class, _, agg_sec_idx = self._retrieve_section_index(sec_name=str(row["Aggregated Section"]))
                 aggregated_sec_class[i] = agg_sec_class
                 aggregated_sec_idx[i] = agg_sec_idx
+        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
         sec_class = np.where(aggregated_sec_class >= 0, aggregated_sec_class, base_sec_class)
         sec_idx = np.where(aggregated_sec_idx >= 0, aggregated_sec_idx, base_sec_idx,)
         sec_props = get_section_properties(
@@ -768,6 +796,7 @@ class ExcelTranslator:
         sec_aggregator = Sec_Aggregator(
             index = index,
             sec_name = sec_name,
+            tag=tag,
             sec_shape = sec_shape,
             base_sec_class = base_sec_class,
             base_sec_idx = base_sec_idx,
@@ -965,3 +994,114 @@ class ExcelTranslator:
             "DOFs": dofs,
         } # Storing restraints data to dictionary
         return restraints
+
+    def _translate_point_loads(self):
+        sheet_name="Point Loads"
+        data = self._reader.read(sheet_name=sheet_name, start_row=11) # Reading Sheet "Point Loads" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            point_loads = []
+            return point_loads
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        point_name = np.empty(n, dtype="U15")
+        loadcase_type = np.empty(n, dtype="U15")
+        loads = np.empty((n, 6), dtype=np.float64)
+        for i, row in enumerate(data):
+            point_name[i] = str(row["Point"])
+            loadcase_type[i] = str(row["Load Case"])
+            loads[i] = (
+                self._to_internalunits.force_pointload(value=row["FX"] if row["FX"] is not None else 0.0),
+                self._to_internalunits.force_pointload(value=row["FY"] if row["FY"] is not None else 0.0),
+                self._to_internalunits.force_pointload(value=row["FZ"] if row["FZ"] is not None else 0.0),
+                self._to_internalunits.moment_pointload(value=row["MX"] if row["MX"] is not None else 0.0),
+                self._to_internalunits.moment_pointload(value=row["MY"] if row["MY"] is not None else 0.0),
+                self._to_internalunits.moment_pointload(value=row["MZ"] if row["MZ"] is not None else 0.0),
+            )
+        point_loads = {
+            "Index": index,
+            "Point Name": point_name,
+            "Load Case": loadcase_type,
+            "Loads": loads,
+        } # Storing Point Loads data to dictionary
+        return point_loads
+
+    def _translate_concentrated_line_loads(self):
+        sheet_name="Concentrated Line Loads"
+        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Concentrated Line Loads" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            concentrated_line_loads = []
+            return concentrated_line_loads
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        line_name = np.empty(n, dtype="U15")
+        loadcase_type = np.empty(n, dtype="U15")
+        direction = np.empty(n, dtype="U8")
+        load = np.empty(n, dtype=np.float64)
+        location = np.empty(n, dtype=np.float64)
+        for i, row in enumerate(data):
+            line_name[i] = str(row["Line"])
+            loadcase_type[i] = str(row["Load Case"])
+            direction[i] = str(row["Direction"])
+            load[i] = self._to_internalunits.concentrated_lineload(value=row["Load"] if row["Load"] is not None else 0.0)
+            location[i] = self._to_internalunits.length(value=row["Location"] if row["Location"] is not None else 0.0)
+        concentrated_line_loads = {
+            "Index": index,
+            "Line Name": line_name,
+            "Load Case": loadcase_type,
+            "Load": load,
+            "Location": location,
+        } # Storing Concentrated Line Loads data to dictionary
+        return concentrated_line_loads
+
+    def _translate_distributed_line_loads(self):
+        sheet_name="Distributed Line Loads"
+        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Distributed Line Loads" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            distributed_line_loads = []
+            return distributed_line_loads
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        line_name = np.empty(n, dtype="U15")
+        loadcase_type = np.empty(n, dtype="U15")
+        direction = np.empty(n, dtype="U8")
+        load = np.empty(n, dtype=np.float64)
+        location = np.empty(n, dtype=np.float64)
+        for i, row in enumerate(data):
+            line_name[i] = str(row["Line"])
+            loadcase_type[i] = str(row["Load Case"])
+            direction[i] = str(row["Direction"])
+            load[i] = self._to_internalunits.distributed_lineload(value=row["Load"] if row["Load"] is not None else 0.0)
+            location[i] = self._to_internalunits.length(value=row["Location"] if row["Location"] is not None else 0.0)
+        distributed_line_loads = {
+            "Index": index,
+            "Line Name": line_name,
+            "Load Case": loadcase_type,
+            "Load": load,
+            "Location": location,
+        } # Storing Distributed Line Loads data to dictionary
+        return distributed_line_loads
+
+    def _translate_surface_loads(self):
+        sheet_name="Surface Loads"
+        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Surface Loads" in the Input file
+        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+            surface_loads = []
+            return surface_loads
+        n = len(data)
+        index = np.arange(n, dtype=np.int32)
+        line_name = np.empty(n, dtype="U15")
+        loadcase_type = np.empty(n, dtype="U15")
+        direction = np.empty(n, dtype="U8")
+        load = np.empty(n, dtype=np.float64)
+        for i, row in enumerate(data):
+            line_name[i] = str(row["Line"])
+            loadcase_type[i] = str(row["Load Case"])
+            direction[i] = str(row["Direction"])
+            load[i] = self._to_internalunits.surfaceload(value=row["Load"] if row["Load"] is not None else 0.0)
+        surface_loads = {
+            "Index": index,
+            "Line Name": line_name,
+            "Load Case": loadcase_type,
+            "Load": load,
+        } # Storing Surface Loads data to dictionary
+        return surface_loads
