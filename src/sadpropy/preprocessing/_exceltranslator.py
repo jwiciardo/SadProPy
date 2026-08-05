@@ -1340,6 +1340,5 @@ class ExcelTranslator:
             "Load Case": loadcase_type,
             "Direction": load_direction,
             "Load": load,
-        } # Storing Surface Loads data to dictionary\
-        print(surface_loads)
+        } # Storing Surface Loads data to dictionary
         return surface_loads
