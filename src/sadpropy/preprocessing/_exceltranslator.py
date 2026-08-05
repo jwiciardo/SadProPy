@@ -115,8 +115,8 @@ class ExcelTranslator:
         restraints = self._translate_restraints(point_objects=point_objects)
         point_loads = self._translate_point_loads(point_objects=point_objects)
         concentrated_line_loads = self._translate_concentrated_line_loads(line_objects=line_objects)
-#        distributed_line_loads = self._translate_distributed_line_loads()
-#        surface_loads = self._translate_surface_loads()
+        distributed_line_loads = self._translate_distributed_line_loads(line_objects=line_objects)
+        surface_loads = self._translate_surface_loads(surface_objects=surface_objects)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -140,8 +140,8 @@ class ExcelTranslator:
             "Restraints": restraints,
             "Point Loads": point_loads,
             "Concentrated Line Loads": concentrated_line_loads,
-#            "Distributed Line Loads": distributed_line_loads,
-#            "Surface Loads": surface_loads,
+            "Distributed Line Loads": distributed_line_loads,
+            "Surface Loads": surface_loads,
         }
 
     # HELPER METHOD
@@ -985,12 +985,12 @@ class ExcelTranslator:
         )
         rigid_zone_factor = np.asarray(data["Rigid Zone Factor"], dtype=np.float64)
         iend_offset_length = np.where(
-            data["I-End Offset Length"] is not None,
+            [x is not None for x in data["I-End Offset Length"]],
             self._to_internalunits.length(values=data["I-End Offset Length"]), 
             0.0,
         )
         jend_offset_length = np.where(
-            data["J-End Offset Length"] is not None,
+            [x is not None for x in data["J-End Offset Length"]],
             self._to_internalunits.length(values=data["J-End Offset Length"]), 
             0.0,
         )
@@ -1113,32 +1113,32 @@ class ExcelTranslator:
         point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
         loadcase_type = np.asarray(data["Load Case"], dtype="U15")
         fx = np.where(
-            data["FX"] is not None,
+            [x is not None for x in data["FX"]],
             self._to_internalunits.force_pointload(values=data["FX"]), 
             0.0,
         )
         fy = np.where(
-            data["FY"] is not None,
+            [x is not None for x in data["FY"]],
             self._to_internalunits.force_pointload(values=data["FY"]), 
             0.0,
         )
         fz = np.where(
-            data["FZ"] is not None,
+            [x is not None for x in data["FZ"]],
             self._to_internalunits.force_pointload(values=data["FZ"]), 
             0.0,
         )
         mx = np.where(
-            data["MX"] is not None,
+            [x is not None for x in data["MX"]],
             self._to_internalunits.moment_pointload(values=data["MX"]), 
             0.0,
         )
         my = np.where(
-            data["MY"] is not None,
+            [x is not None for x in data["MY"]],
             self._to_internalunits.moment_pointload(values=data["MY"]), 
             0.0,
         )
         mz = np.where(
-            data["MZ"] is not None,
+            [x is not None for x in data["MZ"]],
             self._to_internalunits.moment_pointload(values=data["MZ"]), 
             0.0,
         )
@@ -1170,40 +1170,70 @@ class ExcelTranslator:
         line_name_to_idx = line_objects["Name to Index"]
         line_name = np.asarray(data["Line"], dtype="U15")
         line_idx = np.fromiter((line_name_to_idx[name] for name in line_name), dtype=np.int32, count=n)
-        print(line_idx)
-
-
-        
-        line_name = np.empty(n, dtype="U15")
-        loadcase_type = np.empty(n, dtype="U15")
-        direction = np.empty(n, dtype="U8")
-        loads = np.empty((n, 4), dtype=np.float64)
-        locations = np.empty((n, 4), dtype=np.float64)
-        for i, row in enumerate(data):
-            line_name[i] = str(row["Line"])
-            loadcase_type[i] = str(row["Load Case"])
-            direction[i] = str(row["Direction"])
-            loads[i] = (
-                self._to_internalunits.concentrated_lineload(value=row["Load 1"] if row["Load 1"] is not None else 0.0),
-                self._to_internalunits.concentrated_lineload(value=row["Load 2"] if row["Load 2"] is not None else 0.0),
-                self._to_internalunits.concentrated_lineload(value=row["Load 3"] if row["Load 3"] is not None else 0.0),
-                self._to_internalunits.concentrated_lineload(value=row["Load 4"] if row["Load 4"] is not None else 0.0),
-            )
-            locations[i] = (
-                self._to_internalunits.length(value=row["Location 1"] if row["Location 1"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 2"] if row["Location 2"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 3"] if row["Location 3"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 4"] if row["Location 4"] is not None else 0.0),
-            )
+        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        load_direction = np.asarray(data["Direction"], dtype="U15")
+        load_1 = np.where(
+            [x is not None for x in data["Load 1"]],
+            self._to_internalunits.concentrated_lineload(values=data["Load 1"]), 
+            0.0,
+        )
+        load_2 = np.where(
+            [x is not None for x in data["Load 2"]],
+            self._to_internalunits.concentrated_lineload(values=data["Load 2"]), 
+            0.0,
+        )
+        load_3 = np.where(
+            [x is not None for x in data["Load 3"]],
+            self._to_internalunits.concentrated_lineload(values=data["Load 3"]), 
+            0.0,
+        )
+        load_4 = np.where(
+            [x is not None for x in data["Load 4"]],
+            self._to_internalunits.concentrated_lineload(values=data["Load 4"]), 
+            0.0,
+        )
+        loads = np.column_stack((
+            load_1,
+            load_2,
+            load_3,
+            load_4,
+        ))
+        loc_1 = np.where(
+            [x is not None for x in data["Location 1"]],
+            self._to_internalunits.length(values=data["Location 1"]), 
+            0.0,
+        )
+        loc_2 = np.where(
+            [x is not None for x in data["Location 2"]],
+            self._to_internalunits.length(values=data["Location 2"]), 
+            0.0,
+        )
+        loc_3 = np.where(
+            [x is not None for x in data["Location 3"]],
+            self._to_internalunits.length(values=data["Location 3"]), 
+            0.0,
+        )
+        loc_4 = np.where(
+            [x is not None for x in data["Location 4"]],
+            self._to_internalunits.length(values=data["Location 4"]), 
+            0.0,
+        )
+        locations = np.column_stack((
+            loc_1,
+            loc_2,
+            loc_3,
+            loc_4,
+        ))
         concentrated_line_loads = {
-            "Line Name": line_name,
+            "Line Index": line_idx,
             "Load Case": loadcase_type,
+            "Direction": load_direction,
             "Loads": loads,
             "Locations": locations,
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 
-    def _translate_distributed_line_loads(self):
+    def _translate_distributed_line_loads(self, line_objects):
         sheet_name="Distributed Line Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -1213,55 +1243,103 @@ class ExcelTranslator:
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             distributed_line_loads = []
             return distributed_line_loads
-        line_name = np.empty(n, dtype="U15")
-        loadcase_type = np.empty(n, dtype="U15")
-        direction = np.empty(n, dtype="U8")
-        loads = np.empty((n, 5), dtype=np.float64)
-        locations = np.empty((n, 4), dtype=np.float64)
-        for i, row in enumerate(data):
-            line_name[i] = str(row["Line"])
-            loadcase_type[i] = str(row["Load Case"])
-            direction[i] = str(row["Direction"])
-            loads[i] = (
-                self._to_internalunits.distributed_lineload(value=row["Load 1"] if row["Load 1"] is not None else 0.0),
-                self._to_internalunits.distributed_lineload(value=row["Load 2"] if row["Load 2"] is not None else 0.0),
-                self._to_internalunits.distributed_lineload(value=row["Load 3"] if row["Load 3"] is not None else 0.0),
-                self._to_internalunits.distributed_lineload(value=row["Load 4"] if row["Load 4"] is not None else 0.0),
-                self._to_internalunits.distributed_lineload(value=row["Uniform Load"] if row["Uniform Load"] is not None else 0.0),
-            )
-            locations[i] = (
-                self._to_internalunits.length(value=row["Location 1"] if row["Location 1"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 2"] if row["Location 2"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 3"] if row["Location 3"] is not None else 0.0),
-                self._to_internalunits.length(value=row["Location 4"] if row["Location 4"] is not None else 0.0),
-            )
+        line_name_to_idx = line_objects["Name to Index"]
+        line_name = np.asarray(data["Line"], dtype="U15")
+        line_idx = np.fromiter((line_name_to_idx[name] for name in line_name), dtype=np.int32, count=n)
+        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        load_direction = np.asarray(data["Direction"], dtype="U15")
+        uniform_load = np.where(
+            [x is not None for x in data["Uniform Load"]],
+            self._to_internalunits.distributed_lineload(values=data["Uniform Load"]), 
+            0.0,
+        )
+        load_1 = np.where(
+            [x is not None for x in data["Load 1"]],
+            self._to_internalunits.distributed_lineload(values=data["Load 1"]), 
+            0.0,
+        )
+        load_2 = np.where(
+            [x is not None for x in data["Load 2"]],
+            self._to_internalunits.distributed_lineload(values=data["Load 2"]), 
+            0.0,
+        )
+        load_3 = np.where(
+            [x is not None for x in data["Load 3"]],
+            self._to_internalunits.distributed_lineload(values=data["Load 3"]), 
+            0.0,
+        )
+        load_4 = np.where(
+            [x is not None for x in data["Load 4"]],
+            self._to_internalunits.distributed_lineload(values=data["Load 4"]), 
+            0.0,
+        )
+        loads = np.column_stack((
+            uniform_load,
+            load_1,
+            load_2,
+            load_3,
+            load_4,
+        ))
+        loc_1 = np.where(
+            [x is not None for x in data["Location 1"]],
+            self._to_internalunits.length(values=data["Location 1"]), 
+            0.0,
+        )
+        loc_2 = np.where(
+            [x is not None for x in data["Location 2"]],
+            self._to_internalunits.length(values=data["Location 2"]), 
+            0.0,
+        )
+        loc_3 = np.where(
+            [x is not None for x in data["Location 3"]],
+            self._to_internalunits.length(values=data["Location 3"]), 
+            0.0,
+        )
+        loc_4 = np.where(
+            [x is not None for x in data["Location 4"]],
+            self._to_internalunits.length(values=data["Location 4"]), 
+            0.0,
+        )
+        locations = np.column_stack((
+            loc_1,
+            loc_2,
+            loc_3,
+            loc_4,
+        ))
         distributed_line_loads = {
-            "Line Name": line_name,
+            "Line Index": line_idx,
             "Load Case": loadcase_type,
+            "Direction": load_direction,
             "Loads": loads,
             "Locations": locations,
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
-    def _translate_surface_loads(self):
+    def _translate_surface_loads(self, surface_objects):
         sheet_name="Surface Loads"
-        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Surface Loads" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=7,
+        ) # Reading Sheet "Surface Loads" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             surface_loads = []
             return surface_loads
-        n = len(data)
-        surface_name = np.empty(n, dtype="U15")
-        loadcase_type = np.empty(n, dtype="U15")
-        direction = np.empty(n, dtype="U8")
-        load = np.empty(n, dtype=np.float64)
-        for i, row in enumerate(data):
-            surface_name[i] = str(row["Surface"])
-            loadcase_type[i] = str(row["Load Case"])
-            direction[i] = str(row["Direction"])
-            load[i] = self._to_internalunits.surfaceload(value=row["Load"] if row["Load"] is not None else 0.0)
+        surface_name_to_idx = surface_objects["Name to Index"]
+        surface_name = np.asarray(data["Surface"], dtype="U15")
+        surface_idx = np.fromiter((surface_name_to_idx[name] for name in surface_name), dtype=np.int32, count=n)
+        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        load_direction = np.asarray(data["Direction"], dtype="U15")
+        load = np.where(
+            [x is not None for x in data["Load"]],
+            self._to_internalunits.surfaceload(values=data["Load"]), 
+            0.0,
+        )
         surface_loads = {
-            "Surface Name": surface_name,
+            "Surface Index": surface_idx,
             "Load Case": loadcase_type,
+            "Direction": load_direction,
             "Load": load,
-        } # Storing Surface Loads data to dictionary
+        } # Storing Surface Loads data to dictionary\
+        print(surface_loads)
         return surface_loads
