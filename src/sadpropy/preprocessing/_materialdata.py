@@ -14,13 +14,14 @@ def get_material_data(mats_list, mat_class=np.ndarray):
 # GET MATERIAL PROPERTIES
 def get_material_properties(mats_list, mat_class=np.ndarray, mat_idx=np.ndarray, props_name=list[str]):
     n = len(mat_class) # Get length of array (rows)
-    props_class = PropertiesClassRegistry()._get_mat_props_class(mat_class=mat_class) # Get Properties class index of material, look at _propertiesclass.py
-    max_ncol_props_class = np.max(np.array([len(propcls) for propcls in props_class])) # Determine maximum number of columns among all material properties arrays
+    registry = PropertiesClassRegistry() # Define Properties Class Registry
+    props_class = registry._get_mat_props_class(mat_class=mat_class) # Get Properties class index of material, look at _preproc_class.py
+    max_ncol_props_class = max(map(len, props_class)) # Determine maximum number of columns among all material properties arrays
     mat_props = np.zeros((n, max_ncol_props_class), dtype=np.float64) # Allocate material properties array which has shape (n, max number of columns)
-    for cls in np.unique(mat_class): # Filter material properties array using material class mask
+    for cls in np.unique(mat_class): # Loop over material class
             mask = mat_class == cls
             mat = mats_list[cls]
-            props = mat.properties[mat_idx[mask]]
+            props = mat.properties[mat_idx[mask]] # Filter material properties array using material class mask
             mat_props[mask, :props.shape[1]] = props
     row_idx = np.arange(n)[:, None] # Build array of index
     col_idx = np.array(

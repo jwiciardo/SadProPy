@@ -16,29 +16,16 @@ from ._preproc_dataclass import (
     SlabSections,
     Storeys,
 )
-from ._preproc_class import (
-    MaterialProperties,
-    Concrete04Properties,
-    Steel02Properties,
-    MinMaxProperties,
-    IMKProperties,
-    FrameSectionProperties,
-    FiberSectionProperties,
-    SectionAggregatorProperties,
-    SlabSectionProperties,
-)
+from ._edges_vertices import get_edges_and_vertices_from_surface
 from ._materialdata import get_material_properties
-from ._sectiondata import get_section_properties
+from ._sectiondata import compute_section_properties, compute_fibersection_properties, get_section_properties
 from sadpropy.utility import (
     ConverterToInternalUnits,
     UserDefinedUnits,
-    section_properties,
-    fibersection_properties,
 )
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
-from sadpropy.utility.helperfunc import get_edges_and_vertices_from_surface
 
 
 class ExcelReader:
@@ -50,7 +37,7 @@ class ExcelReader:
             self._workbook = load_workbook(inputfile_path, data_only=True)
     
     # MAIN METHOD: EXCELREADER
-    def read(self, sheet_name="", start_row=1):
+    def read(self, sheet_name="", orientation="records", start_row=1):
         if sheet_name not in self._workbook.sheetnames:
             raise ValidationError(f"Sheet '{sheet_name}' not found in Excel file")
         worksheet = self._workbook[sheet_name]
@@ -58,17 +45,28 @@ class ExcelReader:
         headers = list(rows[start_row - 1])
         while headers and headers[-1] is None:
             headers.pop()
-        data = []
+        if orientation == "records":
+            data = []
+        elif orientation == "columns":
+            data = {header: [] for header in headers}
+        else:
+            raise ValidationError("Orientation must be either 'records' or 'columns'")
+
+        nrows = 0
         for row in rows[start_row:]:
             row = row[:len(headers)]
-            record = dict(zip(headers, row))
-            if all(v is None for v in record.values()): # Skip completely empty rows
+            if all(v is None for v in row): # Skip completely empty rows
                 continue
-            data.append(record)
-        return data
+            nrows += 1
+            if orientation == "records":
+                data.append(dict(zip(headers, row)))
+            elif orientation == "columns":
+                for header, value in zip(headers, row):
+                    data[header].append(value)
+        return data, nrows
     
     def read_preferences_sheet(self, sheet_name="", start_row=1, required_preferences=None):
-        data = self.read(sheet_name=sheet_name, start_row=start_row)
+        data, nrows = self.read(sheet_name=sheet_name, orientation="records", start_row=start_row)
         values = {row["Item"]: row["Value"] for row in data}
 
         if required_preferences is not None:
@@ -91,7 +89,7 @@ class ExcelTranslator:
         
         # DICTIONARY LIST
         self._mats_list = []
-        self._spring_mats_list = []
+        self._hinge_mats_list = []
         self._secs_list = []
 
     # MAIN METHOD: EXCEL TRANSLATOR
@@ -115,11 +113,10 @@ class ExcelTranslator:
             slab_sections=slab_sections,
         )
         restraints = self._translate_restraints(point_objects=point_objects)
-        point_loads = self._translate_point_loads()
-        concentrated_line_loads = self._translate_concentrated_line_loads()
-        distributed_line_loads = self._translate_distributed_line_loads()
-        surface_loads = self._translate_surface_loads()
-        print(surface_loads)
+        point_loads = self._translate_point_loads(point_objects=point_objects)
+        concentrated_line_loads = self._translate_concentrated_line_loads(line_objects=line_objects)
+#        distributed_line_loads = self._translate_distributed_line_loads()
+#        surface_loads = self._translate_surface_loads()
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -143,17 +140,23 @@ class ExcelTranslator:
             "Restraints": restraints,
             "Point Loads": point_loads,
             "Concentrated Line Loads": concentrated_line_loads,
-            "Distributed Line Loads": distributed_line_loads,
-            "Surface Loads": surface_loads,
+#            "Distributed Line Loads": distributed_line_loads,
+#            "Surface Loads": surface_loads,
         }
 
     # HELPER METHOD
-    def _validate_data(self, data, sheet_name, mandatory=True):
-        if len(data) > 0: # Set condition if number of rows in data > 0 then return True
+    def _validate_data(self, nrows, sheet_name, mandatory=True):
+        if nrows > 0: # Set condition if number of rows in data > 0 then return True
             return True
         if mandatory: # Set condition if mandatory is True then raise validation error (This condition will be run when number of rows in data = 0)
             raise ValidationError(f"Sheet '{sheet_name}' is mandatory but contains no data.")
         return False
+
+    def _validate_duplicate_value(self, col_data, col_name=""):
+        unique_names, counts = np.unique(col_data, return_counts=True)
+        duplicates = unique_names[counts > 1]
+        if duplicates.size > 0:
+            raise ValidationError(f"Duplicate {col_name}(s): {', '.join(duplicates)}")
     
     def _generate_storeys(self, storey_elevations):
         storeys = {} # Predefined storeys dictionary
@@ -189,8 +192,6 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Material '{mat_name}' not found")
-        if len(mats_name) == 1: # Set condition if number of rows in materials name is 1
-            return mat_class[0], mat[0], mat_idx[0] # Return material class, material index, and materials dataclass for first index
         return mat_class, mat, mat_idx
 
     def _retrieve_section_index(self, secs_name):
@@ -211,8 +212,6 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Section '{sec_name}' not found")
-        if len(secs_name) == 1: # Set condition if number of rows in sections name is 1
-            return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
         return sec_class, sec, sec_idx
     
     def _retrieve_slabsection_index(self, secs_name, secs_list): # Retrieve slab section 
@@ -233,8 +232,6 @@ class ExcelTranslator:
                     break
             if not found: # Set condition if found is False return validation error
                 raise ValidationError(f"Section '{sec_name}' not found")
-        if len(secs_name) == 1: # Set condition if number of rows in sections name is 1
-            return sec_class[0], sec[0], sec_idx[0] # Return section class, section index, and sections dataclass for first index
         return sec_class, sec, sec_idx
         
     # SUPPORTING METHODS
@@ -302,36 +299,51 @@ class ExcelTranslator:
 
     def _translate_materials(self):
         sheet_name = "Materials"
-        data = self._reader.read(sheet_name=sheet_name, start_row=13) # Reading Sheet "Materials" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=13,
+        ) # Reading Sheet "Materials" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
-        mat_name = np.empty(n, dtype="U32")
-        mat_type = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(MaterialProperties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Material Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Material name '{name}'")
-            name_to_idx[name] = index[i]
-            mat_name[i] = name
-            mattype = str(row["Material Type"])
-            mat_type[i] = mattype
-            Unitweight = self._to_internalunits.unitweight(value=row["Unitweight"])
-            E = self._to_internalunits.stress(row["E"])
-            nu = row["nu"]
-            fc = self._to_internalunits.stress(value=row["fc"]) if mattype == "Concrete" else 0.0
-            fy = self._to_internalunits.stress(value=row["fy"]) if mattype in ("Rebar", "Steel") else 0.0
-            fu = self._to_internalunits.stress(value=row["fu"]) if mattype in ("Rebar", "Steel") else 0.0
-            properties[i] = (Unitweight, E, nu, 0.0, fc, fy, fu,) # Look at MaterialProperties class in _propertiesclass.py to find definition of variables
-        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        E, nu = properties[:, MaterialProperties.E], properties[:, MaterialProperties.nu]
-        properties[:, MaterialProperties.G] = E / (2 * (1 + nu))
+        mat_name = np.asarray(data["Material Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
+        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
+        mat_type = np.asarray(data["Material Type"], dtype="U15")
+        E = self._to_internalunits.stress(values=data["E"])
+        nu = np.asarray(data["nu"], dtype=np.float64)
+        G = E / (2.0 * (1.0 + nu))
+        Unitweight = self._to_internalunits.unitweight(values=data["Unitweight"])
+        fc = np.where(
+            mat_type == "Concrete", 
+            self._to_internalunits.stress(values=data["fc"]), 
+            0.0,
+        )
+        fyfu_mask = np.isin(mat_type, ["Rebar", "Steel"])
+        fy = np.where(
+            fyfu_mask,
+            self._to_internalunits.stress(values=data["fy"]), 
+            0.0,
+        )
+        fu = np.where(
+            fyfu_mask,
+            self._to_internalunits.stress(values=data["fu"]), 
+            0.0,
+        )
+        properties = np.column_stack((
+            Unitweight,
+            E,
+            nu,
+            G,
+            fc,
+            fy,
+            fu,
+        ))
+        name_to_idx = dict(zip(mat_name, index))
         materials = Materials(
             index = index,
             mat_name = mat_name,
-            tag = tag,
+            mat_tag = mat_tag,
             mat_type = mat_type,
             properties = properties,
             name_to_idx = name_to_idx,
@@ -341,52 +353,59 @@ class ExcelTranslator:
     
     def _translate_mat_concrete04(self):
         sheet_name = "Mat_Concrete04"
-        data = self._reader.read(sheet_name=sheet_name, start_row=12) # Reading Sheet "Mat_Concrete04" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            mat_concrete04 = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=12,
+        ) # Reading Sheet "Mat_Concrete04" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            mat_concrete04 = Mat_Concrete04.empty()
             self._mats_list.append(mat_concrete04)
             return mat_concrete04
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        mat_name = np.empty(n, dtype="U32")
-        mat_type = np.empty(n, dtype="U15")
-        base_mat_class = np.empty(n, dtype=np.int32)
-        base_mat_idx = np.empty(n, dtype=np.int32)
-        mat_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(Concrete04Properties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Material Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Material name '{name}'")
-            name_to_idx[name] = index[i]
-            mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base Material"]))
-            base_mat_class[i] = mat_class
-            base_mat_idx[i] = mat_idx
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
-            mat_model[i] = str(row["Material Model"])
-            fc = self._to_internalunits.stress(value=row["fc"])
-            epsc, epscu = row["epsc"], row["epscu"]
-            fct = self._to_internalunits.stress(value=row["fct"])
-            et = row["et"] if row["et"] != 0.0 else fct * epsc / fc
-            beta = row["beta"]
-            properties[i] = (0.0, 0.0, 0.0, 0.0, -fc, -epsc, -epscu, fct, et, beta,) # Look at Concrete04Properties class in _propertiesclass.py to find definition of variables
-        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        base_mat_props = get_material_properties(
+        mat_name = np.asarray(data["Material Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
+        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
+        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base Material"])
+        mat_type = np.asarray([
+            self._mats_list[cls].mat_type[idx]
+            for cls, idx in zip(basemat_class, basemat_idx)],
+            dtype="U15",
+        )
+        mat_model = np.asarray(data["Material Model"], dtype="U15")
+        basemat_props = get_material_properties(
             mats_list=self._mats_list,
-            mat_class=base_mat_class,
-            mat_idx=base_mat_idx,
+            mat_class=basemat_class,
+            mat_idx=basemat_idx,
             props_name=["Unitweight", "E", "nu", "G"],
         )
-        properties[:, Concrete04Properties.Unitweight:Concrete04Properties.G+1] = base_mat_props
+        fc = self._to_internalunits.stress(values=data["fc"])
+        epsc = np.asarray(data["epsc"], dtype=np.float64)
+        epscu = np.asarray(data["epscu"], dtype=np.float64)
+        fct = self._to_internalunits.stress(values=data["fct"])
+        et = np.where(
+            np.asarray(data["et"], dtype=np.float64) != 0.0,
+            np.asarray(data["et"], dtype=np.float64), 
+            fct * epsc / fc,
+        )
+        beta = np.asarray(data["beta"], dtype=np.float64)
+        properties = np.column_stack((
+            basemat_props,
+            fc,
+            epsc,
+            epscu,
+            fct,
+            et,
+            beta,
+        ))
+        name_to_idx = dict(zip(mat_name, index))
         mat_concrete04 = Mat_Concrete04(
             index = index,
             mat_name = mat_name,
-            tag=tag,
+            mat_tag=mat_tag,
+            basemat_class = basemat_class,
+            basemat_idx = basemat_idx,
             mat_type = mat_type,
-            base_mat_class = base_mat_class,
-            base_mat_idx = base_mat_idx,
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
@@ -396,73 +415,73 @@ class ExcelTranslator:
 
     def _translate_mat_steel02(self):
         sheet_name = "Mat_Steel02"
-        data = self._reader.read(sheet_name=sheet_name, start_row=18) # Reading Sheet "Mat_Steel02" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            mat_steel02 = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=18,
+        ) # Reading Sheet "Mat_Steel02" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            mat_steel02 = Mat_Steel02.empty()
             self._mats_list.append(mat_steel02)
             return mat_steel02
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        mat_name = np.empty(n, dtype="U32")
-        mat_type = np.empty(n, dtype="U15")
-        base_mat_class = np.empty(n, dtype=np.int32)
-        base_mat_idx = np.empty(n, dtype=np.int32)
-        mat_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(Steel02Properties)), dtype=np.float64)
-        name_to_idx = {}
-        fy = np.zeros(n, dtype=np.float64)
-        b = np.zeros(n, dtype=np.float64)
-        fu = np.zeros(n, dtype=np.float64)
-        eu= np.zeros(n, dtype=np.float64)
-        for i, row in enumerate(data):
-            name = str(row["Material Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Material name '{name}'")
-            name_to_idx[name] = index[i]
-            mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base Material"]))
-            base_mat_class[i] = mat_class
-            base_mat_idx[i] = mat_idx
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
-            mat_model[i] = str(row["Material Model"])
-            fy[i] = self._to_internalunits.stress(value=row["fy"])
-            b[i] = row["b"]
-            fu[i] = self._to_internalunits.stress(value=row["fu"])
-            eu[i] = row["eu"]
-            R0 = row["R0"]
-            cR1 = row["cR1"]
-            cR2 = row["cR2"]
-            a1 = row["a1"]
-            a2 = row["a2"]
-            a3 = row["a3"]
-            a4 = row["a4"]
-            f_init = self._to_internalunits.stress(value=row["f_init"])
-            properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R0, cR1, cR2, a1, a2, a3, a4, f_init,) # Look at Steel02Properties class in _propertiesclass.py to find definition of variables
-        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        base_mat_props = get_material_properties(
+        mat_name = np.asarray(data["Material Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
+        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
+        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base Material"])
+        mat_type = np.asarray([
+            self._mats_list[cls].mat_type[idx]
+            for cls, idx in zip(basemat_class, basemat_idx)],
+            dtype="U15",
+        )
+        mat_model = np.asarray(data["Material Model"], dtype="U15")
+        basemat_props = get_material_properties(
             mats_list=self._mats_list,
-            mat_class=base_mat_class,
-            mat_idx=base_mat_idx,
+            mat_class=basemat_class,
+            mat_idx=basemat_idx,
             props_name=["Unitweight", "E", "nu", "G"],
         )
-        properties[:, Steel02Properties.Unitweight:Steel02Properties.G+1] = base_mat_props
-        E = properties[:, Steel02Properties.E]
-        if b == 0.0:
-            ey = fy / E
-            eoffset = ey + 0.002
-            Epy = (fu - fy)/(eu - eoffset)
-            b = Epy / E
-        else:
-            return b
-        properties[:, Steel02Properties.fy] = fy
-        properties[:, Steel02Properties.b] = b
+        E = basemat_props[:, 1]
+        fy = self._to_internalunits.stress(values=data["fy"])
+        fu = self._to_internalunits.stress(values=data["fu"])
+        eu = np.asarray(data["eu"], dtype=np.float64)
+        ey = fy / E
+        eoffset = ey + 0.002
+        Epy = (fu - fy) / (eu - eoffset)    
+        b = np.where(
+            np.asarray(data["b"], dtype=np.float64) != 0.0,
+            np.asarray(data["b"], dtype=np.float64), 
+            Epy / E,
+        )
+        R0 = np.asarray(data["R0"], dtype=np.float64)
+        cR1 = np.asarray(data["cR1"], dtype=np.float64)
+        cR2 = np.asarray(data["cR2"], dtype=np.float64)
+        a1 = np.asarray(data["a1"], dtype=np.float64)
+        a2 = np.asarray(data["a2"], dtype=np.float64)
+        a3 = np.asarray(data["a3"], dtype=np.float64)
+        a4 = np.asarray(data["a4"], dtype=np.float64)
+        f_init = self._to_internalunits.stress(values=data["f_init"])
+        properties = np.column_stack((
+            basemat_props,
+            fy,
+            b,
+            R0,
+            cR1,
+            cR2,
+            a1,
+            a2,
+            a3,
+            a4,
+            f_init,
+        ))
+        name_to_idx = dict(zip(mat_name, index))
         mat_steel02 = Mat_Steel02(
             index = index,
             mat_name = mat_name,
-            tag=tag,
+            mat_tag=mat_tag,
+            basemat_class = basemat_class,
+            basemat_idx = basemat_idx,
             mat_type = mat_type,
-            base_mat_class = base_mat_class,
-            base_mat_idx = base_mat_idx,
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
@@ -472,49 +491,47 @@ class ExcelTranslator:
 
     def _translate_mat_minmax(self):
         sheet_name = "Mat_MinMax"
-        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Mat_MinMax" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            mat_minmax = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=8,
+        ) # Reading Sheet "Mat_MinMax" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            mat_minmax = Mat_MinMax.empty()
             self._mats_list.append(mat_minmax)
             return mat_minmax
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        mat_name = np.empty(n, dtype="U32")
-        mat_type = np.empty(n, dtype="U15")
-        base_nl_mat_class = np.empty(n, dtype=np.int32)
-        base_nl_mat_idx = np.empty(n, dtype=np.int32)
-        mat_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(MinMaxProperties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Material Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Material name '{name}'")
-            name_to_idx[name] = index[i]
-            mat_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Base NL Material"]))
-            base_nl_mat_class[i] = mat_class
-            base_nl_mat_idx[i] = mat_idx
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
-            mat_model[i] = str(row["Material Model"])
-            ec_max = row["ecmax"]
-            et_max = row["etmax"]
-            properties[i] = (0.0, 0.0, 0.0, 0.0, ec_max, et_max,) # Look at MinMaxProperties class in _propertiesclass.py to find definition of variables
-        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        base_nl_mat_props = get_material_properties(
+        mat_name = np.asarray(data["Material Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
+        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
+        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base NL Material"])
+        mat_type = np.asarray([
+            self._mats_list[cls].mat_type[idx]
+            for cls, idx in zip(basemat_class, basemat_idx)],
+            dtype="U15",
+        )
+        mat_model = np.asarray(data["Material Model"], dtype="U15")
+        basemat_props = get_material_properties(
             mats_list=self._mats_list,
-            mat_class=base_nl_mat_class,
-            mat_idx=base_nl_mat_idx,
+            mat_class=basemat_class,
+            mat_idx=basemat_idx,
             props_name=["Unitweight", "E", "nu", "G"],
         )
-        properties[:, MinMaxProperties.Unitweight:MinMaxProperties.G+1] = base_nl_mat_props
+        ecmax = np.asarray(data["ecmax"], dtype=np.float64)
+        etmax = np.asarray(data["etmax"], dtype=np.float64)
+        properties = np.column_stack((
+            basemat_props,
+            ecmax,
+            etmax,
+        ))
+        name_to_idx = dict(zip(mat_name, index))
         mat_minmax = Mat_MinMax(
             index = index,
             mat_name = mat_name,
-            tag=tag,
+            mat_tag=mat_tag,
+            basemat_class = basemat_class,
+            basemat_idx = basemat_idx,
             mat_type = mat_type,
-            base_nl_mat_class = base_nl_mat_class,
-            base_nl_mat_idx = base_nl_mat_idx,
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx
@@ -524,117 +541,152 @@ class ExcelTranslator:
     
     def _translate_mat_imk(self):
         sheet_name = "Mat_IMK"
-        data = self._reader.read(sheet_name=sheet_name, start_row=19) # Reading Sheet "Mat_IMK" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            mat_imk = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=19,
+        ) # Reading Sheet "Mat_IMK" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            mat_imk = Mat_IMK.empty()
             return mat_imk
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        mat_name = np.empty(n, dtype="U32")
-        mat_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(IMKProperties)), dtype=np.float64)
-        name_to_idx = {}
-        mu_pos = np.zeros(n, dtype=np.float64)
-        mu_neg = np.zeros(n, dtype=np.float64)
-        for i, row in enumerate(data):
-            name = str(row["Material Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Material name '{name}'")
-            name_to_idx[name] = index[i]
-            mat_name[i] = name
-            mat_model[i] = str(row["Material Model"])
-            K0 = self._to_internalunits.rotational_stiffness(value=row["K0"])
-            my_pos = self._to_internalunits.moment(value=row["My_Pos"])
-            my_neg = self._to_internalunits.moment(value=row["My_Neg"])
-            mu_pos[i] = self._to_internalunits.moment(value=row["Mu_Pos"])
-            mu_neg[i] = self._to_internalunits.moment(value=row["Mu_Neg"])
-            fpr_pos, fpr_neg, a_pinch, nfactor = row["Fpr_Pos"], row["Fpr_Neg"], row["A_pinch"], row["nFactor"]
-            lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k = row["Lamda_S"], row["Lamda_C"], row["Lamda_A"], row["Lamda_K"], row["c_S"], row["c_C"], row["c_A"], row["c_K"]
-            theta_p_pos, theta_p_neg = self._to_internalunits.angle(value=row["theta_p_Pos"]), self._to_internalunits.angle(value=row["theta_p_Neg"])
-            theta_pc_pos, theta_pc_neg, res_pos, res_neg = self._to_internalunits.angle(value=row["theta_pc_Pos"]), self._to_internalunits.angle(value=row["theta_pc_Neg"]), row["Res_Pos"], row["Res_Neg"]
-            theta_u_pos, theta_u_neg, d_pos, d_neg = self._to_internalunits.angle(value=row["theta_u_Pos"]), self._to_internalunits.angle(value=row["theta_u_Neg"]), row["D_Pos"], row["D_Neg"]
-            properties[i] = (
-                K0, 0.0, 0.0, my_pos, my_neg, fpr_pos, fpr_neg, a_pinch, nfactor, lamda_s, lamda_c, lamda_a, lamda_k, c_s, c_c, c_a, c_k,
-                theta_p_pos, theta_p_neg, theta_pc_pos, theta_pc_neg, res_pos, res_neg, theta_u_pos, theta_u_neg, d_pos, d_neg,
-            ) # Look at IMKProperties class in _propertiesclass.py to find definition of variables
-        tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        K0, my_pos, my_neg, theta_p_pos, theta_p_neg = properties[:, IMKProperties.K0], properties[:, IMKProperties.My_pos], properties[:, IMKProperties.My_neg], properties[:, IMKProperties.theta_p_pos], properties[:, IMKProperties.theta_p_neg] # Recal K0, my_pos, my_neg, theta_p_pos and theta_p_neg arrays
+        mat_name = np.asarray(data["Material Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
+        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
+        mat_model = np.asarray(data["Material Model"], dtype="U15")
+        K0 = self._to_internalunits.rotational_stiffness(values=data["K0"])
+        my_pos = self._to_internalunits.moment(values=data["My_Pos"])
+        my_neg = self._to_internalunits.moment(values=data["My_Neg"])
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
+        mu_pos = self._to_internalunits.moment(values=data["Mu_Pos"])
+        mu_neg = self._to_internalunits.moment(values=data["Mu_Neg"])
+        fpr_pos = np.asarray(data["Fpr_Pos"], dtype=np.float64)
+        fpr_neg = np.asarray(data["Fpr_Neg"], dtype=np.float64)
+        a_pinch = np.asarray(data["A_pinch"], dtype=np.float64)
+        nfactor = np.asarray(data["nFactor"], dtype=np.float64)
+        lamda_s = np.asarray(data["Lamda_S"], dtype=np.float64)
+        lamda_c = np.asarray(data["Lamda_C"], dtype=np.float64)
+        lamda_a = np.asarray(data["Lamda_A"], dtype=np.float64)
+        lamda_k = np.asarray(data["Lamda_K"], dtype=np.float64)
+        c_s = np.asarray(data["c_S"], dtype=np.float64)
+        c_c = np.asarray(data["c_C"], dtype=np.float64)
+        c_a = np.asarray(data["c_A"], dtype=np.float64)
+        c_k = np.asarray(data["c_K"], dtype=np.float64)
+        theta_p_pos = self._to_internalunits.angle(values=data["theta_p_Pos"])
+        theta_p_neg = self._to_internalunits.angle(values=data["theta_p_Neg"])
         Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
         Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
-        properties[:, IMKProperties.as_pos] = K0 / Kpy_pos
-        properties[:, IMKProperties.as_neg] = K0 / Kpy_neg
+        as_pos = K0 / Kpy_pos
+        as_neg = K0 / Kpy_neg
+        theta_pc_pos = self._to_internalunits.angle(values=data["theta_pc_Pos"])
+        theta_pc_neg = self._to_internalunits.angle(values=data["theta_pc_Neg"])
+        res_pos = np.asarray(data["Res_Pos"], dtype=np.float64)
+        res_neg = np.asarray(data["Res_Neg"], dtype=np.float64)
+        theta_u_pos = self._to_internalunits.angle(values=data["theta_u_Pos"])
+        theta_u_neg = self._to_internalunits.angle(values=data["theta_u_Neg"])
+        d_pos = np.asarray(data["D_Pos"], dtype=np.float64)
+        d_neg = np.asarray(data["D_Neg"], dtype=np.float64)
+        properties = np.column_stack((
+            K0,
+            as_pos,
+            as_neg,
+            my_pos,
+            my_neg,
+            fpr_pos,
+            fpr_neg,
+            a_pinch,
+            nfactor,
+            lamda_s,
+            lamda_c,
+            lamda_a,
+            lamda_k,
+            c_s,
+            c_c,
+            c_a,
+            c_k,
+            theta_p_pos,
+            theta_p_neg,
+            theta_pc_pos,
+            theta_pc_neg,
+            res_pos,
+            res_neg,
+            theta_u_pos,
+            theta_u_neg,
+            d_pos,
+            d_neg,
+        ))
+        name_to_idx = dict(zip(mat_name, index))
         mat_imk = Mat_IMK(
             index = index,
             mat_name = mat_name,
-            tag=tag,
+            mat_tag=mat_tag,
             mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._spring_mats_list.append(mat_imk) # Append Materials Properties into spring material list
+        self._hinge_mats_list.append(mat_imk) # Append Materials Properties into hinge material list
         return mat_imk
     
     def _translate_frame_sections(self):
         sheet_name = "Frame Sections"
-        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Frame Sections" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=15,
+        ) # Reading Sheet "Frame Sections" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
-        sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U32")
-        mats_class = np.empty((n, 1), dtype=np.int32)
-        mats_idx = np.empty((n, 1), dtype=np.int32)
-        mat_type = np.empty(n, dtype="U15")
-        sec_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(FrameSectionProperties)), dtype=np.float64)
-        name_to_idx = {}
-        AMod = np.zeros(n, dtype=np.float64)
-        AvyMod = np.zeros(n, dtype=np.float64)
-        AvzMod = np.zeros(n, dtype=np.float64)
-        IzMod = np.zeros(n, dtype=np.float64)
-        IyMod = np.zeros(n, dtype=np.float64)
-        JxxMod = np.zeros(n, dtype=np.float64)
-        for i, row in enumerate(data):
-            name = str(row["Section Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Section name '{name}'")
-            name_to_idx[name] = index[i]
-            sec_name[i] = name
-            sec_shape[i] = str(row["Section Shape"])
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
-            mats_class[i] = mat_class
-            mats_idx[i] = mat_idx
-            mat_type[i] = self._mats_list[mat_class].mat_type[mat_idx]
-            sec_model[i] = str(row["Section Model"])
-            h = self._to_internalunits.length(value=row["h"])
-            b = self._to_internalunits.length(value=row["b"])
-            AMod[i] = row["AMod"]
-            AvyMod[i] = row["AvyMod"]
-            AvzMod[i] = row["AvzMod"]
-            IzMod[i] = row["IzMod"]
-            IyMod[i] = row["IyMod"]
-            JxxMod[i] = row["JxxMod"]
-            properties[i] = (h, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = section_properties(
+        sec_name = np.asarray(data["Section Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
+        sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
+        sec_shape = np.asarray(data["Section Shape"], dtype="U32")
+        mat_class, _, mat_idx = self._retrieve_material_index(mats_name=data["Material"])
+        mats_class = np.column_stack((
+            mat_class,
+        ))
+        mats_idx = np.column_stack((
+            mat_idx,
+        ))
+        mat_type = np.asarray([
+            self._mats_list[cls].mat_type[idx]
+            for cls, idx in zip(mat_class, mat_idx)],
+            dtype="U15",
+        )
+        sec_model = np.asarray(data["Section Model"], dtype="U15")
+        h = self._to_internalunits.length(values=data["h"])
+        b = self._to_internalunits.length(values=data["b"])
+        AMod = np.asarray(data["AMod"], dtype=np.float64)
+        AvyMod = np.asarray(data["AvyMod"], dtype=np.float64)
+        AvzMod = np.asarray(data["AvzMod"], dtype=np.float64)
+        IzMod = np.asarray(data["IzMod"], dtype=np.float64)
+        IyMod = np.asarray(data["IyMod"], dtype=np.float64)
+        JxxMod = np.asarray(data["JxxMod"], dtype=np.float64)
+        dimensions = np.column_stack((
+            h,
+            b,
+        ))
+        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = compute_section_properties(
             sec_shape=sec_shape,
             mat_type=mat_type, 
-            properties=properties,
+            dimensions=dimensions,
         )
-        properties[:, FrameSectionProperties.A] = AMod * A
-        properties[:, FrameSectionProperties.Avy] = AvyMod * Avy
-        properties[:, FrameSectionProperties.Avz] = AvzMod * Avz
-        properties[:, FrameSectionProperties.Iz] = IzMod * Iz
-        properties[:, FrameSectionProperties.Iy] = IyMod * Iy
-        properties[:, FrameSectionProperties.Jxx] = JxxMod * Jxx
-        properties[:, FrameSectionProperties.AlphaY] = alphaY
-        properties[:, FrameSectionProperties.AlphaZ] = alphaZ
+        properties = np.column_stack((
+            dimensions,
+            AMod * A,
+            AvyMod * Avy,
+            AvzMod * Avz,
+            IzMod * Iz,
+            IyMod * Iy,
+            JxxMod * Jxx,
+            alphaY,
+            alphaZ,
+        ))
+        name_to_idx = dict(zip(sec_name, index))
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,
-            tag=tag,
+            sec_tag=sec_tag,
             sec_shape = sec_shape,
             mats_class = mats_class,
             mats_idx = mats_idx,
@@ -648,82 +700,100 @@ class ExcelTranslator:
     
     def _translate_sec_fiber(self):
         sheet_name = "Sec_Fiber"
-        data = self._reader.read(sheet_name=sheet_name, start_row=20) # Reading Sheet "Sec_Fiber" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            sec_fiber = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=20,
+        ) # Reading Sheet "Sec_Fiber" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            sec_fiber = Sec_Fiber.empty()
             self._secs_list.append(sec_fiber)
             return sec_fiber
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U32")
-        base_sec_class = np.empty(n, dtype=np.int32)
-        base_sec_idx = np.empty(n, dtype=np.int32)
-        integration_type = np.empty(n, dtype="U15")
+        sec_name = np.asarray(data["Section Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
+        sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
+        basesec_class, _, basesec_idx = self._retrieve_section_index(secs_name=data["Base Section"])
+        sec_shape = np.asarray([
+            self._secs_list[cls].sec_shape[idx]
+            for cls, idx in zip(basesec_class, basesec_idx)],
+            dtype="U32",
+        )
+        integration_type = np.asarray(data["Integration Type"], dtype="U15")
+        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n, names=sec_name), dtype=np.int32)
         mats_class = np.full((n, 3), -1, dtype=np.int32)
         mats_idx = np.full((n, 3), -1, dtype=np.int32)
+        material_columns = ["Material", "Material 2", "Material 3"]
+        for j, column in enumerate(material_columns):
+            materials = data[column]
+            mask = np.array([m is not None for m in materials])
+            if not np.any(mask):
+                continue
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=[m for m in materials if m is not None])
+            mats_class[mask, j] = mat_class
+            mats_idx[mask, j] = mat_idx
         mat_type = np.empty(n, dtype="U15")
-        sec_model = np.empty(n, dtype="U15")
-        properties = np.zeros((n, len(FiberSectionProperties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Section Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Section name '{name}'")
-            name_to_idx[name] = index[i]
-            sec_name[i] = name
-            sec_class, _, sec_idx = self._retrieve_section_index(secs_name=str(row["Base Section"]))
-            base_sec_class[i] = sec_class
-            base_sec_idx[i] = sec_idx
-            sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
-            integration_type[i] = str(row["Integration Type"])
-            material_columns = ["Material", "Material 2", "Material 3"]
-            for j, column in enumerate(material_columns):
-                if row[column] is None:
-                    continue
-                mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row[column]))
-                mats_class[i, j] = mat_class
-                mats_idx[i, j] = mat_idx
-            for j in range(6):
-                if mats_class[i, j] >= 0:
-                    mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
-                    break
-            sec_model[i] = str(row["Section Model"])
-            cover, nbars_top, nbars_bot, nbars_int = self._to_internalunits.length(value=row["cover"]), row["nBarsTop"], row["nBarsBot"], row["nBarsInt"]
-            bar_dia_hoop, bar_dia_top = self._to_internalunits.length(value=row["barDiaHoop"]), self._to_internalunits.length(row["barDiaTop"])
-            bar_dia_bot, bar_dia_int = self._to_internalunits.length(value=row["barDiaBot"]), self._to_internalunits.length(row["barDiaInt"])
-            properties[i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, cover, nbars_top, 
-                             nbars_bot, nbars_int, bar_dia_hoop, bar_dia_top, bar_dia_bot, bar_dia_int, 0.0, 0.0, 0.0)
-        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n, names=integration_type), dtype=np.int32)
-        base_sec_props = get_section_properties(
+        for i in range(n):
+            if mats_class[i, 0] >= 0:
+                j = 0
+            elif mats_class[i, 1] >= 0:
+                j = 1
+            elif mats_class[i, 2] >= 0:
+                j = 2
+            else:
+                continue
+            mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
+        sec_model = np.asarray(data["Section Model"], dtype="U15")
+        basesec_props = get_section_properties(
             secs_list=self._secs_list,
-            sec_class=base_sec_class,
-            sec_idx=base_sec_idx,
+            sec_class=basesec_class,
+            sec_idx=basesec_idx,
             props_name=["h", "b"],
         )
-        properties[:, FiberSectionProperties.h:FiberSectionProperties.b+1] = base_sec_props
-        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = fibersection_properties(
+        cover = self._to_internalunits.length(values=data["cover"])
+        nbars_top = np.asarray(data["nBarsTop"], dtype=np.int32)
+        nbars_bot = np.asarray(data["nBarsBot"], dtype=np.int32)
+        nbars_int = np.asarray(data["nBarsInt"], dtype=np.int32)
+        bar_dia_hoop = self._to_internalunits.length(values=data["barDiaHoop"])
+        bar_dia_top = self._to_internalunits.length(values=data["barDiaTop"])
+        bar_dia_bot = self._to_internalunits.length(values=data["barDiaBot"])
+        bar_dia_int = self._to_internalunits.length(values=data["barDiaInt"])
+        dimensions = np.column_stack((
+            basesec_props,
+            cover,
+            nbars_top,
+            nbars_bot,
+            nbars_int,
+            bar_dia_hoop,
+            bar_dia_top,
+            bar_dia_bot,
+            bar_dia_int,
+        ))
+        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = compute_fibersection_properties(
             sec_shape=sec_shape,
             mat_type=mat_type,
-            properties=properties,
+            dimensions=dimensions,
         )
-        properties[:, FiberSectionProperties.A] = A
-        properties[:, FiberSectionProperties.Avy] = Avy
-        properties[:, FiberSectionProperties.Avz] = Avz
-        properties[:, FiberSectionProperties.Iz] = Iz
-        properties[:, FiberSectionProperties.Iy] = Iy
-        properties[:, FiberSectionProperties.Jxx] = Jxx
-        properties[:, FiberSectionProperties.Abar_top] = Abar_top
-        properties[:, FiberSectionProperties.Abar_bot] = Abar_bot
-        properties[:, FiberSectionProperties.Abar_int] = Abar_int
+        properties = np.column_stack((
+            dimensions,
+            A,
+            Avy,
+            Avz,
+            Iz,
+            Iy,
+            Jxx,
+            Abar_top,
+            Abar_bot,
+            Abar_int,
+        ))
+        name_to_idx = dict(zip(sec_name, index))
         sec_fiber = Sec_Fiber(
             index = index,
             sec_name = sec_name,
-            tag=tag,
+            sec_tag=sec_tag,
             sec_shape = sec_shape,
-            base_sec_class = base_sec_class,
-            base_sec_idx = base_sec_idx,
+            basesec_class = basesec_class,
+            basesec_idx = basesec_idx,
             integration_type = integration_type,
             integration_tag = integration_tag,
             mats_class = mats_class,
@@ -738,68 +808,77 @@ class ExcelTranslator:
     
     def _translate_sec_aggregator(self):
         sheet_name = "Sec_Aggregator"
-        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Sec_Aggregator" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            sec_aggregator = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=15,
+        ) # Reading Sheet "Sec_Aggregator" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            sec_aggregator = Sec_Aggregator.empty()
             self._secs_list.append(sec_aggregator)
             return sec_aggregator
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        sec_name = np.empty(n, dtype="U32")
-        sec_shape = np.empty(n, dtype="U32")
-        base_sec_class = np.empty(n, dtype=np.int32)
-        base_sec_idx = np.empty(n, dtype=np.int32)
+        sec_name = np.asarray(data["Section Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
+        sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
+        basesec_class, _, basesec_idx = self._retrieve_section_index(secs_name=data["Base Section"])
+        sec_shape = np.asarray([
+            self._secs_list[cls].sec_shape[idx]
+            for cls, idx in zip(basesec_class, basesec_idx)],
+            dtype="U32",
+        )
         mats_class = np.full((n, 6), -1, dtype=np.int32)
-        mats_idx   = np.full((n, 6), -1, dtype=np.int32)
+        mats_idx = np.full((n, 6), -1, dtype=np.int32)
+        material_columns = ["Material", "Material 2", "Material 3", "Material 4", "Material 5", "Material 6"]
+        for j, column in enumerate(material_columns):
+            materials = data[column]
+            material_mask = np.array([m is not None for m in materials])
+            if not np.any(material_mask):
+                continue
+            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=[m for m in materials if m is not None])
+            mats_class[material_mask, j] = mat_class
+            mats_idx[material_mask, j] = mat_idx
         mat_type = np.empty(n, dtype="U15")
-        sec_model = np.empty(n, dtype="U15")
+        for i in range(n):
+            if mats_class[i, 0] >= 0:
+                j = 0
+            elif mats_class[i, 1] >= 0:
+                j = 1
+            elif mats_class[i, 2] >= 0:
+                j = 2
+            elif mats_class[i, 3] >= 0:
+                j = 3
+            elif mats_class[i, 4] >= 0:
+                j = 4
+            elif mats_class[i, 5] >= 0:
+                j = 5
+            else:
+                continue
+            mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
+        sec_model = np.asarray(data["Section Model"], dtype="U15")
         aggregated_sec_class = np.full(n, -1, dtype=np.int32)
         aggregated_sec_idx = np.full(n, -1, dtype=np.int32)
-        properties = np.zeros((n, len(SectionAggregatorProperties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Section Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Section name '{name}'")
-            name_to_idx[name] = index[i]
-            sec_name[i] = name
-            sec_class, _, sec_idx = self._retrieve_section_index(secs_name=str(row["Base Section"]))
-            base_sec_class[i] = sec_class
-            base_sec_idx[i] = sec_idx
-            sec_shape[i] = self._secs_list[sec_class].sec_shape[sec_idx]
-            material_columns = ["Material", "Material 2", "Material 3", "Material 4", "Material 5", "Material 6"]
-            for j, column in enumerate(material_columns):
-                if row[column] is None:
-                    continue
-                mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row[column]))
-                mats_class[i, j] = mat_class
-                mats_idx[i, j] = mat_idx
-            for j in range(6):
-                if mats_class[i, j] >= 0:
-                    mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
-                    break
-            sec_model[i] = str(row["Section Model"])
-            if row["Aggregated Section"] is not None:
-                agg_sec_class, _, agg_sec_idx = self._retrieve_section_index(sec_name=str(row["Aggregated Section"]))
-                aggregated_sec_class[i] = agg_sec_class
-                aggregated_sec_idx[i] = agg_sec_idx
-        tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        sec_class = np.where(aggregated_sec_class >= 0, aggregated_sec_class, base_sec_class)
-        sec_idx = np.where(aggregated_sec_idx >= 0, aggregated_sec_idx, base_sec_idx,)
+        sections = data["Aggregated Section"]
+        section_mask = np.array([s is not None for s in sections])
+        if np.any(section_mask):
+            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=[s for s in sections if s is not None])
+            aggregated_sec_class[section_mask] = sec_class
+            aggregated_sec_idx[section_mask] = sec_idx
         sec_props = get_section_properties(
             secs_list=self._secs_list,
-            sec_class=sec_class,
-            sec_idx=sec_idx,
+            sec_class=np.where(aggregated_sec_class >= 0, aggregated_sec_class, basesec_class),
+            sec_idx=np.where(aggregated_sec_idx >= 0, aggregated_sec_idx, basesec_idx),
             props_name=["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"],
         )
-        properties[:, SectionAggregatorProperties.h:SectionAggregatorProperties.Jxx+1] = sec_props
+        properties = sec_props
+        name_to_idx = dict(zip(sec_name, index))
         sec_aggregator = Sec_Aggregator(
             index = index,
             sec_name = sec_name,
-            tag=tag,
+            sec_tag=sec_tag,
             sec_shape = sec_shape,
-            base_sec_class = base_sec_class,
-            base_sec_idx = base_sec_idx,
+            basesec_class = basesec_class,
+            basesec_idx = basesec_idx,
             mats_class = mats_class,
             mats_idx = mats_idx,
             mat_type = mat_type,
@@ -814,28 +893,29 @@ class ExcelTranslator:
 
     def _translate_slab_sections(self):
         sheet_name = "Slab Sections"
-        data = self._reader.read(sheet_name=sheet_name, start_row=6) # Reading Sheet "Slab Sections" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
-            slab_sections = []
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=6,
+        ) # Reading Sheet "Slab Sections" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            slab_sections = SlabSections.empty()
             return slab_sections
-        n = len(data)
         index = np.arange(n, dtype=np.int32)
-        sec_name = np.empty(n, dtype="U32")
-        mats_class = np.empty((n, 1), dtype=np.int32)
-        mats_idx = np.empty((n, 1), dtype=np.int32)
-        properties = np.zeros((n, len(SlabSectionProperties)), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Section Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Section name '{name}'")
-            name_to_idx[name] = index[i]
-            sec_name[i] = name
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=str(row["Material"]))
-            mats_class[i] = mat_class
-            mats_idx[i] = mat_idx
-            t = self._to_internalunits.length(value=row["t"])
-            properties[i] = (t)
+        sec_name = np.asarray(data["Section Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
+        mat_class, _, mat_idx = self._retrieve_material_index(mats_name=data["Material"])
+        mats_class = np.column_stack((
+            mat_class,
+        ))
+        mats_idx = np.column_stack((
+            mat_idx,
+        ))
+        t = self._to_internalunits.length(values=data["t"])
+        properties = np.column_stack((
+            t,
+        ))
+        name_to_idx = dict(zip(sec_name, index))
         slab_sections = SlabSections(
             index = index,
             sec_name = sec_name,
@@ -848,24 +928,24 @@ class ExcelTranslator:
     
     def _translate_point_objects(self, project_information):
         sheet_name = "Point Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=7) # Reading Sheet "Point Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=7,
+        ) # Reading Sheet "Point Objects" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
-        coords = np.empty((n, 3), dtype=np.float64)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Point object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            coords[i] = (
-                self._to_internalunits.length(value=row["X"]),
-                self._to_internalunits.length(value=row["Y"]),
-                self._to_internalunits.length(value=row["Z"]),
-            )
+        unique_name = np.asarray(data["Unique Name"], dtype="U15")
+        self._validate_duplicate_value(col_data=unique_name, col_name="Point object")
+        coord_X = self._to_internalunits.length(values=data["X"])
+        coord_Y = self._to_internalunits.length(values=data["Y"])
+        coord_Z = self._to_internalunits.length(values=data["Z"])
+        coords = np.column_stack((
+            coord_X,
+            coord_Y,
+            coord_Z,
+        ))
+        name_to_idx = dict(zip(unique_name, index))
         point_objects = {
             "Index": index,
             "Unique Name": unique_name,
@@ -879,36 +959,52 @@ class ExcelTranslator:
 
     def _translate_line_objects(self, point_objects):
         sheet_name = "Line Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=15) # Reading Sheet "Line Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=15,
+        ) # Reading Sheet "Line Objects" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
-        end_points_idx = np.empty((n, 2), dtype=np.int32)
-        element_type = np.empty(n, dtype="U15")
-        sec_class = np.empty(n, dtype=np.int32)
-        sec_idx = np.empty(n, dtype=np.int32)
-        is_auto_end_offsets = np.empty(n, dtype=bool)
-        rigid_zone_factor = np.empty(n, dtype=np.float64)
-        offsets_length = np.empty((n, 2), dtype=np.float64)
-        is_zero_length_element = np.empty(n, dtype=bool)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Line object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            end_points_idx[i] = (point_objects["Name to Index"][str(row["I-End"])], point_objects["Name to Index"][str(row["J-End"])],)
-            element_type[i] = (str(row["Element Type"]))
-            is_auto_end_offsets[i] = (str(row["End Offset"]).strip().lower() == "auto from connectivity")
-            rigid_zone_factor[i] = row["Rigid Zone Factor"]
-            offsets_length[i] = (
-                self._to_internalunits.length(value=row["I-End Offset Length"] if row["I-End Offset Length"] is not None else 0.0),
-                self._to_internalunits.length(value=row["J-End Offset Length"] if row["J-End Offset Length"] is not None else 0.0),
-            )
-            sec_class[i], _, sec_idx[i] = self._retrieve_section_index(secs_name=str(row["Section"]))
-            is_zero_length_element[i] = (str(row["Zero Length Element"]).strip().lower() == "yes")
+        unique_name = np.asarray(data["Unique Name"], dtype="U15")
+        self._validate_duplicate_value(col_data=unique_name, col_name="Line object")
+        iend_node = np.asarray(data["I-End"], dtype="U15")
+        jend_node = np.asarray(data["J-End"], dtype="U15")
+        point_name_to_idx = point_objects["Name to Index"]
+        end_points_idx = np.column_stack((
+            np.fromiter((point_name_to_idx[name] for name in iend_node), dtype=np.int32, count=n),
+            np.fromiter((point_name_to_idx[name] for name in jend_node), dtype=np.int32, count=n),
+        ))
+        element_type = np.asarray(data["Element Type"], dtype="U15")
+        sec_class, _, sec_idx = self._retrieve_section_index(secs_name=data["Section"])
+        is_auto_end_offsets = np.fromiter((
+            str(x).strip().lower() == "auto from connectivity"
+            for x in data["End Offset"]),
+            dtype=bool,
+            count=n,
+        )
+        rigid_zone_factor = np.asarray(data["Rigid Zone Factor"], dtype=np.float64)
+        iend_offset_length = np.where(
+            data["I-End Offset Length"] is not None,
+            self._to_internalunits.length(values=data["I-End Offset Length"]), 
+            0.0,
+        )
+        jend_offset_length = np.where(
+            data["J-End Offset Length"] is not None,
+            self._to_internalunits.length(values=data["J-End Offset Length"]), 
+            0.0,
+        )
+        offsets_length = np.column_stack((
+            iend_offset_length,
+            jend_offset_length,
+        ))
+        is_zero_length_element = np.fromiter((
+            str(x).strip().lower() == "yes"
+            for x in data["Zero Length Element"]),
+            dtype=bool,
+            count=n,
+        )
+        name_to_idx = dict(zip(unique_name, index))
         line_objects = {
             "Index": index,
             "Unique Name": unique_name,
@@ -926,34 +1022,39 @@ class ExcelTranslator:
 
     def _translate_surface_objects(self, line_objects, slab_sections):
         sheet_name = "Surface Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=10) # Reading Sheet "Surface Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=10,
+        ) # Reading Sheet "Surface Objects" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
+        unique_name = np.asarray(data["Unique Name"], dtype="U15")
+        self._validate_duplicate_value(col_data=unique_name, col_name="Surface object")
+        edge_1 = np.asarray(data["Edge 1"], dtype="U15")
+        edge_2 = np.asarray(data["Edge 2"], dtype="U15")
+        edge_3 = np.asarray(data["Edge 3"], dtype="U15")
+        edge_4 = np.asarray(data["Edge 4"], dtype="U15")
+        edges_name = np.column_stack((
+            edge_1,
+            edge_2,
+            edge_3,
+            edge_4,
+        ))
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
-        element_type = np.empty(n, dtype="U15")
-        sec_class = np.empty(n, dtype=np.int32)
-        sec_idx = np.empty(n, dtype=np.int32)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Surface object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            edges_name = [edge for edge in (str(row["Edge 1"]), str(row["Edge 2"]), str(row["Edge 3"]), str(row["Edge 4"]),) if edge is not None]
+        for i in range(n):
             edges_idx[i], vertices_idx[i] = get_edges_and_vertices_from_surface(
-                edges_name=edges_name,
+                edges_name=edges_name[i],
                 line_objects=line_objects,
-                surface_name=name,
+                surface_name=unique_name[i],
             )
-            element_type[i] = (str(row["Element Type"]))
-            sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(
-                secs_name=str(row["Section"]),
-                secs_list=[slab_sections],
-            )
+        element_type = np.asarray(data["Element Type"], dtype="U15")
+        sec_class, _, sec_idx = self._retrieve_slabsection_index(
+            secs_name=data["Section"],
+            secs_list=[slab_sections],
+        )
+        name_to_idx = dict(zip(unique_name, index))
         surface_objects = {
             "Index": index,
             "Unique Name": unique_name,
@@ -968,116 +1069,177 @@ class ExcelTranslator:
     
     def _translate_restraints(self, point_objects):
         sheet_name="Restraints"
-        data = self._reader.read(sheet_name=sheet_name, start_row=10) # Reading Sheet "Restraints" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
-        point_idx = np.empty(n, dtype=np.int32)
-        dofs = np.empty((n, 6), dtype=np.int32)
-        idx_set = set()
-        for i, row in enumerate(data):
-            name = str(row["Point"])
-            idx = point_objects["Name to Index"][name]
-            if idx in idx_set:
-                raise ValidationError(f"Duplicate Restraints at Point '{name}'")
-            idx_set.add(idx)
-            point_idx[i] = idx
-            dofs[i] = (
-                int(row["UX"]),
-                int(row["UY"]),
-                int(row["UZ"]),
-                int(row["RX"]),
-                int(row["RY"]),
-                int(row["RZ"]),
-            )
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=10,
+        ) # Reading Sheet "Restraints" in the Input file
+        self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
+        point_name_to_idx = point_objects["Name to Index"]
+        point_name = np.asarray(data["Point"], dtype="U15")
+        point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
+        ux = np.asarray(data["UX"], dtype=np.int32)
+        uy = np.asarray(data["UY"], dtype=np.int32)
+        uz = np.asarray(data["UZ"], dtype=np.int32)
+        rx = np.asarray(data["RX"], dtype=np.int32)
+        ry = np.asarray(data["RY"], dtype=np.int32)
+        rz = np.asarray(data["RZ"], dtype=np.int32)
+        dofs = np.column_stack((
+            ux,
+            uy,
+            uz,
+            rx,
+            ry,
+            rz,
+        ))
         restraints = {
             "Point Index": point_idx,
             "DOFs": dofs,
         } # Storing restraints data to dictionary
         return restraints
 
-    def _translate_point_loads(self):
+    def _translate_point_loads(self, point_objects):
         sheet_name="Point Loads"
-        data = self._reader.read(sheet_name=sheet_name, start_row=11) # Reading Sheet "Point Loads" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=11,
+        ) # Reading Sheet "Point Loads" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             point_loads = []
             return point_loads
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
-        point_name = np.empty(n, dtype="U15")
-        loadcase_type = np.empty(n, dtype="U15")
-        loads = np.empty((n, 6), dtype=np.float64)
-        for i, row in enumerate(data):
-            point_name[i] = str(row["Point"])
-            loadcase_type[i] = str(row["Load Case"])
-            loads[i] = (
-                self._to_internalunits.force_pointload(value=row["FX"] if row["FX"] is not None else 0.0),
-                self._to_internalunits.force_pointload(value=row["FY"] if row["FY"] is not None else 0.0),
-                self._to_internalunits.force_pointload(value=row["FZ"] if row["FZ"] is not None else 0.0),
-                self._to_internalunits.moment_pointload(value=row["MX"] if row["MX"] is not None else 0.0),
-                self._to_internalunits.moment_pointload(value=row["MY"] if row["MY"] is not None else 0.0),
-                self._to_internalunits.moment_pointload(value=row["MZ"] if row["MZ"] is not None else 0.0),
-            )
+        point_name_to_idx = point_objects["Name to Index"]
+        point_name = np.asarray(data["Point"], dtype="U15")
+        point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
+        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        fx = np.where(
+            data["FX"] is not None,
+            self._to_internalunits.force_pointload(values=data["FX"]), 
+            0.0,
+        )
+        fy = np.where(
+            data["FY"] is not None,
+            self._to_internalunits.force_pointload(values=data["FY"]), 
+            0.0,
+        )
+        fz = np.where(
+            data["FZ"] is not None,
+            self._to_internalunits.force_pointload(values=data["FZ"]), 
+            0.0,
+        )
+        mx = np.where(
+            data["MX"] is not None,
+            self._to_internalunits.moment_pointload(values=data["MX"]), 
+            0.0,
+        )
+        my = np.where(
+            data["MY"] is not None,
+            self._to_internalunits.moment_pointload(values=data["MY"]), 
+            0.0,
+        )
+        mz = np.where(
+            data["MZ"] is not None,
+            self._to_internalunits.moment_pointload(values=data["MZ"]), 
+            0.0,
+        )
+        loads = np.column_stack((
+            fx,
+            fy,
+            fz,
+            mx,
+            my,
+            mz,
+        ))
         point_loads = {
-            "Index": index,
-            "Point Name": point_name,
+            "Point Index": point_idx,
             "Load Case": loadcase_type,
             "Loads": loads,
         } # Storing Point Loads data to dictionary
         return point_loads
 
-    def _translate_concentrated_line_loads(self):
+    def _translate_concentrated_line_loads(self, line_objects):
         sheet_name="Concentrated Line Loads"
-        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Concentrated Line Loads" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=14,
+        ) # Reading Sheet "Concentrated Line Loads" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             concentrated_line_loads = []
             return concentrated_line_loads
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
+        line_name_to_idx = line_objects["Name to Index"]
+        line_name = np.asarray(data["Line"], dtype="U15")
+        line_idx = np.fromiter((line_name_to_idx[name] for name in line_name), dtype=np.int32, count=n)
+        print(line_idx)
+
+
+        
         line_name = np.empty(n, dtype="U15")
         loadcase_type = np.empty(n, dtype="U15")
         direction = np.empty(n, dtype="U8")
-        load = np.empty(n, dtype=np.float64)
-        location = np.empty(n, dtype=np.float64)
+        loads = np.empty((n, 4), dtype=np.float64)
+        locations = np.empty((n, 4), dtype=np.float64)
         for i, row in enumerate(data):
             line_name[i] = str(row["Line"])
             loadcase_type[i] = str(row["Load Case"])
             direction[i] = str(row["Direction"])
-            load[i] = self._to_internalunits.concentrated_lineload(value=row["Load"] if row["Load"] is not None else 0.0)
-            location[i] = self._to_internalunits.length(value=row["Location"] if row["Location"] is not None else 0.0)
+            loads[i] = (
+                self._to_internalunits.concentrated_lineload(value=row["Load 1"] if row["Load 1"] is not None else 0.0),
+                self._to_internalunits.concentrated_lineload(value=row["Load 2"] if row["Load 2"] is not None else 0.0),
+                self._to_internalunits.concentrated_lineload(value=row["Load 3"] if row["Load 3"] is not None else 0.0),
+                self._to_internalunits.concentrated_lineload(value=row["Load 4"] if row["Load 4"] is not None else 0.0),
+            )
+            locations[i] = (
+                self._to_internalunits.length(value=row["Location 1"] if row["Location 1"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 2"] if row["Location 2"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 3"] if row["Location 3"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 4"] if row["Location 4"] is not None else 0.0),
+            )
         concentrated_line_loads = {
-            "Index": index,
             "Line Name": line_name,
             "Load Case": loadcase_type,
-            "Load": load,
-            "Location": location,
+            "Loads": loads,
+            "Locations": locations,
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 
     def _translate_distributed_line_loads(self):
         sheet_name="Distributed Line Loads"
-        data = self._reader.read(sheet_name=sheet_name, start_row=8) # Reading Sheet "Distributed Line Loads" in the Input file
-        if not self._validate_data(data=data, sheet_name=sheet_name, mandatory=False):
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=15,
+        ) # Reading Sheet "Distributed Line Loads" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             distributed_line_loads = []
             return distributed_line_loads
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
         line_name = np.empty(n, dtype="U15")
         loadcase_type = np.empty(n, dtype="U15")
         direction = np.empty(n, dtype="U8")
-        load = np.empty(n, dtype=np.float64)
-        location = np.empty(n, dtype=np.float64)
+        loads = np.empty((n, 5), dtype=np.float64)
+        locations = np.empty((n, 4), dtype=np.float64)
         for i, row in enumerate(data):
             line_name[i] = str(row["Line"])
             loadcase_type[i] = str(row["Load Case"])
             direction[i] = str(row["Direction"])
-            load[i] = self._to_internalunits.distributed_lineload(value=row["Load"] if row["Load"] is not None else 0.0)
-            location[i] = self._to_internalunits.length(value=row["Location"] if row["Location"] is not None else 0.0)
+            loads[i] = (
+                self._to_internalunits.distributed_lineload(value=row["Load 1"] if row["Load 1"] is not None else 0.0),
+                self._to_internalunits.distributed_lineload(value=row["Load 2"] if row["Load 2"] is not None else 0.0),
+                self._to_internalunits.distributed_lineload(value=row["Load 3"] if row["Load 3"] is not None else 0.0),
+                self._to_internalunits.distributed_lineload(value=row["Load 4"] if row["Load 4"] is not None else 0.0),
+                self._to_internalunits.distributed_lineload(value=row["Uniform Load"] if row["Uniform Load"] is not None else 0.0),
+            )
+            locations[i] = (
+                self._to_internalunits.length(value=row["Location 1"] if row["Location 1"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 2"] if row["Location 2"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 3"] if row["Location 3"] is not None else 0.0),
+                self._to_internalunits.length(value=row["Location 4"] if row["Location 4"] is not None else 0.0),
+            )
         distributed_line_loads = {
-            "Index": index,
             "Line Name": line_name,
             "Load Case": loadcase_type,
-            "Load": load,
-            "Location": location,
+            "Loads": loads,
+            "Locations": locations,
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
@@ -1088,19 +1250,17 @@ class ExcelTranslator:
             surface_loads = []
             return surface_loads
         n = len(data)
-        index = np.arange(n, dtype=np.int32)
-        line_name = np.empty(n, dtype="U15")
+        surface_name = np.empty(n, dtype="U15")
         loadcase_type = np.empty(n, dtype="U15")
         direction = np.empty(n, dtype="U8")
         load = np.empty(n, dtype=np.float64)
         for i, row in enumerate(data):
-            line_name[i] = str(row["Line"])
+            surface_name[i] = str(row["Surface"])
             loadcase_type[i] = str(row["Load Case"])
             direction[i] = str(row["Direction"])
             load[i] = self._to_internalunits.surfaceload(value=row["Load"] if row["Load"] is not None else 0.0)
         surface_loads = {
-            "Index": index,
-            "Line Name": line_name,
+            "Surface Name": surface_name,
             "Load Case": loadcase_type,
             "Load": load,
         } # Storing Surface Loads data to dictionary

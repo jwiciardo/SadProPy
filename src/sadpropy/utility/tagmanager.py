@@ -4,6 +4,12 @@ from ._exceptions import ValidationError
 __all__ = ["TagManager"]
 
 class TagManager:
+    __slots__ = (
+        "_counters",
+        "_name_to_tag",
+        "_tag_to_name",
+    )
+
     def __init__(self):
         categories = {
             "Node",
@@ -15,12 +21,15 @@ class TagManager:
             "Timeseries",
             "Pattern",
         }
-        self._counters = {category: 1 for category in categories}
-        self._used = {category: set() for category in categories}
+        self._counters = {category: np.int32(1) for category in categories}
         self._name_to_tag = {category: {} for category in categories}
         self._tag_to_name = {category: {} for category in categories}
 
-    # MAIN METHOD: STORE TAG
+    # HELPER METHOD
+    def _validate_category(self, category):
+        if category not in self._counters:
+            raise ValidationError(f"Unknown category '{category}'")
+        
     def _store_tag(self, category, name, tag):
         if category not in self._counters:
             raise ValidationError(f"Unknown category '{category}'")
@@ -31,58 +40,72 @@ class TagManager:
         self._name_to_tag[category][name] = int(tag)
         self._tag_to_name[category][tag] = name
 
-    # SUPPORTING METHOD: ADD AUTOMATIC TAG
+    # MAIN METHOD: ADD AUTOMATIC TAG
     def add(self, category, n=1, names=None):
-        if category not in self._counters:
-            raise ValidationError(f"Unknown category '{category}'")
+        self._validate_category(category)
         
         if n < 1:
             raise ValidationError("Number of tag allocation must be at least 1")
         
         start = self._counters[category]
         tags = np.arange(start, start + n, dtype=np.int32)
-        self._used[category].update(tags.tolist())
-        self._counters[category] += n
+        self._counters[category] = np.int32(start + n)
 
         if names is not None:
+            names = np.asarray(names, dtype="U32")
+            if names.ndim != 1:
+                raise ValidationError(f"Names must be a one-dimensional array")
             if len(names) != n:
-                raise ValidationError("Length of names must equal Number of tag")
-            for name, tag in zip(names, tags):
-                self._store_tag(
-                    category=category, 
-                    name=name, 
-                    tag=int(tag),
+                raise ValidationError(f"Length of names must equal Number of tag")
+            unique = np.unique(names)
+            if unique.size != names.size:
+                dup = unique[np.bincount(np.searchsorted(unique, names)) > 1]
+                raise ValidationError(f"Duplicate names in allocation: {', '.join(dup)}"
                 )
-        if n == 1:
-            return int(tags[0])
+            for name, tag in zip(names, tags):
+                if name in self._name_to_tag[category]:
+                    raise ValidationError(f"{category} name '{name}' already exists")
+                self._name_to_tag[category][name] = int(tag)
+                self._tag_to_name[category][tag] = name
         return tags
 
-    # SUPPORTING METHOD: LOOKUP
-    def get_tag(self, category, name):
-        if category not in self._counters:
-            raise ValidationError(f"Unknown category '{category}'")
-        return self._name_to_tag[category][name]
+    # MAIN METHOD: LOOKUP
+    def get_tag(self, category, names):
+        self._validate_category(category)
+        names = np.atleast_1d(names).astype("U32")
+        lookup = self._name_to_tag[category]
+        tags = np.empty(len(names), dtype=np.int32)
+        for i, name in enumerate(names):
+            try:
+                tags[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"{category} name '{name}' not found") from None
+        return tags
 
-    def get_name(self, category, tag):
-        if category not in self._counters:
-            raise ValidationError(f"Unknown category '{category}'")
-        return self._tag_to_name[category].get(int(tag))
+    def get_name(self, category, tags):
+        self._validate_category(category)
+        tags = np.atleast_1d(tags).astype(np.int32)
+        lookup = self._tag_to_name[category]
+        names = np.empty(len(tags), dtype="U64")
+        for i, tag in enumerate(tags):
+            try:
+                names[i] = lookup[int(tag)]
+            except KeyError:
+                raise ValidationError(f"{category} tag '{tag}' not found") from None
+        return names
 
-    # SUPPORTING METHOD: GET INFORMATION
+    # MAIN METHOD: GET INFORMATION
     def next_tag(self, category):
-        if category not in self._counters:
-            raise ValidationError(f"Unknown category '{category}'")
+        self._validate_category(category)
         return self._counters[category]
 
     def count(self, category):
-        if category not in self._counters:
-            raise ValidationError(f"Unknown category '{category}'")
+        self._validate_category(category)
         return len(self._used[category])
 
-    # SUPPORTING METHOD: RESET
+    # MAIN METHOD: RESET
     def reset(self):
         for category in self._counters:
-            self._counters[category] = 1
-            self._used[category].clear()
+            self._counters[category] = np.int32(1)
             self._name_to_tag[category].clear()
             self._tag_to_name[category].clear()

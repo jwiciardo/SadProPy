@@ -15,8 +15,9 @@ from ._preproc_dataclass import (
     BeamColumnElements,
     ZeroLengthElements,
     Restraints,
+    PointLoads,
 )
-from ._preproc_class import NodeSource
+from ._preproc_class import NodeSource, LoadCaseType
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility.helperfunc import get_parent_node
@@ -40,6 +41,8 @@ class ModelData:
         beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
         zerolength_elements = self._generate_zero_length_elements(nodes=nodes)
         restraints = self._generate_restraints(nodes=nodes)
+        point_loads = self._generate_point_loads(nodes=nodes)
+        print(point_loads)
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
             project_information = self._translator_result["Project Information"],
@@ -62,6 +65,7 @@ class ModelData:
             zerolength_elements = zerolength_elements,
             elements_list = self._elements_list,
             restraints = restraints,
+            point_loads = point_loads,
         )
     
     # SUPPORTING METHODS
@@ -240,7 +244,6 @@ class ModelData:
         return surface_objects
     
     def _generate_restraints(self, nodes):
-        elements = self._elements_list # Retrieve elements list
         restraints = self._translator_result["Restraints"] # Retrieve restraints data
         point_idx = restraints["Point Index"] # Retrieve point index
         node_idx = get_parent_node(nodes, point_idx) # Get node index
@@ -255,6 +258,36 @@ class ModelData:
         ) # Store restraints data to dataclass
         return restraints
 
+    def _generate_point_loads(self, nodes):
+        point_loads = self._translator_result["Point Loads"] # Retrieve point loads data
+        if len(point_loads) == 0:
+            point_loads = PointLoads.empty()
+            return point_loads
+        point_name = point_loads["Point Name"]
+        n = len(point_name)
+        node_idx = np.fromiter((nodes.name_to_idx[name]
+            for name in point_name), dtype=np.int32, count=n)
+        loads = point_loads["Loads"] # Retrieve point loads
+        load_case_map = {
+            "D": LoadCaseType.Dead,
+            "L": LoadCaseType.Live,
+            "Lr": LoadCaseType.LiveRoof,
+            "E": LoadCaseType.Earthquake,
+            "W": LoadCaseType.Wind,
+        }
+        loadcase_type = np.fromiter((load_case_map[lc]
+            for lc in point_loads["Load Case"]), dtype=np.int32, count=n)
+        point_loads = PointLoads(
+            node_idx = node_idx,
+            loadcase_type = loadcase_type,
+            loads = loads,
+        ) # Store point loads data to dataclass
+        return point_loads
 
 
-    
+    def _generate_concentrated_element_loads(self, elements_list):
+        concentrated_line_loads = self._translator_result["Concentrated Line Loads"] # Retrieve concentrated line loads data
+        if len(concentrated_line_loads) == 0:
+            concentrated_element_loads = PointLoads.empty()
+            return concentrated_element_loads
+

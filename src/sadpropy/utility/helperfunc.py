@@ -1,7 +1,7 @@
 import numpy as np
 from ._exceptions import ValidationError
 
-__all__ = ["retrieve_output_from_input", "transform_to_global_axes", "transform_to_local_axes", "get_parent_node", "get_edges_and_vertices_from_surface"]
+__all__ = ["retrieve_output_from_input", "transform_to_global_axes", "transform_to_local_axes", "get_parent_node"]
 
 # RETRIEVE OUTPUT DATA FROM INPUT DATA WHICH SHARED COMMON TABLE
 def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_data_out):
@@ -52,45 +52,3 @@ def get_parent_node(nodes, child_node):
             for name in nodes_generated_from[child_node][mask]
         ] # If True, get parent node index from name to index dictionary
     return parent_node
-
-# GET EDGES AND VERTICES FROM SURFACE
-def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
-    # Get edge indices
-    edges_idx = np.full(4, -1, dtype=np.int32)
-    for i, edge_name in enumerate(edges_name):
-        try:
-            edges_idx[i] = line_objects["Name to Index"][str(edge_name)]
-        except KeyError:
-            raise ValidationError(f"Surface '{surface_name}' references undefined line '{edge_name}'.")
-    current_edges = edges_idx[:len(edges_name)]
-
-    # Determine ordered vertices
-    if len(edges_name) < 3:
-        raise ValidationError(f"Surface '{surface_name}' must contain at least three edges.")
-    edge1 = line_objects["End Points Index"][current_edges[0]]
-    edge2 = line_objects["End Points Index"][current_edges[1]]
-
-    if edge1[1] in edge2:
-        vertices = [edge1[0], edge1[1]]
-    elif edge1[0] in edge2:
-        vertices = [edge1[1], edge1[0]]
-    else:
-        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    for edge_idx in current_edges[1:]:
-        edge = line_objects["End Points Index"][edge_idx]
-        current_vertex = vertices[-1]
-        if edge[0] == current_vertex:
-            vertices.append(edge[1])
-        elif edge[1] == current_vertex:
-            vertices.append(edge[0])
-        else:
-            raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    if vertices[0] != vertices[-1]:
-        raise ValidationError(f"Surface '{surface_name}' has connection edges that are not closed.")
-
-    vertices.pop()
-    vertices_idx = np.full(4, -1, dtype=np.int32)
-    vertices_idx[:len(vertices)] = vertices
-    return edges_idx, vertices_idx
