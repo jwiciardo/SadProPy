@@ -16,9 +16,14 @@ from ._preproc_dataclass import (
     SlabSections,
     Storeys,
 )
-from ._edges_vertices import get_edges_and_vertices_from_surface
+from ._surfaceconnectivity import generate_surface_connectivity
 from ._materialdata import get_material_properties
-from ._sectiondata import compute_section_properties, compute_fibersection_properties, get_section_properties
+from ._sectiondata import (
+    compute_section_properties,
+    compute_fibersection_properties,
+    get_section_properties,
+)
+from ._loadgenerator import get_concentrated_line_loads
 from sadpropy.utility import (
     ConverterToInternalUnits,
     UserDefinedUnits,
@@ -113,10 +118,10 @@ class ExcelTranslator:
             slab_sections=slab_sections,
         )
         restraints = self._translate_restraints(point_objects=point_objects)
-        point_loads = self._translate_point_loads(point_objects=point_objects)
-        concentrated_line_loads = self._translate_concentrated_line_loads(line_objects=line_objects)
-        distributed_line_loads = self._translate_distributed_line_loads(line_objects=line_objects)
-        surface_loads = self._translate_surface_loads(surface_objects=surface_objects)
+        point_loads = self._translate_point_loads()
+        concentrated_line_loads = self._translate_concentrated_line_loads()
+        distributed_line_loads = self._translate_distributed_line_loads()
+        surface_loads = self._translate_surface_loads()
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -1044,7 +1049,7 @@ class ExcelTranslator:
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
         for i in range(n):
-            edges_idx[i], vertices_idx[i] = get_edges_and_vertices_from_surface(
+            edges_idx[i], vertices_idx[i] = generate_surface_connectivity(
                 edges_name=edges_name[i],
                 line_objects=line_objects,
                 surface_name=unique_name[i],
@@ -1098,7 +1103,7 @@ class ExcelTranslator:
         } # Storing restraints data to dictionary
         return restraints
 
-    def _translate_point_loads(self, point_objects):
+    def _translate_point_loads(self):
         sheet_name="Point Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -1108,9 +1113,7 @@ class ExcelTranslator:
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             point_loads = []
             return point_loads
-        point_name_to_idx = point_objects["Name to Index"]
         point_name = np.asarray(data["Point"], dtype="U15")
-        point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
         loadcase_type = np.asarray(data["Load Case"], dtype="U15")
         fx = np.where(
             [x is not None for x in data["FX"]],
@@ -1151,13 +1154,13 @@ class ExcelTranslator:
             mz,
         ))
         point_loads = {
-            "Point Index": point_idx,
+            "Point Name": point_name,
             "Load Case": loadcase_type,
             "Loads": loads,
         } # Storing Point Loads data to dictionary
         return point_loads
 
-    def _translate_concentrated_line_loads(self, line_objects):
+    def _translate_concentrated_line_loads(self):
         sheet_name="Concentrated Line Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -1167,9 +1170,7 @@ class ExcelTranslator:
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             concentrated_line_loads = []
             return concentrated_line_loads
-        line_name_to_idx = line_objects["Name to Index"]
         line_name = np.asarray(data["Line"], dtype="U15")
-        line_idx = np.fromiter((line_name_to_idx[name] for name in line_name), dtype=np.int32, count=n)
         loadcase_type = np.asarray(data["Load Case"], dtype="U15")
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load_1 = np.where(
@@ -1224,16 +1225,23 @@ class ExcelTranslator:
             loc_3,
             loc_4,
         ))
+        new_line_name, new_loadcase_type, new_load_direction, new_location, new_load = get_concentrated_line_loads(
+            line_name=line_name,
+            loadcase_type=loadcase_type,
+            load_direction=load_direction,
+            locations=locations,
+            loads=loads,
+        )
         concentrated_line_loads = {
-            "Line Index": line_idx,
-            "Load Case": loadcase_type,
-            "Direction": load_direction,
-            "Loads": loads,
-            "Locations": locations,
+            "Line Name": new_line_name,
+            "Load Case": new_loadcase_type,
+            "Direction": new_load_direction,
+            "Locations": new_location,
+            "Loads": new_load,
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 
-    def _translate_distributed_line_loads(self, line_objects):
+    def _translate_distributed_line_loads(self):
         sheet_name="Distributed Line Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -1243,9 +1251,7 @@ class ExcelTranslator:
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             distributed_line_loads = []
             return distributed_line_loads
-        line_name_to_idx = line_objects["Name to Index"]
         line_name = np.asarray(data["Line"], dtype="U15")
-        line_idx = np.fromiter((line_name_to_idx[name] for name in line_name), dtype=np.int32, count=n)
         loadcase_type = np.asarray(data["Load Case"], dtype="U15")
         load_direction = np.asarray(data["Direction"], dtype="U15")
         uniform_load = np.where(
@@ -1307,7 +1313,7 @@ class ExcelTranslator:
             loc_4,
         ))
         distributed_line_loads = {
-            "Line Index": line_idx,
+            "Line Name": line_name,
             "Load Case": loadcase_type,
             "Direction": load_direction,
             "Loads": loads,
@@ -1315,7 +1321,7 @@ class ExcelTranslator:
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
-    def _translate_surface_loads(self, surface_objects):
+    def _translate_surface_loads(self):
         sheet_name="Surface Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -1325,9 +1331,7 @@ class ExcelTranslator:
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
             surface_loads = []
             return surface_loads
-        surface_name_to_idx = surface_objects["Name to Index"]
         surface_name = np.asarray(data["Surface"], dtype="U15")
-        surface_idx = np.fromiter((surface_name_to_idx[name] for name in surface_name), dtype=np.int32, count=n)
         loadcase_type = np.asarray(data["Load Case"], dtype="U15")
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = np.where(
@@ -1336,7 +1340,7 @@ class ExcelTranslator:
             0.0,
         )
         surface_loads = {
-            "Surface Index": surface_idx,
+            "Surface Name": surface_name,
             "Load Case": loadcase_type,
             "Direction": load_direction,
             "Load": load,

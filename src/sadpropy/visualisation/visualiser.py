@@ -255,6 +255,9 @@ class Visualisation:
             if ndim == 3:
                 ylabels = [str(i + 1) for i in range(len(yticks))] # Set Y-axis coordinate label
                 zlabels = sorted([storeys[storey].name for storey in storeys]) # Set Z-axis coordinate label
+            else:
+                ylabels = sorted([storeys[storey].name for storey in storeys]) # Set Y-axis coordinate label
+                zlabels = None # Set Z-axis coordinate label as None
             return xlabels, ylabels, zlabels
 
         def get_ticks(values):

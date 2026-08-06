@@ -8,6 +8,10 @@ from ._elementconnectivity import (
     generate_end_offsets,
     generate_geometric_transformation,
 )
+from ._loadgenerator import (
+    generate_unique_nodal_loads,
+    generate_unique_concentrated_element_loads,
+)
 from ._zerolengthelements import generate_zerolength_element_local_axes
 from ._preproc_dataclass import (
     ModelDataclass,
@@ -15,9 +19,14 @@ from ._preproc_dataclass import (
     BeamColumnElements,
     ZeroLengthElements,
     Restraints,
-    PointLoads,
+    NodalLoads,
+    ConcentratedElementLoads,
 )
-from ._preproc_class import NodeSource, LoadCaseType
+from ._preproc_class import (
+    NodeSource,
+    LoadCaseType,
+    LoadDirection,
+)
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility.helperfunc import get_parent_node
@@ -41,8 +50,9 @@ class ModelData:
         beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
         zerolength_elements = self._generate_zero_length_elements(nodes=nodes)
         restraints = self._generate_restraints(nodes=nodes)
-        point_loads = self._generate_point_loads(nodes=nodes)
-        print(point_loads)
+        nodal_loads = self._generate_nodal_loads()
+        concentrated_element_loads = self._generate_concentrated_element_loads()
+        print()
         return ModelDataclass(
             filepath_information = self._translator_result["Filepath Information"],
             project_information = self._translator_result["Project Information"],
@@ -65,7 +75,8 @@ class ModelData:
             zerolength_elements = zerolength_elements,
             elements_list = self._elements_list,
             restraints = restraints,
-            point_loads = point_loads,
+            nodal_loads = nodal_loads,
+            concentrated_element_loads = concentrated_element_loads,
         )
     
     # SUPPORTING METHODS
@@ -201,47 +212,6 @@ class ModelData:
             name_to_idx = name_to_idx,
         ) # Store zerolength elements data to dataclass
         return zerolength_elements
-
-
-
-    #def _translate_surface_objects(self, line_objects, slab_sections):
-        sheet_name = "Surface Objects"
-        data = self._reader.read(sheet_name=sheet_name, start_row=9) # Reading Sheet "Surface Objects" in the Input file
-        self._validate_data(data=data, sheet_name=sheet_name, mandatory=True)
-        n = len(data)
-        index = np.arange(n, dtype=np.int32)
-        unique_name = np.empty(n, dtype="U15")
-        edges_idx = np.empty((n, 4), dtype=np.int32)
-        vertices_idx = np.empty((n, 4), dtype=np.int32)
-        sec_class = np.empty(n, dtype=np.int32)
-        sec_idx = np.empty(n, dtype=np.int32)
-        name_to_idx = {}
-        for i, row in enumerate(data):
-            name = str(row["Unique Name"])
-            if name in name_to_idx:
-                raise ValidationError(f"Duplicate Surface object name '{name}'")
-            name_to_idx[name] = index[i]
-            unique_name[i] = name
-            edges_name = [edge for edge in (str(row["Edge 1"]), str(row["Edge 2"]), str(row["Edge 3"]), str(row["Edge 4"]),) if edge is not None]
-            edges_idx[i], vertices_idx[i] = get_edges_and_vertices_from_surface(
-                edges_name=edges_name,
-                line_objects=line_objects,
-                surface_name=name,
-            )
-            sec_class[i], _, sec_idx[i] = self._retrieve_slabsection_index(
-                sec_name=str(row["Section"]),
-                secs_list=slab_sections,
-            )
-        surface_objects = SurfaceObjects(
-            index = index,
-            unique_name = unique_name,
-            edges_idx = edges_idx,
-            vertices_idx = vertices_idx,
-            sec_class = sec_class,
-            sec_idx = sec_idx,
-            name_to_idx = name_to_idx,
-        ) # Defining dataclass for each surface object
-        return surface_objects
     
     def _generate_restraints(self, nodes):
         restraints = self._translator_result["Restraints"] # Retrieve restraints data
@@ -258,36 +228,51 @@ class ModelData:
         ) # Store restraints data to dataclass
         return restraints
 
-    def _generate_point_loads(self, nodes):
+    def _generate_nodal_loads(self):
         point_loads = self._translator_result["Point Loads"] # Retrieve point loads data
         if len(point_loads) == 0:
-            point_loads = PointLoads.empty()
-            return point_loads
+            nodal_loads = NodalLoads.empty()
+            return nodal_loads
         point_name = point_loads["Point Name"]
         n = len(point_name)
-        node_idx = np.fromiter((nodes.name_to_idx[name]
-            for name in point_name), dtype=np.int32, count=n)
-        loads = point_loads["Loads"] # Retrieve point loads
-        load_case_map = {
-            "D": LoadCaseType.Dead,
-            "L": LoadCaseType.Live,
-            "Lr": LoadCaseType.LiveRoof,
-            "E": LoadCaseType.Earthquake,
-            "W": LoadCaseType.Wind,
-        }
-        loadcase_type = np.fromiter((load_case_map[lc]
+        node_tag = self._tagmanager.get_tag(category="Node", names=point_name) # Retrieve node tag)
+        loadcase_type = np.fromiter((LoadCaseType()._get_loadcase_class(lc)
             for lc in point_loads["Load Case"]), dtype=np.int32, count=n)
-        point_loads = PointLoads(
-            node_idx = node_idx,
-            loadcase_type = loadcase_type,
-            loads = loads,
+        loads = point_loads["Loads"] # Retrieve point loads
+        unique_node_tag, unique_loadcase_type, unique_loads = generate_unique_nodal_loads(
+            node_tag,
+            loadcase_type,
+            loads,
+        )
+        nodal_loads = NodalLoads(
+            node_tag = unique_node_tag,
+            loadcase_type = unique_loadcase_type,
+            loads = unique_loads,
         ) # Store point loads data to dataclass
-        return point_loads
+        return nodal_loads
 
-
-    def _generate_concentrated_element_loads(self, elements_list):
+    def _generate_concentrated_element_loads(self):
+        ndim = self._translator_result["Project Information"].ndim # Retrieve number of dimensional space
         concentrated_line_loads = self._translator_result["Concentrated Line Loads"] # Retrieve concentrated line loads data
         if len(concentrated_line_loads) == 0:
-            concentrated_element_loads = PointLoads.empty()
+            concentrated_element_loads = ConcentratedElementLoads.empty()
             return concentrated_element_loads
+        line_name = concentrated_line_loads["Line Name"]
+        n = len(line_name)
+        element_tag = self._tagmanager.get_tag(category="Element", names=line_name) # Retrieve element tag
+        loadcase_type = np.fromiter((LoadCaseType()._get_loadcase_class(lc)
+            for lc in concentrated_line_loads["Load Case"]), dtype=np.int32, count=n)
+        direction = concentrated_line_loads["Direction"] # Retrieve load direction
+        loads = concentrated_line_loads["Loads"] # Retrieve concentrated line loads
+        locations = concentrated_line_loads["Locations"] # Retrieve concentrated line loads locations
+        element_tag, loadcase_type, direction, loads, locations = generate_unique_concentrated_element_loads(
+            element_tag,
+            loadcase_type,
+            direction,
+            locations,
+            loads,
+        )
+
+        print(element_tag, loadcase_type, direction, loads, locations)
+        return 0
 

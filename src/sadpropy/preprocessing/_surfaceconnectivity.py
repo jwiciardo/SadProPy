@@ -1,9 +1,9 @@
 import numpy as np
 from sadpropy.utility._exceptions import ValidationError
 
-# GET EDGES AND VERTICES FROM SURFACE
+# GENERATE SURFACE CONNECTIVITY
 # Need to be vectorised for faster performance
-def get_edges_and_vertices_from_surface(edges_name, line_objects, surface_name):
+def generate_surface_connectivity(edges_name, line_objects, surface_name):
     # Get edge indices
     edges_idx = np.full(4, -1, dtype=np.int32)
     for i, edge_name in enumerate(edges_name):

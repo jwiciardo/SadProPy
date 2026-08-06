@@ -170,9 +170,34 @@ class ConnectionEnd(IntEnum):
     I_End = 0
     J_End = 1
 
-class LoadCaseType(IntEnum):
-    Dead = 0
-    Live = 1
-    LiveRoof = 2
-    Earthquake = 3
-    Wind = 4
+class LoadCaseType:
+    case = {
+        "D": 0,
+        "L": 1,
+        "Lr": 2,
+        "E": 3,
+        "W": 4,
+    }
+    def _get_loadcase_class(self, loadcase):
+        return self.case[loadcase]
+
+class LoadDirection:
+    direction3D = {
+        "Global-X": (1, 0, 0),
+        "Global-Y": (0, 1, 0),
+        "Gravity": (0, 0, 1), 
+        "Local-x": (1, 0, 0),
+        "Local-y": (0, 1, 0),
+        "Local-z": (0, 0, 1),
+    }
+    def _get_load_direction3D_class(self, direction):
+        return self.direction3D[direction]
+
+    direction2D = {
+        "Global-X": (1, 0),
+        "Gravity": (0, 1),
+        "Local-x": (1, 0),
+        "Local-y": (0, 1),
+    }
+    def _get_load_direction2D_class(self, direction):
+        return self.direction2D[direction]

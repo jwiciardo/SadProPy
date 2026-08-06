@@ -309,17 +309,17 @@ class Restraints:
     node_tag: np.ndarray                # int32, shape (N,)
     dofs: np.ndarray                    # int32, shape (N,6)
 
-# LOADS: POINT LOADS
+# LOADS: NODAL LOADS
 @dataclass(slots=True, frozen=True)
-class PointLoads:
-    node_idx: np.ndarray                # int32, shape (N,)
+class NodalLoads:
+    node_tag: np.ndarray                # int32, shape (N,)
     loadcase_type: np.ndarray           # int32, shape (N,)
     loads: np.ndarray                   # float64, shape (N,6)
 
     @classmethod
     def empty(cls):
         return cls(
-            node_idx=np.empty(0, dtype=np.int32),
+            node_tag=np.empty(0, dtype=np.int32),
             loadcase_type=np.empty(0, dtype=np.int32),
             loads=np.empty((0, 6), dtype=np.float64),
         )
@@ -327,14 +327,14 @@ class PointLoads:
 # LOADS: CONCENTRATED ELEMENT LOADS
 @dataclass(slots=True, frozen=True)
 class ConcentratedElementLoads:
-    element_idx: np.ndarray             # int32, shape (N,)
+    element_tag: np.ndarray             # int32, shape (N,)
     loadcase_type: np.ndarray           # int32, shape (N,)
     loads: np.ndarray                   # float64, shape (N,6)
 
     @classmethod
     def empty(cls):
         return cls(
-            node_idx=np.empty(0, dtype=np.int32),
+            element_tag=np.empty(0, dtype=np.int32),
             loadcase_type=np.empty(0, dtype=np.int32),
             loads=np.empty((0, 6), dtype=np.float64),
         )
@@ -363,5 +363,6 @@ class ModelDataclass:
     zerolength_elements: ZeroLengthElements
     elements_list: list
     restraints: Restraints
-    point_loads: PointLoads
+    nodal_loads: NodalLoads
+    concentrated_element_loads: ConcentratedElementLoads
 
