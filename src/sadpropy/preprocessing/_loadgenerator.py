@@ -37,18 +37,18 @@ def generate_unique_nodal_loads(node_tag, loadcase_type, loads):
     unique_loads = summed_loads
     return unique_node_tag, unique_loadcase_type, unique_loads
 
-def generate_unique_concentrated_element_loads(element_tag, loadcase_type, direction, locations, loads):
-    grouping_keys = np.column_stack((element_tag, loadcase_type, direction, locations))
+def generate_unique_concentrated_element_loads(element_tag, loadcase_type, direction, location, load):
+    grouping_keys = np.column_stack((element_tag, loadcase_type, direction, location))
     unique_grouping_keys, indices = np.unique(
         grouping_keys,
         axis=0,
         return_inverse=True,
     )
-    summed_load = np.zeros(len(unique_grouping_keys), dtype=loads.dtype)
-    np.add.at(summed_load, indices, loads)
+    summed_load = np.zeros(len(unique_grouping_keys), dtype=load.dtype)
+    np.add.at(summed_load, indices, load)
     unique_element_tag = unique_grouping_keys[:, 0]
     unique_loadcase_type = unique_grouping_keys[:, 1]
     unique_direction = unique_grouping_keys[:, 2]
-    unique_locations = unique_grouping_keys[:, 3]
-    unique_loads = summed_load
-    return unique_element_tag, unique_loadcase_type, unique_direction, unique_locations, unique_loads
+    unique_location = unique_grouping_keys[:, 3]
+    unique_load = summed_load
+    return unique_element_tag, unique_loadcase_type, unique_direction, unique_location, unique_load

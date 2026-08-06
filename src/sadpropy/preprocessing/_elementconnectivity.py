@@ -6,14 +6,14 @@ from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_l
 from sadpropy.utility.tolerance import Tolerance
 
 # GENERATE LOCAL AXES
-def _compute_beamcolumn_element_centroids(inode_coords, jnode_coords):
+def _compute_element_centroids(inode_coords, jnode_coords):
     return (inode_coords + jnode_coords) / 2.0
 
-def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
+def generate_element_local_axes(nodes, end_nodes_index, ndim):
     coords = nodes.coords # Retrieve nodes coordinates
     inode_coords = coords[end_nodes_index[:, ConnectionEnd.I_End]] # Retrieve I-end node coordinates from node coordinates
     jnode_coords = coords[end_nodes_index[:, ConnectionEnd.J_End]] # Retrieve J-end node coordinates from node coordinates
-    centroids = _compute_beamcolumn_element_centroids(inode_coords=inode_coords, jnode_coords=jnode_coords) # Compute centroids of elements
+    centroids = _compute_element_centroids(inode_coords=inode_coords, jnode_coords=jnode_coords) # Compute centroids of elements
     if ndim == 3: # 3D Structure
         d_vectors = jnode_coords - inode_coords # Determine direction vectors
         length = np.linalg.norm(d_vectors, axis=1) # Compute length of elements
@@ -40,18 +40,18 @@ def generate_beamcolumn_element_local_axes(nodes, end_nodes_index, ndim):
         return (centroids, length, local_x, local_y, local_z, rotation_matrix)
 
 # GENERATE ELEMENT CONNECTIVITY
-def _map_node_to_beamcolumn_element(iend_nodes_idx, jend_nodes_idx):
+def _map_node_to_element(iend_nodes_idx, jend_nodes_idx):
     node_to_beamcolumn_element = defaultdict(list) # Predefined node to element dictionary
     for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(zip(iend_nodes_idx, jend_nodes_idx)): # Loop over end nodes index
         node_to_beamcolumn_element[int(iend_node_idx)].append(ele_idx) # Append line index into key: I-end point index
         node_to_beamcolumn_element[int(jend_node_idx)].append(ele_idx) # Append line index into key: J-end point index
     return node_to_beamcolumn_element
 
-def generate_beamcolumn_element_connectivity(nodes, end_nodes_index):
+def generate_element_connectivity(nodes, end_nodes_index):
     n = len(end_nodes_index) # Determine number of rows in end nodes index
     iend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,0]) # Get parent node of I-end node
     jend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,1]) # Get parent node of J-end node
-    node_to_beamcolumn_element_map = _map_node_to_beamcolumn_element(
+    node_to_beamcolumn_element_map = _map_node_to_element(
         iend_nodes_idx=iend_nodes_idx,
         jend_nodes_idx=jend_nodes_idx,
     ) # Build node to beam-column element map

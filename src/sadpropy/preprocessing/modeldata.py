@@ -2,8 +2,8 @@ import numpy as np
 from ._exceltranslator import ExcelTranslator
 from ._nodegenerator import autogenerate_nodes
 from ._elementconnectivity import (
-    generate_beamcolumn_element_local_axes,
-    generate_beamcolumn_element_connectivity,
+    generate_element_local_axes,
+    generate_element_connectivity,
     autogenerate_offsets_length,
     generate_end_offsets,
     generate_geometric_transformation,
@@ -16,7 +16,7 @@ from ._zerolengthelements import generate_zerolength_element_local_axes
 from ._preproc_dataclass import (
     ModelDataclass,
     Nodes,
-    BeamColumnElements,
+    Elements,
     ZeroLengthElements,
     Restraints,
     NodalLoads,
@@ -29,7 +29,7 @@ from ._preproc_class import (
 )
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility.helperfunc import get_parent_node
+from sadpropy.utility.helperfunc import transform_to_local_axes, get_parent_node
 
 
 __all__ = ["ModelData"]
@@ -41,14 +41,11 @@ class ModelData:
 
         # TRANSLATE INPUTFILE AND STORE TO MODEL DATA
         self._translator_result = ExcelTranslator().translate()
-
-        # DICTIONARY LIST
-        self._elements_list = []
     
     def retrieve(self):
         nodes = self._generate_nodes()
-        beamcolumn_elements = self._generate_beamcolumn_elements(nodes=nodes)
-        zerolength_elements = self._generate_zero_length_elements(nodes=nodes)
+        elements = self._generate_elements(nodes=nodes)
+        zerolength_elements = self._generate_zero_length_elements(nodes=nodes, elements=elements)
         restraints = self._generate_restraints(nodes=nodes)
         nodal_loads = self._generate_nodal_loads()
         concentrated_element_loads = self._generate_concentrated_element_loads()
@@ -71,9 +68,8 @@ class ModelData:
             slab_sections = self._translator_result["Slab Sections"],
             storeys = self._translator_result["Storeys"],
             nodes = nodes,
-            beamcolumn_elements = beamcolumn_elements,
+            elements = elements,
             zerolength_elements = zerolength_elements,
-            elements_list = self._elements_list,
             restraints = restraints,
             nodal_loads = nodal_loads,
             concentrated_element_loads = concentrated_element_loads,
@@ -125,7 +121,7 @@ class ModelData:
         ) # Store nodes data to dataclass
         return nodes
 
-    def _generate_beamcolumn_elements(self, nodes):
+    def _generate_elements(self, nodes):
         ndim = self._translator_result["Project Information"].ndim # Retrieve number of dimensional space
         line_objects = self._translator_result["Line Objects"] # Retrieve line objects data
         sec_class = line_objects["Section Class"]
@@ -136,10 +132,10 @@ class ModelData:
         unique_name = line_objects["Unique Name"][mask]
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         end_nodes_idx = np.asarray([self._line_to_end_nodes_map[line_idx] for line_idx in line_objects["Index"][mask]], dtype=np.int32)
-        centroids, length, vec_x, vec_y, vec_z, rotation_matrix = generate_beamcolumn_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        centroids, length, vec_x, vec_y, vec_z, rotation_matrix = generate_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
         geometric_transf, geometric_transf_name = generate_geometric_transformation(element_type=element_type, vec_z=vec_z)
         transformation_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(geometric_transf), names=geometric_transf_name), dtype=np.int32)
-        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_beamcolumn_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
+        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = generate_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         is_auto_end_offsets = line_objects["Is Auto End Offsets"]
         rigid_zone_factor = line_objects["Rigid Zone Factor"]
         # Userdefined end offsets
@@ -162,7 +158,7 @@ class ModelData:
             rotation_matrix=rotation_matrix,
         )
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
-        beamcolumn_elements = BeamColumnElements(
+        elements = Elements(
             index = np.arange(n, dtype=np.int32),
             unique_name = unique_name,
             tag = tag,
@@ -183,10 +179,9 @@ class ModelData:
             end_offsets = end_offsets,
             name_to_idx = name_to_idx,
         ) # Store beamcolumn elements data to dataclass
-        self._elements_list.append(beamcolumn_elements) # Append BeamColumnElements into Elements List
-        return beamcolumn_elements
+        return elements
 
-    def _generate_zero_length_elements(self, nodes):
+    def _generate_zero_length_elements(self, nodes, elements):
         ndim = self._translator_result["Project Information"].ndim # Retrieve number of dimensional space
         nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
         child_nodes = np.asarray([node_idx for node_idx in nodes.index[nodes_generated_from != ""]], dtype=np.int32) # Filter empty string values in nodes index
@@ -200,7 +195,7 @@ class ModelData:
             end_nodes_idx[i] = [parent_nodes[i], child_nodes[i]]
         tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         element_type = np.full(n, f"Zero Length", dtype="U15")
-        rotation_matrix = generate_zerolength_element_local_axes(ndim=ndim, elements_list=self._elements_list, child_nodes=child_nodes)
+        rotation_matrix = generate_zerolength_element_local_axes(ndim=ndim, elements=elements, child_nodes=child_nodes)
         name_to_idx = {str(name): np.int32(i) for i, name in enumerate(unique_name)}
         zerolength_elements = ZeroLengthElements(
             index = np.arange(n, dtype=np.int32),
@@ -263,16 +258,23 @@ class ModelData:
         loadcase_type = np.fromiter((LoadCaseType()._get_loadcase_class(lc)
             for lc in concentrated_line_loads["Load Case"]), dtype=np.int32, count=n)
         direction = concentrated_line_loads["Direction"] # Retrieve load direction
-        loads = concentrated_line_loads["Loads"] # Retrieve concentrated line loads
-        locations = concentrated_line_loads["Locations"] # Retrieve concentrated line loads locations
-        element_tag, loadcase_type, direction, loads, locations = generate_unique_concentrated_element_loads(
+        load = concentrated_line_loads["Load"] # Retrieve concentrated line loads
+        location = concentrated_line_loads["Location"] # Retrieve concentrated line loads location
+        unique_element_tag, unique_loadcase_type, unique_direction, unique_location, unique_load = generate_unique_concentrated_element_loads(
             element_tag,
             loadcase_type,
             direction,
-            locations,
-            loads,
+            location,
+            load,
         )
+        transformed_load = np.zeros(len(unique_load), dtype=unique_load.dtype)
+        for i, dir in enumerate(unique_direction):
+            load = unique_load[i]
+            if ndim == 3:
+                load_vec = LoadDirection()._get_load_direction3D_class(dir) * load
+            else:
+                load_vec = LoadDirection()._get_load_direction2D_class(dir) * load
 
-        print(element_tag, loadcase_type, direction, loads, locations)
+            print(dir, load_vec)
         return 0
 

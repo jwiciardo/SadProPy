@@ -178,66 +178,65 @@ class Visualisation:
                     zorder=10,
                 ) # Plot Y-axis label
 
-    def _draw_local_axes(self, ax, elements_list, show_axes, linewidth=1.2):
+    def _draw_local_axes(self, ax, elements, show_axes, linewidth=1.2):
         if show_axes:
-            for element in elements_list:
-                arrow_length = 0.2 * np.min(element.length)
-                for ele_idx in element.index:
-                    c = element.centroids[ele_idx]
-                    lx = element.local_x[ele_idx]
-                    ly = element.local_y[ele_idx]
-                    lz = element.local_z[ele_idx]
-                    ax.quiver(
-                        c[0], c[1], c[2],
-                        *(arrow_length * lx),
-                        color="red",
-                        linewidth=linewidth,
-                        zorder=10,
-                    )
-                    ax.quiver(
-                        c[0], c[1], c[2],
-                        *(arrow_length * ly),
-                        color="green",
-                        linewidth=linewidth,
-                        zorder=10,
-                    )
-                    ax.quiver(
-                        c[0], c[1], c[2],
-                        *(arrow_length * lz),
-                        color="blue",
-                        linewidth=linewidth,
-                        zorder=10,
-                    )
-                    tip_x = c + arrow_length * lx
-                    ax.text(
-                        tip_x[0],
-                        tip_x[1],
-                        tip_x[2],
-                        "x",
-                        color="red",
-                        fontsize=8,
-                        zorder=10,
-                    )
-                    tip_y = c + arrow_length * ly
-                    ax.text(
-                        tip_y[0],
-                        tip_y[1],
-                        tip_y[2],
-                        "y",
-                        color="green",
-                        fontsize=8,
-                        zorder=10,
-                    )
-                    tip_z = c + arrow_length * lz
-                    ax.text(
-                        tip_z[0],
-                        tip_z[1],
-                        tip_z[2],
-                        "z",
-                        color="blue",
-                        fontsize=8,
-                        zorder=10,
-                    )
+            arrow_length = 0.2 * np.min(elements.length)
+            for ele_idx in elements.index:
+                c = elements.centroids[ele_idx]
+                lx = elements.local_x[ele_idx]
+                ly = elements.local_y[ele_idx]
+                lz = elements.local_z[ele_idx]
+                ax.quiver(
+                    c[0], c[1], c[2],
+                    *(arrow_length * lx),
+                    color="red",
+                    linewidth=linewidth,
+                    zorder=10,
+                )
+                ax.quiver(
+                    c[0], c[1], c[2],
+                    *(arrow_length * ly),
+                    color="green",
+                    linewidth=linewidth,
+                    zorder=10,
+                )
+                ax.quiver(
+                    c[0], c[1], c[2],
+                    *(arrow_length * lz),
+                    color="blue",
+                    linewidth=linewidth,
+                    zorder=10,
+                )
+                tip_x = c + arrow_length * lx
+                ax.text(
+                    tip_x[0],
+                    tip_x[1],
+                    tip_x[2],
+                    "x",
+                    color="red",
+                    fontsize=8,
+                    zorder=10,
+                )
+                tip_y = c + arrow_length * ly
+                ax.text(
+                    tip_y[0],
+                    tip_y[1],
+                    tip_y[2],
+                    "y",
+                    color="green",
+                    fontsize=8,
+                    zorder=10,
+                )
+                tip_z = c + arrow_length * lz
+                ax.text(
+                    tip_z[0],
+                    tip_z[1],
+                    tip_z[2],
+                    "z",
+                    color="blue",
+                    fontsize=8,
+                    zorder=10,
+                )
 
     def _draw_grid(self, ax, ndim, storeys, coords, show_grids, colour="lightgray", linewidth=1.2, linestyle="--"):
         def convert_number_to_letters(num):
@@ -436,7 +435,7 @@ class Visualisation:
                     zorder=1,
                 ) # Plot nodes labels
     
-    def _plot_elements(self, ax, coords, elements_list, colour_by, show_labels, linewidth=1.2):
+    def _plot_elements(self, ax, coords, elements, colour_by, show_labels, linewidth=1.2):
         def get_element_colour(elements):
             if elements is None: # Return nothing if there are no elements
                 return
@@ -475,56 +474,55 @@ class Visualisation:
                 colours[i] = category_colours[categories[i]]
             return colours, categories, category_colours
         
-        for elements in elements_list: # Loop over elements_list
-            end_offsets = elements.end_offsets # Retrieve elements end offsets
-            rigid_zone_factor = elements.rigid_zone_factor # Retrieve elements rigid zone factor
-            colours, _, category_colours = get_element_colour(elements=elements) # Get element colour
-            model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
-            offset = 0.005 * model_size # Set label offset
-            for i in elements.index: # Loop for each element index
-                inode, jnode = elements.end_nodes_idx[i] # Retrieve element end nodes index
-                ni = coords[inode] # Retreive I-node coordinates
-                nj = coords[jnode] # Retreive J-node coordinates
-                eoi = end_offsets[i][:3] * rigid_zone_factor[i] # Retrieve I-end offset vector
-                eoj = end_offsets[i][3:] * rigid_zone_factor[i] # Retrieve J-end offset vector
-                noi = ni + eoi # Determine I-node offset coordinate
-                noj = nj + eoj # Determine J-node offset coordinate
-                ax.plot(
-                    [ni[0], noi[0]],
-                    [ni[1], noi[1]],
-                    [ni[2], noi[2]],
-                    color=colours[i],
-                    linewidth=3.0,
-                    zorder=2,
-                ) # Plot I-end offset
-                ax.plot(
-                    [noi[0], noj[0]],
-                    [noi[1], noj[1]],
-                    [noi[2], noj[2]],
-                    color=colours[i],
-                    linewidth=linewidth,
-                    zorder=2,
-                ) # Plot elements
-                ax.plot(
-                    [noj[0], nj[0]],
-                    [noj[1], nj[1]],
-                    [noj[2], nj[2]],
-                    color=colours[i],
-                    linewidth=3.0,
-                    zorder=2,
-                ) # Plot J-end offset
+        end_offsets = elements.end_offsets # Retrieve elements end offsets
+        rigid_zone_factor = elements.rigid_zone_factor # Retrieve elements rigid zone factor
+        colours, _, category_colours = get_element_colour(elements=elements) # Get element colour
+        model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
+        offset = 0.005 * model_size # Set label offset
+        for i in elements.index: # Loop for each element index
+            inode, jnode = elements.end_nodes_idx[i] # Retrieve element end nodes index
+            ni = coords[inode] # Retreive I-node coordinates
+            nj = coords[jnode] # Retreive J-node coordinates
+            eoi = end_offsets[i][:3] * rigid_zone_factor[i] # Retrieve I-end offset vector
+            eoj = end_offsets[i][3:] * rigid_zone_factor[i] # Retrieve J-end offset vector
+            noi = ni + eoi # Determine I-node offset coordinate
+            noj = nj + eoj # Determine J-node offset coordinate
+            ax.plot(
+                [ni[0], noi[0]],
+                [ni[1], noi[1]],
+                [ni[2], noi[2]],
+                color=colours[i],
+                linewidth=3.0,
+                zorder=2,
+            ) # Plot I-end offset
+            ax.plot(
+                [noi[0], noj[0]],
+                [noi[1], noj[1]],
+                [noi[2], noj[2]],
+                color=colours[i],
+                linewidth=linewidth,
+                zorder=2,
+            ) # Plot elements
+            ax.plot(
+                [noj[0], nj[0]],
+                [noj[1], nj[1]],
+                [noj[2], nj[2]],
+                color=colours[i],
+                linewidth=3.0,
+                zorder=2,
+            ) # Plot J-end offset
 
-                if show_labels: # Set condition if show_labels is True or False
-                    c = elements.centroids[i] # Retrieve centroid of the elements
-                    ax.text(
-                        c[0] + offset,
-                        c[1] + offset,
-                        c[2] + offset,
-                        elements.unique_name[i],
-                        fontsize=8,
-                        color="black",
-                        zorder=2,
-                    ) # Plot nodes labels
+            if show_labels: # Set condition if show_labels is True or False
+                c = elements.centroids[i] # Retrieve centroid of the elements
+                ax.text(
+                    c[0] + offset,
+                    c[1] + offset,
+                    c[2] + offset,
+                    elements.unique_name[i],
+                    fontsize=8,
+                    color="black",
+                    zorder=2,
+                ) # Plot nodes labels
             
             # Generate legends
             if not category_colours: # Set condition if category_colours is "Default" return nothing
@@ -540,7 +538,7 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
-    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, rotation_matrix, show_labels, marker="o", markersize=10, colour="black", linewidth=1.2):
+    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, rotation_matrix, show_labels, colour="black", linewidth=1.2):
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
         offset = 0.005 * model_size  # Set label offset
         symbol_size = 0.02 * model_size # Set symbol size
@@ -617,13 +615,12 @@ class Visualisation:
         restraints = self._modeldata.restraints # Retrieve restraints data
 
         # Elements
-        beamcolumn_elements = self._modeldata.beamcolumn_elements # Retrieve beam column elements data
-        elements_list = self._modeldata.elements_list # Retrieve elements list
+        elements = self._modeldata.elements # Retrieve beam column elements data
         zerolength_elements = self._modeldata.zerolength_elements # Retrieve zero length elements data
         
         self._set_axes(ax=ax, title=title, view=view, coords=coords) # Set axes
         self._draw_global_axes(ax=ax, ndim=ndim, coords=coords, show_axes=show_global_axes) # Set global axes arrows
-        self._draw_local_axes(ax=ax, elements_list=elements_list, show_axes=show_local_axes) # Set local axes arrows
+        self._draw_local_axes(ax=ax, elements=elements, show_axes=show_local_axes) # Set local axes arrows
         self._draw_grid(ax=ax, ndim=ndim, storeys=storeys, coords=coords, show_grids=show_grids) # Set gridlines
         if show_nodes: # Set condition if show_nodes is True or False
             self._plot_nodes(
@@ -636,7 +633,7 @@ class Visualisation:
             self._plot_elements(
                 ax=ax,
                 coords=coords,
-                elements_list=elements_list,
+                elements=elements,
                 colour_by=colour_by,
                 show_labels=show_element_labels,
             ) # Plot nodes if show_elements is True

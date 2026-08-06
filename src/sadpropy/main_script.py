@@ -17,7 +17,7 @@ sections_list = modeldata.sections_list
 slab_sections = modeldata.slab_sections
 storeys = modeldata.storeys
 nodes = modeldata.nodes
-beamcolumn_elements = modeldata.beamcolumn_elements
+elements = modeldata.elements
 restraints = modeldata.restraints
 
 vis = Visualisation(modeldata)

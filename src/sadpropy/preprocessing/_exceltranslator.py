@@ -1236,8 +1236,8 @@ class ExcelTranslator:
             "Line Name": new_line_name,
             "Load Case": new_loadcase_type,
             "Direction": new_load_direction,
-            "Locations": new_location,
-            "Loads": new_load,
+            "Location": new_location,
+            "Load": new_load,
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 

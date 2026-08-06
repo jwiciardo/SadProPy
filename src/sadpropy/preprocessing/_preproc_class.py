@@ -183,9 +183,9 @@ class LoadCaseType:
 
 class LoadDirection:
     direction3D = {
-        "Global-X": (1, 0, 0),
-        "Global-Y": (0, 1, 0),
-        "Gravity": (0, 0, 1), 
+        "Global-X": np.asarray([1, 0, 0], dtype=np.float64),
+        "Global-Y": np.asarray([0, 1, 0], dtype=np.float64),
+        "Gravity": np.asarray([0, 0, 1], dtype=np.float64), 
         "Local-x": (1, 0, 0),
         "Local-y": (0, 1, 0),
         "Local-z": (0, 0, 1),
@@ -194,8 +194,8 @@ class LoadDirection:
         return self.direction3D[direction]
 
     direction2D = {
-        "Global-X": (1, 0),
-        "Gravity": (0, 1),
+        "Global-X": np.asarray([1, 0], dtype=np.float64),
+        "Gravity": np.asarray([0, 1], dtype=np.float64),
         "Local-x": (1, 0),
         "Local-y": (0, 1),
     }

@@ -264,7 +264,7 @@ class Nodes:
     name_to_idx: dict[str, np.int32]
 
 @dataclass(slots=True, frozen=True)
-class BeamColumnElements:
+class Elements:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
     tag: np.ndarray                     # int32, shape (N,)
@@ -359,9 +359,8 @@ class ModelDataclass:
     slab_sections: SlabSections
     storeys: Storeys
     nodes: Nodes
-    beamcolumn_elements: BeamColumnElements
+    elements: Elements
     zerolength_elements: ZeroLengthElements
-    elements_list: list
     restraints: Restraints
     nodal_loads: NodalLoads
     concentrated_element_loads: ConcentratedElementLoads
