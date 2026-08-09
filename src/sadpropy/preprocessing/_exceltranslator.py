@@ -23,7 +23,10 @@ from ._sectiondata import (
     compute_fibersection_properties,
     get_section_properties,
 )
-from ._loadgenerator import get_concentrated_line_loads
+from ._loadgenerator import (
+    get_concentrated_line_loads,
+    get_distributed_line_loads,
+)
 from sadpropy.utility import (
     ConverterToInternalUnits,
     UserDefinedUnits,
@@ -1176,22 +1179,22 @@ class ExcelTranslator:
         load_1 = np.where(
             [x is not None for x in data["Load 1"]],
             self._to_internalunits.concentrated_lineload(values=data["Load 1"]), 
-            0.0,
+            np.nan,
         )
         load_2 = np.where(
             [x is not None for x in data["Load 2"]],
             self._to_internalunits.concentrated_lineload(values=data["Load 2"]), 
-            0.0,
+            np.nan,
         )
         load_3 = np.where(
             [x is not None for x in data["Load 3"]],
             self._to_internalunits.concentrated_lineload(values=data["Load 3"]), 
-            0.0,
+            np.nan,
         )
         load_4 = np.where(
             [x is not None for x in data["Load 4"]],
             self._to_internalunits.concentrated_lineload(values=data["Load 4"]), 
-            0.0,
+            np.nan,
         )
         loads = np.column_stack((
             load_1,
@@ -1202,22 +1205,22 @@ class ExcelTranslator:
         loc_1 = np.where(
             [x is not None for x in data["Location 1"]],
             self._to_internalunits.length(values=data["Location 1"]), 
-            0.0,
+            np.nan,
         )
         loc_2 = np.where(
             [x is not None for x in data["Location 2"]],
             self._to_internalunits.length(values=data["Location 2"]), 
-            0.0,
+            np.nan,
         )
         loc_3 = np.where(
             [x is not None for x in data["Location 3"]],
             self._to_internalunits.length(values=data["Location 3"]), 
-            0.0,
+            np.nan,
         )
         loc_4 = np.where(
             [x is not None for x in data["Location 4"]],
             self._to_internalunits.length(values=data["Location 4"]), 
-            0.0,
+            np.nan,
         )
         locations = np.column_stack((
             loc_1,
@@ -1257,30 +1260,29 @@ class ExcelTranslator:
         uniform_load = np.where(
             [x is not None for x in data["Uniform Load"]],
             self._to_internalunits.distributed_lineload(values=data["Uniform Load"]), 
-            0.0,
+            np.nan,
         )
         load_1 = np.where(
             [x is not None for x in data["Load 1"]],
             self._to_internalunits.distributed_lineload(values=data["Load 1"]), 
-            0.0,
+            np.nan,
         )
         load_2 = np.where(
             [x is not None for x in data["Load 2"]],
             self._to_internalunits.distributed_lineload(values=data["Load 2"]), 
-            0.0,
+            np.nan,
         )
         load_3 = np.where(
             [x is not None for x in data["Load 3"]],
             self._to_internalunits.distributed_lineload(values=data["Load 3"]), 
-            0.0,
+            np.nan,
         )
         load_4 = np.where(
             [x is not None for x in data["Load 4"]],
             self._to_internalunits.distributed_lineload(values=data["Load 4"]), 
-            0.0,
+            np.nan,
         )
         loads = np.column_stack((
-            uniform_load,
             load_1,
             load_2,
             load_3,
@@ -1289,22 +1291,22 @@ class ExcelTranslator:
         loc_1 = np.where(
             [x is not None for x in data["Location 1"]],
             self._to_internalunits.length(values=data["Location 1"]), 
-            0.0,
+            np.nan,
         )
         loc_2 = np.where(
             [x is not None for x in data["Location 2"]],
             self._to_internalunits.length(values=data["Location 2"]), 
-            0.0,
+            np.nan,
         )
         loc_3 = np.where(
             [x is not None for x in data["Location 3"]],
             self._to_internalunits.length(values=data["Location 3"]), 
-            0.0,
+            np.nan,
         )
         loc_4 = np.where(
             [x is not None for x in data["Location 4"]],
             self._to_internalunits.length(values=data["Location 4"]), 
-            0.0,
+            np.nan,
         )
         locations = np.column_stack((
             loc_1,
@@ -1312,12 +1314,20 @@ class ExcelTranslator:
             loc_3,
             loc_4,
         ))
+        new_line_name, new_loadcase_type, new_load_direction, new_location, new_load = get_distributed_line_loads(
+            line_name=line_name,
+            loadcase_type=loadcase_type,
+            load_direction=load_direction,
+            locations=locations,
+            uniform_load=uniform_load,
+            loads=loads,
+        )
         distributed_line_loads = {
-            "Line Name": line_name,
-            "Load Case": loadcase_type,
-            "Direction": load_direction,
-            "Loads": loads,
-            "Locations": locations,
+            "Line Name": new_line_name,
+            "Load Case": new_loadcase_type,
+            "Direction": new_load_direction,
+            "Load": new_load,
+            "Location": new_location,
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 

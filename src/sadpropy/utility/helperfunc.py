@@ -14,22 +14,40 @@ def retrieve_output_from_input(inputdata, shared_data_in, outputdata, shared_dat
     return outputdata_converted.astype(np.int32)
 
 # TRASNFORM TO GLOBAL AXES
-def transform_to_global_axes(values, rotation_matrix):
+def transform_to_global_axes(values, rotation_matrices):
     values = np.asarray(values) # Make values into an array
-    if values.ndim == 1: # Set condition if dimension of array in values is 1 (3,) return projection to local axes
-        return rotation_matrix @ values
-    elif values.ndim == 2: # Set condition if dimension of array in values is 2 (N,3) return projection to local axes
-        return values @ rotation_matrix.T
-    raise ValidationError("Values must have shape (3,) or (N,3)")
+    if values.ndim == 1: # Set condition if values is 1D-array return projection to local axes
+        if rotation_matrices.ndim != 2: # Set condition if rotation matrices is not 2D-array raise ValidationError
+            raise ValidationError("Single vector requires a single rotation matrix")
+        return values @ rotation_matrices.T
+    elif values.ndim == 2: # Set condition if values is 2D-array
+        if rotation_matrices.ndim == 2: # Set condition if rotation matrices is 2D-array (Same rotation matrix for every value) return projection to local axes
+            return values @ rotation_matrices.T
+        elif rotation_matrices.ndim == 3: # Set condition if rotation matrices is 3D-array (Different rotation matrix per every value) return projection to local axes
+            return np.einsum("ni,nji->nj", values, rotation_matrices)
+    elif values.ndim == 3: # Set condition if values is 3D-array return projection to local axes
+        if rotation_matrices.ndim != 3: # Set condition if rotation matrices is not 3D-array raise ValidationError
+            raise ValidationError("Batched vectors require batched rotation matrices")
+        return np.einsum("nki,nji->nkj", values, rotation_matrices)
+    raise ValidationError("Values must have shape 1D, 2D or 3D array")
 
 # TRANSFORM TO LOCAL AXES
-def transform_to_local_axes(values, rotation_matrix):
+def transform_to_local_axes(values, rotation_matrices):
     values = np.asarray(values) # Make values into an array
-    if values.ndim == 1: # Set condition if dimension of array in values is 1 (3,) return projection to local axes
-        return rotation_matrix.T @ values
-    elif values.ndim == 2: # Set condition if dimension of array in values is 2 (N,3) return projection to local axes
-        return values @ rotation_matrix
-    raise ValidationError("Values must have shape (3,) or (N,3)")
+    if values.ndim == 1: # Set condition if values is 1D-array return projection to local axes
+        if rotation_matrices.ndim != 2: # Set condition if rotation matrices is not 2D-array raise ValidationError
+            raise ValidationError("Single vector requires a single rotation matrix")
+        return values @ rotation_matrices
+    elif values.ndim == 2: # Set condition if values is 2D-array
+        if rotation_matrices.ndim == 2: # Set condition if rotation matrices is 2D-array (Same rotation matrix for every value) return projection to local axes
+            return values @ rotation_matrices
+        elif rotation_matrices.ndim == 3: # Set condition if rotation matrices is 3D-array (Different rotation matrix per every value) return projection to local axes
+            return np.einsum("ni,nij->nj", values, rotation_matrices)
+    elif values.ndim == 3: # Set condition if values is 3D-array return projection to local axes
+        if rotation_matrices.ndim != 3: # Set condition if rotation matrices is not 3D-array raise ValidationError
+            raise ValidationError("Batched vectors require batched rotation matrices")
+        return np.einsum("nki,nij->nkj", values, rotation_matrices)
+    raise ValidationError("Values must have shape 1D, 2D or 3D array")
 
 # GET PARENT NODE
 def get_parent_node(nodes, child_node):

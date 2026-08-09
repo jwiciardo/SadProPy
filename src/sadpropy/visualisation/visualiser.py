@@ -58,7 +58,7 @@ class Visualisation:
         vertices *= size
         vertices = transform_to_global_axes(
             values=vertices,
-            rotation_matrix=rotation_matrix,
+            rotation_matrices=rotation_matrix,
         )
         vertices += node_coords
         for i, j in symbol.segments:
@@ -538,7 +538,7 @@ class Visualisation:
                 borderaxespad=0,
             ) # Plot legends
 
-    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, rotation_matrix, show_labels, colour="black", linewidth=1.2):
+    def _plot_zerolength_elements(self, ax, coords, zerolength_elements, rotation_matrices, show_labels, colour="black", linewidth=1.2):
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
         offset = 0.005 * model_size  # Set label offset
         symbol_size = 0.02 * model_size # Set symbol size
@@ -549,7 +549,7 @@ class Visualisation:
                 ax=ax,
                 symbol=StructuralSymbols.spring(),
                 node_coords=n_child,
-                rotation_matrix=rotation_matrix[i],
+                rotation_matrix=rotation_matrices[i],
                 size=symbol_size,
                 colour=colour,
                 linewidth=linewidth,
@@ -641,7 +641,7 @@ class Visualisation:
                 ax=ax,
                 coords=coords,
                 zerolength_elements=zerolength_elements,
-                rotation_matrix=zerolength_elements.rotation_matrix,
+                rotation_matrices=zerolength_elements.rotation_matrices,
                 show_labels=show_element_labels,
             )
 

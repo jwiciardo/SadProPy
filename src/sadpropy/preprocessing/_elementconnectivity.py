@@ -25,8 +25,8 @@ def generate_element_local_axes(nodes, end_nodes_index, ndim):
         local_z /= np.linalg.norm(local_z, axis=1)[:, None] # Normalise local z-axis
         local_y = np.cross(local_z, local_x) # Determine local y-axis using cross product of local z-axis and local x-axis
         local_y /= np.linalg.norm(local_y, axis=1)[:, None] # Normalise local y-axis
-        rotation_matrix = np.stack((local_x, local_y, local_z), axis=2) # Build rotation matrix 3x3 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, local_z, rotation_matrix)
+        rotation_matrices = np.stack((local_x, local_y, local_z), axis=2) # Build rotation matrices 3x3 for transforming global to local axes and local to global axes
+        return (centroids, length, local_x, local_y, local_z, rotation_matrices)
     else: # 2D Structure
         inode_coords = inode_coords[:2] # Retrieve I-end node coordinates (X, Y)
         jnode_coords = jnode_coords[:2] # Retrieve J-end node coordinates (X, Y)
@@ -36,8 +36,8 @@ def generate_element_local_axes(nodes, end_nodes_index, ndim):
         cy = d_vectors[:, 1] / length # Compute the y-component of the direction cosine of elements
         local_x = np.column_stack((cx, cy)) # Determine local x-axis
         local_y = np.column_stack((-cy, cx)) # Determine local y-axis
-        rotation_matrix = np.stack((local_x, local_y), axis=2) # Build rotation matrix 2x2 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, local_z, rotation_matrix)
+        rotation_matrices = np.stack((local_x, local_y), axis=2) # Build rotation matrices 2x2 for transforming global to local axes and local to global axes
+        return (centroids, length, local_x, local_y, None, rotation_matrices)
 
 # GENERATE ELEMENT CONNECTIVITY
 def _map_node_to_element(iend_nodes_idx, jend_nodes_idx):
@@ -112,7 +112,7 @@ def generate_element_connectivity(nodes, end_nodes_index):
 def _compute_offsets_length(
         element_type,
         centroids,
-        rotation_matrix,
+        rotation_matrices,
         filtered_elements_connectivity,
         filtered_current_elements_end,
         sec_dim,
@@ -127,7 +127,7 @@ def _compute_offsets_length(
         delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroids and current element centroids
         delta_local = transform_to_local_axes(
             values=delta,
-            rotation_matrix=rotation_matrix[ele_idx],
+            rotation_matrices=rotation_matrices[ele_idx],
         ) # Transform delta to local axes
         dx = delta_local[:, 0] # Unpack dx from delta local
         dy = delta_local[:, 1] # Unpack dy from delta local
@@ -152,7 +152,7 @@ def _compute_offsets_length(
         offsets_length[ele_idx] = (iend_offset_length, jend_offset_length) # Store I-end and J-end offsets length into offsets length array
     return offsets_length
 
-def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrix, tol=Tolerance.LENGTH):
+def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrices, tol=Tolerance.LENGTH):
     filtered_elements_connectivity = [] # Predefined filtered elements connectivity list
     filtered_current_elements_end = [] # Predefined filtered current elements end list
     for ele_idx, connected_elements in enumerate(elements_connectivity): # Loop over elements connectivity
@@ -164,7 +164,7 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
         delta = connected_ele_centroids - current_ele_centroids # Compute delta, difference between connected elements centroids and current element centroids 
         delta_local = transform_to_local_axes(
             values=delta,
-            rotation_matrix=rotation_matrix[ele_idx],
+            rotation_matrices=rotation_matrices[ele_idx],
         ) # Transform delta to local axes
         dx = delta_local[:, 0] # Unpack dx from delta local
         dy = delta_local[:, 1] # Unpack dy from delta local
@@ -201,14 +201,14 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
     offsets_length = _compute_offsets_length(
         element_type=element_type,
         centroids=centroids,
-        rotation_matrix=rotation_matrix,
+        rotation_matrices=rotation_matrices,
         filtered_elements_connectivity=filtered_elements_connectivity,
         filtered_current_elements_end=filtered_current_elements_end,
         sec_dim=sec_dim,
     ) # Retrieve offsets length
     return offsets_length
 
-def generate_end_offsets(offsets_length, rotation_matrix):
+def generate_end_offsets(offsets_length, rotation_matrices):
     n = len(offsets_length)
     end_offsets = np.zeros((n, 6), dtype=np.float64) # Predefined end offsets array
     for ele_idx in range(n):
@@ -216,12 +216,12 @@ def generate_end_offsets(offsets_length, rotation_matrix):
         iend_offset_local_vector = np.array((iend_offset_length, 0.0, 0.0), dtype=np.float64) # Define I-end offset local vector
         iend_offset_global_vector = transform_to_global_axes(
             values=iend_offset_local_vector,
-            rotation_matrix=rotation_matrix[ele_idx],
+            rotation_matrices=rotation_matrices[ele_idx],
         ) # Transform I-End offset local vector to global axes
         jend_offset_local_vector = np.array((-jend_offset_length, 0.0, 0.0), dtype=np.float64) # Define J-end offset local vector
         jend_offset_global_vector = transform_to_global_axes(
             values=jend_offset_local_vector,
-            rotation_matrix=rotation_matrix[ele_idx],
+            rotation_matrices=rotation_matrices[ele_idx],
         ) # Transform J-End offset local vector to global axes
         offsets_vector = np.concatenate((iend_offset_global_vector, jend_offset_global_vector)) # Concatenate I-end and J-end offsets vector
         end_offsets[ele_idx] = offsets_vector # Store offsets vector into end offsets array

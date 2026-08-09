@@ -257,24 +257,25 @@ class Storeys:
 class Nodes:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
-    tag: np.ndarray                     # int32, shape (N,)
+    node_tag: np.ndarray                # int32, shape (N,)
     coords: np.ndarray                  # float64, shape (N,3)
     generated_source: np.ndarray        # int32, shape (N,)
     generated_from: np.ndarray          # str, shape (N,)
     name_to_idx: dict[str, np.int32]
+    tag_to_idx: dict[np.int32, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class Elements:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
-    tag: np.ndarray                     # int32, shape (N,)
+    element_tag: np.ndarray             # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
     element_type: np.ndarray            # str, shape(N,)
     sec_class: np.ndarray               # int32, shape (N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
-    rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
+    rotation_matrices: np.ndarray       # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     transformation_tag: np.ndarray      # int32, shape (N,)
     elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
     shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
@@ -284,22 +285,29 @@ class Elements:
     offsets_length: np.ndarray          # float64, shape (N,2)
     end_offsets: np.ndarray             # float64, shape (N,6)
     name_to_idx: dict[str, np.int32]
+    tag_to_idx: dict[np.int32, np.int32]
 
 @dataclass(slots=True, frozen=True)
 class ZeroLengthElements:
     index: np.ndarray                   # int32, shape (N,)
     unique_name: np.ndarray             # str, shape (N,)
-    tag: np.ndarray                     # int32, shape (N,)
+    element_tag: np.ndarray             # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
     element_type: np.ndarray            # str, shape(N,)
-    rotation_matrix: np.ndarray         # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
+    rotation_matrices: np.ndarray       # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
     name_to_idx: dict[str, np.int32]
+    tag_to_idx: dict[np.int32, np.int32]
 
 @dataclass(slots=True, frozen=True)
-class Slabs:
-    tag: int
-    elements: tuple[int, ...]
-    nodes: tuple[int, ...]
+class Shells:
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    elements_idx: np.ndarray            # int32, shape (N,4)
+    nodes_idx: np.ndarray               # int32, shape (N,4)
+    element_type: np.ndarray            # str, shape(N,)
+    sec_class: np.ndarray               # int32, shape (N,)
+    sec_idx: np.ndarray                 # int32, shape (N,)
+    name_to_idx: dict[str, np.int32]
 
 # PROPERTIES: RESTRAINTS
 @dataclass(slots=True, frozen=True)
@@ -313,14 +321,14 @@ class Restraints:
 @dataclass(slots=True, frozen=True)
 class NodalLoads:
     node_tag: np.ndarray                # int32, shape (N,)
-    loadcase_type: np.ndarray           # int32, shape (N,)
+    loadcase: np.ndarray                # int32, shape (N,)
     loads: np.ndarray                   # float64, shape (N,6)
 
     @classmethod
     def empty(cls):
         return cls(
             node_tag=np.empty(0, dtype=np.int32),
-            loadcase_type=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int32),
             loads=np.empty((0, 6), dtype=np.float64),
         )
 
@@ -328,15 +336,51 @@ class NodalLoads:
 @dataclass(slots=True, frozen=True)
 class ConcentratedElementLoads:
     element_tag: np.ndarray             # int32, shape (N,)
-    loadcase_type: np.ndarray           # int32, shape (N,)
-    loads: np.ndarray                   # float64, shape (N,6)
+    loadcase: np.ndarray                # int32, shape (N,)
+    location: np.ndarray                # float64, shape (N,)
+    loads: np.ndarray                   # float64, shape (N,3)
 
     @classmethod
     def empty(cls):
         return cls(
             element_tag=np.empty(0, dtype=np.int32),
-            loadcase_type=np.empty(0, dtype=np.int32),
-            loads=np.empty((0, 6), dtype=np.float64),
+            loadcase=np.empty(0, dtype=np.int32),
+            location=np.empty(0, dtype=np.float64),
+            loads=np.empty((0, 3), dtype=np.float64),
+        )
+
+# LOADS: DISTRIBUTED ELEMENT LOADS
+@dataclass(slots=True, frozen=True)
+class DistributedElementLoads:
+    element_tag: np.ndarray             # int32, shape (N,)
+    loadcase: np.ndarray                # int32, shape (N,)
+    location: np.ndarray                # float64, shape (N,)
+    loads: np.ndarray                   # float64, shape (N,3)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            element_tag=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int32),
+            location=np.empty((0, 2), dtype=np.float64),
+            loads=np.empty((0, 2, 3), dtype=np.float64),
+        )
+
+# LOADS: SURFACE TO ELEMENT LOADS
+@dataclass(slots=True, frozen=True)
+class SurfaceToElementLoads:
+    element_tag: np.ndarray             # int32, shape (N,)
+    loadcase: np.ndarray                # int32, shape (N,)
+    location: np.ndarray                # float64, shape (N,)
+    loads: np.ndarray                   # float64, shape (N,3)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            element_tag=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int32),
+            location=np.empty(0, dtype=np.float64),
+            loads=np.empty((0, 3), dtype=np.float64),
         )
 
 # MODEL DATA
@@ -361,7 +405,10 @@ class ModelDataclass:
     nodes: Nodes
     elements: Elements
     zerolength_elements: ZeroLengthElements
+    shells: Shells
     restraints: Restraints
     nodal_loads: NodalLoads
     concentrated_element_loads: ConcentratedElementLoads
+    distributed_element_loads: DistributedElementLoads
+    surface_to_element_loads: SurfaceToElementLoads
 

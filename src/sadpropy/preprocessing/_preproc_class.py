@@ -172,32 +172,41 @@ class ConnectionEnd(IntEnum):
 
 class LoadCaseType:
     case = {
-        "D": 0,
-        "L": 1,
-        "Lr": 2,
-        "E": 3,
-        "W": 4,
+        "SW": 0,
+        "D": 1,
+        "L": 2,
+        "Lr": 3,
+        "E": 4,
+        "W": 5,
     }
     def _get_loadcase_class(self, loadcase):
         return self.case[loadcase]
 
 class LoadDirection:
-    direction3D = {
-        "Global-X": np.asarray([1, 0, 0], dtype=np.float64),
-        "Global-Y": np.asarray([0, 1, 0], dtype=np.float64),
-        "Gravity": np.asarray([0, 0, 1], dtype=np.float64), 
-        "Local-x": (1, 0, 0),
-        "Local-y": (0, 1, 0),
-        "Local-z": (0, 0, 1),
+    global_direction = {
+        3 : {
+            "Global-X": np.asarray([1, 0, 0], dtype=np.float64),
+            "Global-Y": np.asarray([0, 1, 0], dtype=np.float64),
+            "Gravity": np.asarray([0, 0, -1], dtype=np.float64),
+        },
+        2 : {
+            "Global-X": np.asarray([1, 0], dtype=np.float64),
+            "Global-Y": np.asarray([0, 1], dtype=np.float64),
+            "Gravity": np.asarray([0, -1], dtype=np.float64),
+        }
     }
-    def _get_load_direction3D_class(self, direction):
-        return self.direction3D[direction]
+    local_direction = {
+        3: {
+            "Local-x": np.asarray([1, 0, 0], dtype=np.float64),
+            "Local-y": np.asarray([0, 1, 0], dtype=np.float64),
+            "Local-z": np.asarray([0, 0, 1], dtype=np.float64),
+        },
+        2: {
+            "Local-x": np.asarray([1, 0], dtype=np.float64),
+            "Local-y": np.asarray([0, 1], dtype=np.float64),
+        }
+    }
 
-    direction2D = {
-        "Global-X": np.asarray([1, 0], dtype=np.float64),
-        "Gravity": np.asarray([0, 1], dtype=np.float64),
-        "Local-x": (1, 0),
-        "Local-y": (0, 1),
-    }
-    def _get_load_direction2D_class(self, direction):
-        return self.direction2D[direction]
+    @classmethod
+    def get_direction(cls, ndim):
+        return {**cls.global_direction[ndim], **cls.local_direction[ndim]}
