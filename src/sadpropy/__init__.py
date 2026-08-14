@@ -1,9 +1,4 @@
 from .version import __version__
-from .preprocessing import *
-from .utility import *
-from .visualisation import *
+from .api.session import start_session
 
-__all__ = []
-__all__ += preprocessing.__all__
-__all__ += utility.__all__
-__all__ += visualisation.__all__
+__all__ = ["start_session"]

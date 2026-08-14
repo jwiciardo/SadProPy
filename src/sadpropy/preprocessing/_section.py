@@ -1,5 +1,5 @@
 import numpy as np
-from ._preproc_class import FrameSectionProperties, FiberSectionProperties, PropertiesClassRegistry
+from .preprocessing_class import FrameSectionProperties, FiberSectionProperties, PropertiesClassRegistry
 from sadpropy.utility._exceptions import ValidationError
 
 # COMPUTE REINFORCEMENT AREA

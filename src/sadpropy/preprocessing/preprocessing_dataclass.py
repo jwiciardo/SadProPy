@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
-from ._preproc_class import (
+from .preprocessing_class import (
     Concrete04Properties,
     Steel02Properties,
     MinMaxProperties,
@@ -385,7 +385,7 @@ class SurfaceToElementLoads:
 
 # MODEL DATA
 @dataclass(slots=True)
-class ModelDataclass:
+class ModelData:
     filepath_information: FilePathInformation
     project_information: ProjectInformation
     userdefined_units: UserDefinedUnits
@@ -412,3 +412,32 @@ class ModelDataclass:
     distributed_element_loads: DistributedElementLoads
     surface_to_element_loads: SurfaceToElementLoads
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            filepath_information = None,
+            project_information = None,
+            userdefined_units = None,
+            analysis_preferences = None,
+            materials = None,
+            mat_concrete04 = None,
+            mat_steel02 = None,
+            mat_minmax = None,
+            mat_imk = None,
+            materials_list = [],
+            frame_sections = None,
+            sec_fiber = None,
+            sec_aggregator = None,
+            sections_list = [],
+            slab_sections = None,
+            storeys = None,
+            nodes = None,
+            elements = None,
+            zerolength_elements = None,
+            shells = None,
+            restraints = None,
+            nodal_loads = None,
+            concentrated_element_loads = None,
+            distributed_element_loads = None,
+            surface_to_element_loads = None,
+        )

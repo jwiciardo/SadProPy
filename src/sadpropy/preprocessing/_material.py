@@ -1,7 +1,7 @@
 import numpy as np
-from sadpropy.preprocessing._preproc_class import PropertiesClassRegistry
+from sadpropy.preprocessing.preprocessing_class import PropertiesClassRegistry
 
-# GET SECTION DATA
+# GET MATERIAL DATA
 def get_material_data(mats_list, mat_class=np.ndarray):
     n = len(mat_class)
     mat_data = np.zeros(n, dtype=object)

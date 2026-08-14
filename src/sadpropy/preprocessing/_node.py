@@ -1,5 +1,5 @@
 import numpy as np
-from ._preproc_class import (
+from .preprocessing_class import (
     NodeSource,
     ConnectionEnd,
 )

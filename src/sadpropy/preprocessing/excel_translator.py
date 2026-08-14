@@ -1,7 +1,7 @@
 import warnings
 import numpy as np
 from openpyxl import load_workbook
-from ._preproc_dataclass import (
+from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
     AnalysisPreferences,
@@ -16,14 +16,14 @@ from ._preproc_dataclass import (
     SlabSections,
     Storeys,
 )
-from ._surfaceconnectivity import generate_surface_connectivity
-from ._materialdata import get_material_properties
-from ._sectiondata import (
+from ._surface import generate_surface_connectivity
+from ._material import get_material_properties
+from ._section import (
     compute_section_properties,
     compute_fibersection_properties,
     get_section_properties,
 )
-from ._loadgenerator import (
+from ._load import (
     get_concentrated_line_loads,
     get_distributed_line_loads,
 )
@@ -34,7 +34,6 @@ from sadpropy.utility import (
 from sadpropy.utility import TagManager
 from sadpropy.utility._exceptions import ValidationError
 from sadpropy.utility._filepath import get_filepath
-
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -81,13 +80,14 @@ class ExcelReader:
             for preference in required_preferences:
                 value = values.get(preference)
                 if value is None or str(value).strip() == "":
-                    raise ValidationError(f"'{preference}' in sheet '{sheet_name}' cannot be empty.")
+                    raise ValidationError(f"'{preference}' in sheet '{sheet_name}' cannot be empty")
         return values
 
 class ExcelTranslator:
-    def __init__(self):
+    def __init__(self, inputfile_path):
         # FILE PATH
-        self._parent_path, self._output_path, self._inputfile_path, self._logfile_path = get_filepath()
+        self._inputfile_path = inputfile_path
+        self._parent_path, self._output_path, self._logfile_path = get_filepath(inputfile_path)
 
         # CORE
         self._reader = ExcelReader(inputfile_path=self._inputfile_path)
@@ -261,7 +261,7 @@ class ExcelTranslator:
         project_information = ProjectInformation(
             name = str(values["Project Name"]),
             desc = str(values["Project Description"]),
-            ndim = int(3 if str(values["Model Dimensional Space"]) == "3-Dimensional" else 2),
+            ndim = int(3 if str(values["Model Dimensional Space"]) == "3D-Space" else 2),
         ) # Storing project information to dataclass
         return project_information
     

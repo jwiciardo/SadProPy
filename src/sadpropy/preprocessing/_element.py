@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
-from ._preproc_class import ConnectionEnd
-from ._sectiondata import get_section_properties
+from .preprocessing_class import ConnectionEnd
+from ._section import get_section_properties
 from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_local_axes, get_parent_node
 from sadpropy.utility.tolerance import Tolerance
 

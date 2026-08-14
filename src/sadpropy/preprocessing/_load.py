@@ -1,5 +1,5 @@
 import numpy as np
-from ._preproc_class import LoadDirection
+from .preprocessing_class import LoadDirection
 from sadpropy.utility.helperfunc import transform_to_local_axes
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):
@@ -280,3 +280,26 @@ def generate_edge_load_segments(edge_length, perpendicular_length, surface_load)
         result_location.append([x1, x2])
         result_load.append([w1, w2])
     return (np.asarray(result_location, dtype=np.float64), np.asarray(result_load, dtype=np.float64))
+
+def _surface_edge_lengths(vertices, coordinates):
+    points = coordinates[vertices]
+    next_points = np.roll(points, -1, axis=0)
+    edge_vectors = next_points - points
+    edge_lengths = np.linalg.norm(edge_vectors, axis=1)
+    return edge_lengths
+
+def generate_surface_edge_load(
+    edge_length: float,
+    tributary_width: float,
+    surface_load: float,
+):
+    max_line_load = surface_load * tributary_width
+    location = np.asarray(
+        [0.0, edge_length],
+        dtype=np.float64,
+    )
+    load = np.asarray(
+        [0.0, max_line_load],
+        dtype=np.float64,
+    )
+    return location, load
