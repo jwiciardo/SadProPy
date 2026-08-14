@@ -26,7 +26,7 @@ from .preprocessing_dataclass import (
     DistributedElementLoads,
     SurfaceToElementLoads,
 )
-from .preprocessing_class import (
+from .preprocessing_class_index import (
     NodeSource,
     LoadCaseType,
 )

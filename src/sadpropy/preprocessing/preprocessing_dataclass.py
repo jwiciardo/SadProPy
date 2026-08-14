@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
-from .preprocessing_class import (
+from .preprocessing_class_index import (
     Concrete04Properties,
     Steel02Properties,
     MinMaxProperties,
@@ -26,8 +26,8 @@ class ProjectInformation:
 
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
-    is_nonlinear_analysis: str
-    is_pdelta: str
+    is_nonlinear_analysis: bool
+    is_pdelta: bool
     liveload_mass_factor: float
 
 # PROPERTIES: MATERIALS
@@ -36,9 +36,10 @@ class Materials:
     index: np.ndarray                   # int32, shape (N,)
     mat_name: np.ndarray                # str, shape (N,)
     mat_tag: np.ndarray                 # int32, shape (N,)
-    mat_type: np.ndarray                # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,7)
-    name_to_idx: dict[str, np.int32]
+    mat_type: np.ndarray                # int8, shape (N,)
+    mat_model: np.ndarray               # int8, shape (N,)
+    properties: np.ndarray              # float64, shape (N,32)
+    name_to_idx: dict[str, np.int8]
 
 @dataclass(slots=True, frozen=True)
 class Mat_Concrete04:

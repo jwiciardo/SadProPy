@@ -1,6 +1,22 @@
 import numpy as np
 from enum import IntEnum
 
+class MaterialType(IntEnum):
+    Concrete = 0
+    Steel = 1
+    Spring = 2
+
+class MaterialModel(IntEnum):
+    Elastic = 0
+    Concrete04 = 1
+    Concrete04MinMax = 2
+    Steel02 = 11
+    Steel02MinMax = 12
+    IMKBilinear = 91
+    IMKPeakOriented = 92
+    IMKPinching = 93
+
+
 class MaterialProperties(IntEnum):
     Unitweight = 0
     E = 1

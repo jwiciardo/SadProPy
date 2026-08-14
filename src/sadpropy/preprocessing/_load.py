@@ -1,5 +1,5 @@
 import numpy as np
-from .preprocessing_class import LoadDirection
+from .preprocessing_class_index import LoadDirection
 from sadpropy.utility.helperfunc import transform_to_local_axes
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):

@@ -1,3 +1,7 @@
+from pathlib import Path
+from sadpropy.preprocessing.excel_translator import ExcelTranslator
+from sadpropy.preprocessing.modeldata_storer import ModelDataStorer
+from sadpropy.preprocessing.preprocessing_dataclass import ModelData
 from sadpropy.preprocessing.model import Model
 
 class Session:
@@ -5,12 +9,18 @@ class Session:
         self._model = None
 
     def new(self):
-        model = Model()
+        modeldata = ModelData.empty()
+        model = Model(modeldata=modeldata)
         self._model = model
         return self._model
 
     def open(self, inputfile_path):
-        model = Model().open(inputfile_path=inputfile_path)
+        inputfile_path = Path(inputfile_path)
+        if inputfile_path.suffix.lower() in [".xlsx", ".xls"]:
+            translator = ExcelTranslator(inputfile_path=inputfile_path)
+            data = translator.translate()
+        modeldata = ModelDataStorer(translator_data=data).retrieve()
+        model = Model(modeldata=modeldata)
         self._model = model
         return self._model
 

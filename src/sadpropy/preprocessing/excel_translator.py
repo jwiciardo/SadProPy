@@ -1,6 +1,23 @@
 import warnings
 import numpy as np
 from openpyxl import load_workbook
+from .concrete_class_index import (
+    ConcreteElastic,
+    Concrete04,
+    Concrete04MinMax,
+)
+from .steel_class_index import (
+    SteelElastic,
+    Steel02,
+    Steel02MinMax,
+)
+from .preprocessing_class_index import (
+    MaterialType,
+    MaterialModel,
+    SpringIMKBilinearProperties,
+    SpringIMKPeakOrientedProperties,
+    SpringIMKPinchingProperties,
+)
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
@@ -96,6 +113,35 @@ class ExcelTranslator:
         self._tagmanager = TagManager()
         
         # DICTIONARY LIST
+        self._material_type = {
+            "Concrete": MaterialType.Concrete,
+            "Rebar": MaterialType.Steel,
+            "Steel": MaterialType.Steel,
+            "Spring": MaterialType.Spring,
+        }
+        self._material_model = {
+            "Elastic": MaterialModel.Elastic,
+            "Concrete04": MaterialModel.Concrete04,
+            "Concrete04+MinMax": MaterialModel.Concrete04MinMax,
+            "Steel02": MaterialModel.Steel02,
+            "Steel02+MinMax": MaterialModel.Steel02MinMax,
+            "IMKBilinear": MaterialModel.IMKBilinear,
+            "IMKPeakOriented": MaterialModel.IMKPeakOriented,
+            "IMKPinching": MaterialModel.IMKPinching,
+        }
+        self._matprop_index = {
+            (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinearProperties,
+            (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOrientedProperties,
+            (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinchingProperties,
+        }
+        self._matprop_definition = {
+            (MaterialType.Concrete, MaterialModel.Elastic): ConcreteElastic,
+            (MaterialType.Concrete, MaterialModel.Concrete04): Concrete04,
+            (MaterialType.Concrete, MaterialModel.Concrete04MinMax): Concrete04MinMax,
+            (MaterialType.Steel, MaterialModel.Elastic): SteelElastic,
+            (MaterialType.Steel, MaterialModel.Steel02): Steel02,
+            (MaterialType.Steel, MaterialModel.Steel02MinMax): Steel02MinMax,
+        }
         self._mats_list = []
         self._hinge_mats_list = []
         self._secs_list = []
@@ -299,8 +345,8 @@ class ExcelTranslator:
             ],
         ) # Reading Sheet "Analysis Preferences" in the Input file
         analysis_preferences = AnalysisPreferences(
-            is_nonlinear_analysis = str(values["Nonlinear Analysis"]),
-            is_pdelta = str(values["P-Delta"]),
+            is_nonlinear_analysis = str(values["Nonlinear Analysis"]).strip().lower() == "yes",
+            is_pdelta = str(values["P-Delta"]).strip().lower() == "yes",
             liveload_mass_factor = float(values["LL Mass Factor"]),
         ) # Storing analysis preferences to dataclass
         return analysis_preferences
@@ -310,49 +356,39 @@ class ExcelTranslator:
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
-            start_row=13,
+            start_row=32,
         ) # Reading Sheet "Materials" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
         mat_name = np.asarray(data["Material Name"], dtype="U32")
         self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
         mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        mat_type = np.asarray(data["Material Type"], dtype="U15")
+        mat_type = np.asarray([self._material_type[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
+        mat_model = np.asarray([self._material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
+        matprop_def = [self._matprop_definition[(t, m)] for t, m in zip(mat_type, mat_model)]
+        print(matprop_def[0])
+        Unitweight = self._to_internalunits.unitweight(values=data["Unitweight"])
         E = self._to_internalunits.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        Unitweight = self._to_internalunits.unitweight(values=data["Unitweight"])
-        fc = np.where(
-            mat_type == "Concrete", 
-            self._to_internalunits.stress(values=data["fc"]), 
-            0.0,
-        )
-        fyfu_mask = np.isin(mat_type, ["Rebar", "Steel"])
-        fy = np.where(
-            fyfu_mask,
-            self._to_internalunits.stress(values=data["fy"]), 
-            0.0,
-        )
-        fu = np.where(
-            fyfu_mask,
-            self._to_internalunits.stress(values=data["fu"]), 
-            0.0,
-        )
-        properties = np.column_stack((
+        props = np.column_stack((
             Unitweight,
             E,
             nu,
             G,
-            fc,
-            fy,
-            fu,
+            *[np.asarray(data[f"Prop{i}"], dtype=np.float64) for i in range(1, 29)],
         ))
+        props_count = np.asarray([idx.Count for idx in matprop_idx], dtype=np.int8)
+        column_index = np.arange(props.shape[1])
+        props[column_index >= props_count[:, None]] = np.nan
+        print(props)
         name_to_idx = dict(zip(mat_name, index))
         materials = Materials(
             index = index,
             mat_name = mat_name,
             mat_tag = mat_tag,
             mat_type = mat_type,
+            mat_model = mat_model,
             properties = properties,
             name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass

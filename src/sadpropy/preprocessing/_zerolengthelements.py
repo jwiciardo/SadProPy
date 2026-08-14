@@ -1,5 +1,5 @@
 import numpy as np
-from .preprocessing_class import ConnectionEnd
+from .preprocessing_class_index import ConnectionEnd
 
 def generate_zerolength_element_local_axes(ndim, elements, child_nodes):
     n = len(child_nodes)
