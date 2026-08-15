@@ -1,8 +1,5 @@
 import numpy as np
-from .preprocessing_class_index import (
-    NodeSource,
-    ConnectionEnd,
-)
+from .preprocessing_class_index import NodeSource, ConnectionEnd
 from sadpropy.utility._exceptions import ValidationError
 
 # AUTOGENERATE NODES

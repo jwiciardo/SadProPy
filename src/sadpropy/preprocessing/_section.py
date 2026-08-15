@@ -129,15 +129,6 @@ def compute_section_properties(section_definitions, dimensions):
      return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, Abar_hoop, Abar_top, Abar_bot, Abar_int)
 
 # GET SECTION DATA
-def get_section_data(secs_list, sec_class=np.ndarray):
-    n = len(sec_class)
-    sec_data = np.zeros(n, dtype=object)
-    for cls in np.unique(sec_class):
-            mask = sec_class == cls
-            sec = secs_list[cls]
-            sec_data[mask] = sec
-    return sec_data
-
 def get_section_dimensions(sections, sec_idx, dims_name):
     sec_idx = np.asarray(sec_idx, dtype=np.int32)
     result = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
