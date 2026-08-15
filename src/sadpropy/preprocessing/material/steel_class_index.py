@@ -1,54 +1,5 @@
 import numpy as np
-from enum import IntEnum
-
-class SteelElasticProperties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fy = 4
-    fu = 5
-    Count = 6 # Total number of properties
-
-class Steel02Properties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fy = 4
-    fu = 5
-    eu = 6
-    b = 7
-    R0 = 8
-    cR1 = 9
-    cR2 = 10
-    a1 = 11
-    a2 = 12
-    a3 = 13
-    a4 = 14
-    finit = 15
-    Count = 16 # Total number of properties
-
-class Steel02MinMaxProperties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fy = 4
-    fu = 5
-    eu = 6
-    b = 7
-    R0 = 8
-    cR1 = 9
-    cR2 = 10
-    a1 = 11
-    a2 = 12
-    a3 = 13
-    a4 = 14
-    finit = 15
-    ecmax = 16
-    etmax = 17
-    Count = 18 # Total number of properties
+from ..preprocessing_class_index import SteelElasticProperties, Steel02Properties, Steel02MinMaxProperties
 
 class SteelElastic:
     properties = SteelElasticProperties

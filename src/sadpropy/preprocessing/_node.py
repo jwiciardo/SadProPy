@@ -29,7 +29,7 @@ def autogenerate_nodes(usr_nodes, line_objects):
                 name = (f"N{usr_unique_name[end_node]}_{suffix_idx}")
                 gen_unique_name.append(name)
                 gen_coords.append(usr_coords[end_node].copy())
-                gen_generated_source.append(NodeSource.ZLE)
+                gen_generated_source.append(NodeSource.ZeroLength)
                 gen_generated_from.append(usr_unique_name[end_node])
                 gen_line_to_end_nodes[line_idx][end] = np.int32(new_node_idx)
                 new_node_idx += 1

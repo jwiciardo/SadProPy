@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
-from .preprocessing_class_index import ConnectionEnd
-from ._section import get_section_properties
+from .preprocessing_class_index import ElementType, ConnectionEnd
+from ._section import get_section_dimensions
 from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_local_axes, get_parent_node
 from sadpropy.utility.tolerance import Tolerance
 
@@ -138,7 +138,7 @@ def _compute_offsets_length(
         for conn_element, element_end, dy_i, dz_i in zip(connected_elements, elements_end, dy, dz): # Loop over elements connectivity
             h_conn, b_conn = sec_dim[conn_element] # Retrieve section dimension
             offset_length = 0.0 # Predefined offset length
-            if element_type[ele_idx] == "Column": # Set condition if element type is "Column"
+            if element_type[ele_idx] == ElementType.Column: # Set condition if element type is "Column"
                 offset_length = h_conn # If True, compute offset length
             else: # Otherwise, if element type is "Beam"
                 if np.abs(dz_i) < tol: # Set condition if beam lies on xy plane
@@ -146,13 +146,13 @@ def _compute_offsets_length(
                 elif np.abs(dy_i) < tol: # Set condition if beam lies on xz plane
                     offset_length = b_conn / 2.0 # Compute offset length 
             if element_end == ConnectionEnd.I_End: # Set condition if current element end is on I-end
-                iend_offset_length = max(iend_offset_length, offset_length) if element_type[ele_idx] != "Column" else 0.0 # If True, compute I-end offset length
+                iend_offset_length = max(iend_offset_length, offset_length) if element_type[ele_idx] != ElementType.Column else 0.0 # If True, compute I-end offset length
             else:
                 jend_offset_length = max(jend_offset_length, offset_length) # Otherwise, compute J-end offset length
         offsets_length[ele_idx] = (iend_offset_length, jend_offset_length) # Store I-end and J-end offsets length into offsets length array
     return offsets_length
 
-def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrices, tol=Tolerance.LENGTH):
+def autogenerate_offsets_length(sections, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrices, tol=Tolerance.LENGTH):
     filtered_elements_connectivity = [] # Predefined filtered elements connectivity list
     filtered_current_elements_end = [] # Predefined filtered current elements end list
     for ele_idx, connected_elements in enumerate(elements_connectivity): # Loop over elements connectivity
@@ -170,13 +170,13 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
         dy = delta_local[:, 1] # Unpack dy from delta local
         dz = delta_local[:, 2] # Unpack dz from delta local
 
-        if element_type[ele_idx] == "Beam": # Set condition if element type is "Beam"
+        if element_type[ele_idx] == ElementType.Beam: # Set condition if element type is "Beam"
             xy_plane = np.abs(dz) < tol # Define filter for local xy plane
             not_collinear = np.abs(dy) >= tol # Define filter for non collinear element
             mask = xy_plane & not_collinear # Define filter for beam elements
             filtered_elements_connectivity.append(connected_elements[mask]) # Append filtered result to filtered elements connectivity
             filtered_current_elements_end.append(element_end[mask]) # Append filtered result to filtered current element end
-        elif element_type[ele_idx] == "Column": # Set condition if element type is "Column"
+        elif element_type[ele_idx] == ElementType.Column: # Set condition if element type is "Column"
             # Local xy plane
             xy_plane = np.abs(dz) < tol # Define filter for local xy plane
             not_collinear_xy = np.abs(dy) >= tol # Define filter for non collinear element in local xy plane
@@ -191,13 +191,11 @@ def autogenerate_offsets_length(secs_list, sec_class, sec_idx, element_type, ele
             filtered_ends_xz = element_end[xz_mask] # Retrieve filtered result of current element end in local xz plane
             filtered_elements_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered elements connectivity
             filtered_current_elements_end.append(np.concatenate((filtered_end_xy, filtered_ends_xz))) # Append filtered result to filtered current elements end
-    sec_props = get_section_properties(
-        secs_list=secs_list,
-        sec_class=sec_class,
+    sec_dim = get_section_dimensions(
+        sections=sections,
         sec_idx=sec_idx,
-        props_name=["h", "b"],
-    ) # Get section properties of all beamcolumn elements
-    sec_dim = np.asarray(sec_props) # Define section dimensions
+        dims_name=["h", "b"],
+    ) # Get section dimensions of all beamcolumn elements
     offsets_length = _compute_offsets_length(
         element_type=element_type,
         centroids=centroids,

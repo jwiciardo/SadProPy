@@ -1,11 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
-from sadpropy.utility import UserDefinedUnits
-from .preprocessing_class_index import (
-    FiberSectionProperties,
-    SectionAggregatorProperties,
-)
-from sadpropy.utility._exceptions import ValidationError
+from ..utility import UserDefinedUnits
+from ..utility._exceptions import ValidationError
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
@@ -35,14 +31,17 @@ class Materials:
     mat_tag: np.ndarray                 # int32, shape (N,)
     mat_type: np.ndarray                # int8, shape (N,)
     mat_model: np.ndarray               # int8, shape (N,)
+    mat_def: np.ndarray                 # object, shape (N,)
     properties: np.ndarray              # float64, shape (N,Max.columns)
 
     def name_to_idx(self, names):
-        lookup = {name: i for i, name in enumerate(self.mat_name)}
-        result = np.empty(len(names), dtype=np.int32)
+        lookup = dict(zip(self.mat_name, self.index))
+        result = np.full(len(names), -1, dtype=np.int32)
         for i, name in enumerate(names):
-            if name is None or not str(name).strip():
-                result[i] = -1
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
                 continue
             try:
                 result[i] = lookup[name]
@@ -58,116 +57,62 @@ class FrameSections:
     sec_tag: np.ndarray                 # int32, shape (N,)
     sec_shape: np.ndarray               # int8, shape (N,)
     sec_model: np.ndarray               # int8, shape (N,)
-    mats_idx: np.ndarray                # int32, shape (N,3)
+    sec_def: np.ndarray                 # object, shape (N,)
+    mats_idx: np.ndarray                # int32, shape (N,6)
     mat_type: np.ndarray                # int8, shape (N,)
     integration_type: np.ndarray        # int8, shape (N,)
     integration_tag: np.ndarray         # int32, shape (N,)
-    properties: np.ndarray              # float64, shape (N,Max.columns)
+    aggregated_sec_idx: np.ndarray      # int32, shape (N,)
+    dimensions: np.ndarray              # float64, shape (N,Max.columns)
+    properties: np.ndarray              # float64, shape (N,12)
 
     def name_to_idx(self, names):
-        lookup = {name: i for i, name in enumerate(self.sec_name)}
-        result = np.empty(len(names), dtype=np.int32)
+        lookup = dict(zip(self.sec_name, self.index))
+        result = np.full(len(names), -1, dtype=np.int32)
         for i, name in enumerate(names):
-            if name is None or not str(name).strip():
-                result[i] = -1
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
                 continue
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Section '{name}' does not exist") from None
+                raise ValidationError(f"Frame Section '{name}' does not exist") from None
         return result
-    
-@dataclass(slots=True, frozen=True)
-class Sec_Fiber:
-    index: np.ndarray                   # int32, shape (N,)
-    sec_name: np.ndarray                # str, shape (N,)
-    sec_tag: np.ndarray                 # int32, shape (N,)
-    sec_shape: np.ndarray               # str, shape (N,)
-    basesec_class: np.ndarray           # int32, shape (N,)
-    basesec_idx: np.ndarray             # int32, shape (N,)
-    integration_type: np.ndarray        # str, shape (N,)
-    integration_tag: np.ndarray         # int32, shape (N,)
-    mats_class: np.ndarray              # float64, shape (N,3) --> mat_1, mat_2, mat_3
-    mats_idx: np.ndarray                # float64, shape (N,3) --> mat_1, mat_2, mat_3
-    mat_type: np.ndarray                # str, shape (N,)
-    sec_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,19)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            sec_name=np.empty(0, dtype="U32"),
-            sec_tag=np.empty(0, dtype=np.int32),
-            sec_shape=np.empty(0, dtype="U32"),
-            basesec_class=np.empty(0, dtype=np.int32),
-            basesec_idx=np.empty(0, dtype=np.int32),
-            integration_type=np.empty(0, dtype="U15"),
-            integration_tag=np.empty(0, dtype=np.int32),
-            mats_class=np.empty((0, 3), dtype=np.int32),
-            mats_idx=np.empty((0, 3), dtype=np.int32),
-            mat_type=np.empty(0, dtype="U15"),
-            sec_model=np.empty(0, dtype="U15"),
-            properties=np.empty((0, len(FiberSectionProperties)), dtype=np.float64),
-            name_to_idx={},
-        )
-    
-@dataclass(slots=True, frozen=True)
-class Sec_Aggregator:
-    index: np.ndarray                   # int32, shape (N,)
-    sec_name: np.ndarray                # str, shape (N,)
-    sec_tag: np.ndarray                 # int32, shape (N,)
-    sec_shape: np.ndarray               # str, shape (N,)
-    basesec_class: np.ndarray           # int32, shape (N,)
-    basesec_idx: np.ndarray             # int32, shape (N,)
-    mats_class: np.ndarray              # int32, shape (N,6)
-    mats_idx: np.ndarray                # int32, shape (N,6)
-    mat_type: np.ndarray                # str, shape (N,)
-    sec_model: str                      # str, shape (N,)
-    aggregated_sec_class: np.ndarray    # int32, shape (N,)
-    aggregated_sec_idx: np.ndarray      # int32, shape (N,)
-    properties: np.ndarray              # float64, shape (N,8)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            sec_name=np.empty(0, dtype="U32"),
-            sec_tag=np.empty(0, dtype=np.int32),
-            sec_shape=np.empty(0, dtype="U32"),
-            basesec_class=np.empty(0, dtype=np.int32),
-            basesec_idx=np.empty(0, dtype=np.int32),
-            mats_class=np.empty((0, 6), dtype=np.int32),
-            mats_idx=np.empty((0, 6), dtype=np.int32),
-            mat_type=np.empty(0, dtype="U15"),
-            sec_model=np.empty(0, dtype="U15"),
-            aggregated_sec_class=np.empty(0, dtype=np.int32),
-            aggregated_sec_idx=np.empty(0, dtype=np.int32),
-            properties=np.empty((0, len(SectionAggregatorProperties)), dtype=np.float64),
-            name_to_idx={},
-        )
     
 # PROPERTIES: SLAB SECTIONS
 @dataclass(slots=True, frozen=True)
 class SlabSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
-    mats_class: np.ndarray              # int32, shape (N,1)
     mats_idx: np.ndarray                # int32, shape (N,1)
-    properties: np.ndarray              # float64, shape (N,)
-    name_to_idx: dict[str, np.int32]
+    mat_type: np.ndarray                # int8, shape (N,)
+    dimensions: np.ndarray              # float64, shape (N,)
+
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.sec_name, self.index))
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Slab Section '{name}' does not exist") from None
+        return result
 
     @classmethod
     def empty(cls):
         return cls(
             index=np.empty(0, dtype=np.int32),
             sec_name=np.empty(0, dtype="U32"),
-            mats_class=np.empty((0, 1), dtype=np.int32),
             mats_idx=np.empty((0, 1), dtype=np.int32),
-            properties=np.empty((0, len(SectionAggregatorProperties)), dtype=np.float64),
-            name_to_idx={},
+            mat_type=np.empty(0, dtype=np.int8),            
+            dimensions=np.empty((0, 1), dtype=np.float64),
         )
     
 # STRUCTURE DATA
@@ -195,8 +140,7 @@ class Elements:
     unique_name: np.ndarray             # str, shape (N,)
     element_tag: np.ndarray             # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
-    element_type: np.ndarray            # str, shape(N,)
-    sec_class: np.ndarray               # int32, shape (N,)
+    element_type: np.ndarray            # int8, shape(N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
@@ -229,8 +173,7 @@ class Shells:
     unique_name: np.ndarray             # str, shape (N,)
     elements_idx: np.ndarray            # int32, shape (N,4)
     nodes_idx: np.ndarray               # int32, shape (N,4)
-    element_type: np.ndarray            # str, shape(N,)
-    sec_class: np.ndarray               # int32, shape (N,)
+    element_type: np.ndarray            # int8, shape(N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
     name_to_idx: dict[str, np.int32]
 
@@ -317,9 +260,6 @@ class ModelData:
     analysis_preferences: AnalysisPreferences
     materials: Materials
     frame_sections: FrameSections
-    sec_fiber: Sec_Fiber
-    sec_aggregator: Sec_Aggregator
-    sections_list: list
     slab_sections: SlabSections
     storeys: Storeys
     nodes: Nodes
@@ -341,9 +281,6 @@ class ModelData:
             analysis_preferences = None,
             materials = None,
             frame_sections = None,
-            sec_fiber = None,
-            sec_aggregator = None,
-            sections_list = [],
             slab_sections = None,
             storeys = None,
             nodes = None,

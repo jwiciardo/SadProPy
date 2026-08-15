@@ -1,11 +1,11 @@
 import sadpropy as sa
 
-inputfile = r"D:\Projects\SadProPy\src\sadpropy\model_inputfile.xlsx"
-#inputfile = r"/Users/jwiciardo/Projects/SadProPy/src/sadpropy/model_inputfile.xlsx"
+#inputfile = r"D:\Projects\SadProPy\src\sadpropy\model_inputfile.xlsx"
+inputfile = r"/Users/jwiciardo/Projects/SadProPy/src/sadpropy/model_inputfile.xlsx"
 session = sa.start_session()
 session.new()
 session.open(inputfile_path=inputfile)
-print(session.model()._modeldata.nodes)
+#print(session.model()._modeldata.nodes)
 
 
 

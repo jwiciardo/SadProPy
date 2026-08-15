@@ -7,40 +7,35 @@ from .preprocessing_class_index import (
     SectionShape,
     SectionModel,
     IntegrationType,
+    ElementType,
+    LoadCaseType,
 )
 from .material.concrete_class_index import ConcreteElastic, Concrete04, Concrete04MinMax
 from .material.steel_class_index import SteelElastic, Steel02, Steel02MinMax
 from .material.spring_class_index import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
-from .section.rectangular_class_index import RectangularElastic, RectangularFiber
+from .section.rectangular_class_index import RectangularElastic, RectangularConcreteFiber
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
     AnalysisPreferences,
     Materials,
     FrameSections,
-    Sec_Fiber,
-    Sec_Aggregator,
     SlabSections,
     Storeys,
 )
 from ._surface import generate_surface_connectivity
-from ._material import get_material_properties
-from ._section import (
-    compute_section_properties,
-    compute_fibersection_properties,
-    get_section_properties,
-)
+from ._section import compute_section_properties
 from ._load import (
     get_concentrated_line_loads,
     get_distributed_line_loads,
 )
-from sadpropy.utility import (
+from ..utility import (
     ConverterToInternalUnits,
     UserDefinedUnits,
 )
-from sadpropy.utility import TagManager
-from sadpropy.utility._exceptions import ValidationError
-from sadpropy.utility._filepath import get_filepath
+from ..utility import TagManager
+from ..utility._exceptions import ValidationError
+from ..utility._filepath import get_filepath
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -102,7 +97,7 @@ class ExcelTranslator:
         self._to_internalunits = ConverterToInternalUnits(units=self._units)
         self._tagmanager = TagManager()
         
-        # DICTIONARY LIST
+        # DICTIONARY
         self._material_type = {
             "Concrete": MaterialType.Concrete,
             "Rebar": MaterialType.Steel,
@@ -119,7 +114,7 @@ class ExcelTranslator:
             "IMKPeakOriented": MaterialModel.IMKPeakOriented,
             "IMKPinching": MaterialModel.IMKPinching,
         }
-        self._matprop_definition = {
+        self._material_definition = {
             (MaterialType.Concrete, MaterialModel.Elastic): ConcreteElastic,
             (MaterialType.Concrete, MaterialModel.Concrete04): Concrete04,
             (MaterialType.Concrete, MaterialModel.Concrete04MinMax): Concrete04MinMax,
@@ -141,16 +136,34 @@ class ExcelTranslator:
         self._section_model = {
             "Elastic": SectionModel.Elastic,
             "Fiber": SectionModel.Fiber,
+            "Aggregator": SectionModel.Aggregator,
         }
-        self._secdim_definition = {
-            (SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
-            (SectionShape.Rectangular, SectionModel.Fiber): RectangularFiber,
+        self._section_definition = {
+            (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
+            (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
+            (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): RectangularConcreteFiber,
         }
         self._integration_type = {
             "Lobatto": IntegrationType.Lobatto,
             "Hinge Radau": IntegrationType.HingeRadau,
         }
-        self._secs_list = []
+        self._element_type = {
+            "Column": ElementType.Column,
+            "Beam": ElementType.Beam,
+            "Slab": ElementType.Slab,
+            "Brace": ElementType.Brace,
+            "Zero Length": ElementType.ZeroLength,
+        }
+        self._loadcase_type = {
+            "Selfweight": LoadCaseType.SW,
+            "Dead": LoadCaseType.D,
+            "Live": LoadCaseType.L,
+            "Live Roof": LoadCaseType.Lr,
+            "Earthquake-X": LoadCaseType.Ex,
+            "Earthquake-Y": LoadCaseType.Ey,
+            "Wind-X": LoadCaseType.Wx,
+            "Wind-Y": LoadCaseType.Wy,
+        }
 
     # MAIN METHOD: EXCEL TRANSLATOR
     def translate(self):
@@ -159,11 +172,9 @@ class ExcelTranslator:
         analysis_preferences = self._translate_analysis_preferences()
         materials = self._translate_materials()
         frame_sections = self._translate_frame_sections(materials=materials)
-        sec_fiber = self._translate_sec_fiber()
-        sec_aggregator = self._translate_sec_aggregator()
-        slab_sections = self._translate_slab_sections()
+        slab_sections = self._translate_slab_sections(materials=materials)
         point_objects, storeys = self._translate_point_objects(project_information=project_information)
-        line_objects = self._translate_line_objects(point_objects=point_objects)
+        line_objects = self._translate_line_objects(point_objects=point_objects, sections=frame_sections)
         surface_objects = self._translate_surface_objects(
             line_objects=line_objects,
             slab_sections=slab_sections,
@@ -179,11 +190,7 @@ class ExcelTranslator:
             "Userdefined Units": self._units,
             "Analysis Preferences": analysis_preferences,
             "Materials": materials,
-            "Materials List": self._mats_list,
             "Frame Sections": frame_sections,
-            "Sec: Fiber": sec_fiber,
-            "Sec: Aggregator": sec_aggregator,
-            "Sections List": self._secs_list,
             "Slab Sections": slab_sections,
             "Storeys": storeys,
             "Point Objects": point_objects,
@@ -226,66 +233,6 @@ class ExcelTranslator:
             ) # Store storeys data as dataclass
         return storeys
 
-    def _retrieve_material_index(self, mats_name):
-        if isinstance(mats_name, str): # Set condition if materials name is a string return list of materials name
-            mats_name = [mats_name]
-        mat_class = np.empty(len(mats_name), dtype=np.int32) # Predefined material class array
-        mat_idx = np.empty(len(mats_name), dtype=np.int32) # Predefined material index array 
-        mat = [] # Predefined materials dataclass list
-        for i, mat_name in enumerate(mats_name): # Loop over materials name
-            found = False # Predefined found material in materials list
-            for cls, material in enumerate(self._mats_list): # Loop over materials list
-                idx = material.name_to_idx.get(mat_name) # Retrieve material index
-                if idx is not None: # Set condition if material index is not None
-                    mat_class[i] = cls # Return material class, material index, and materials dataclass for index i
-                    mat_idx[i] = idx
-                    mat.append(material)
-                    found = True # Set found to be True
-                    break
-            if not found: # Set condition if found is False return validation error
-                raise ValidationError(f"Material '{mat_name}' not found")
-        return mat_class, mat, mat_idx
-
-    def _retrieve_section_index(self, secs_name):
-        if isinstance(secs_name, str): # Set condition if sections name is a string return list of sections name
-            secs_name = [secs_name]
-        sec_class = np.empty(len(secs_name), dtype=np.int32) # Predefined section class array
-        sec_idx = np.empty(len(secs_name), dtype=np.int32) # Predefined section index array 
-        sec = [] # Predefined sections dataclass list
-        for i, sec_name in enumerate(secs_name): # Loop over sections name
-            found = False # Predefined found section in sections list
-            for cls, section in enumerate(self._secs_list): # Loop over sections list
-                idx = section.name_to_idx.get(sec_name) # Retrieve section index
-                if idx is not None: # Set condition if section index is not None
-                    sec_class[i] = cls # Return section class, section index, and sections dataclass for index i
-                    sec_idx[i] = idx
-                    sec.append(section)
-                    found = True # Set found to be True
-                    break
-            if not found: # Set condition if found is False return validation error
-                raise ValidationError(f"Section '{sec_name}' not found")
-        return sec_class, sec, sec_idx
-    
-    def _retrieve_slabsection_index(self, secs_name, secs_list): # Retrieve slab section 
-        if isinstance(secs_name, str): # Set condition if sections name is a string return list of sections name
-            secs_name = [secs_name]
-        sec_class = np.empty(len(secs_name), dtype=np.int32) # Predefined section class array
-        sec_idx = np.empty(len(secs_name), dtype=np.int32) # Predefined section index array 
-        sec = [] # Predefined sections dataclass list
-        for i, sec_name in enumerate(secs_name): # Loop over sections name
-            found = False # Predefined found section in sections list
-            for cls, section in enumerate(secs_list): # Loop over sections list
-                idx = section.name_to_idx.get(sec_name) # Retrieve section index
-                if idx is not None: # Set condition if section index is not None
-                    sec_class[i] = cls # Return section class, section index, and sections dataclass for index i
-                    sec_idx[i] = idx
-                    sec.append(section)
-                    found = True # Set found to be True
-                    break
-            if not found: # Set condition if found is False return validation error
-                raise ValidationError(f"Section '{sec_name}' not found")
-        return sec_class, sec, sec_idx
-        
     # SUPPORTING METHODS
     def _translate_filepath_information(self):
         filepath_information = FilePathInformation(
@@ -365,12 +312,12 @@ class ExcelTranslator:
         mat_model = np.asarray([self._material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
 
         # Translate material properties
-        matprop_def = [self._matprop_definition[(t, m)] for t, m in zip(mat_type, mat_model)]
-        max_columns = max(definition.properties.Count for definition in matprop_def)
+        mat_def = [self._material_definition[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
+        max_columns = max(definition.properties.Count for definition in mat_def)
         properties = np.full((n, max_columns), np.nan, dtype=np.float64)
-        unique_definitions = list(dict.fromkeys(matprop_def))
+        unique_definitions = list(dict.fromkeys(mat_def))
         for definition in unique_definitions:
-            mask = np.asarray([d is definition for d in matprop_def], dtype=bool)
+            mask = np.asarray([d is definition for d in mat_def], dtype=bool)
             selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
             translated_props = definition.translate(selected_data, self._to_internalunits)
             properties[mask, :definition.properties.Count] = translated_props
@@ -380,6 +327,7 @@ class ExcelTranslator:
             mat_tag = mat_tag,
             mat_type = mat_type,
             mat_model = mat_model,
+            mat_def = mat_def,
             properties = properties,
         ) # Storing materials data to dataclass
         return materials
@@ -389,7 +337,7 @@ class ExcelTranslator:
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
-            start_row=17,
+            start_row=19,
         ) # Reading Sheet "Frame Sections" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
@@ -398,50 +346,101 @@ class ExcelTranslator:
         sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
         sec_shape = np.asarray([self._section_shape[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
         sec_model = np.asarray([self._section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
-        mat_idx = materials.name_to_idx(data["Material"])
-        mat2_idx = materials.name_to_idx(data["Material2"])
-        mat3_idx = materials.name_to_idx(data["Material3"])
-        mats_idx = np.column_stack((
-            mat_idx,
-            mat2_idx,
-            mat3_idx
-        ))
-        mat_type = materials.mat_type[mat_idx]
+        mat_columns = ["Material", "Material2", "Material3", "Material4", "Material5", "Material6"]
+        mats_idx = np.column_stack([
+            materials.name_to_idx(data[column]) for column in mat_columns
+        ])
+        mat_type = np.empty(n, dtype=np.int8)
+        for i in range(n):
+            if mats_idx[i, 0] >= 0:
+                j = 0
+            elif mats_idx[i, 1] >= 0:
+                j = 1
+            elif mats_idx[i, 2] >= 0:
+                j = 2
+            elif mats_idx[i, 3] >= 0:
+                j = 3
+            elif mats_idx[i, 4] >= 0:
+                j = 4
+            elif mats_idx[i, 5] >= 0:
+                j = 5
+            else:
+                continue
+            mat_type[i] = materials.mat_type[mats_idx[i, j]]
         integration_type = np.asarray([
             self._integration_type[value.strip().title()]
             if value is not None and value.strip() else -1
             for value in data["Integration Type"]],
             dtype=np.int8
         )
-        n_integration = np.count_nonzero(integration_type != -1)
-        sec_with_integration_name = sec_name[integration_type != -1]
-        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n_integration, names=sec_with_integration_name), dtype=np.int32)
+        mask = integration_type != -1
+        integration_tag = np.full(n, -1, dtype=np.int32)
+        if np.any(mask):
+            integration_tag[mask] = np.asarray(self._tagmanager.add(category="Beam Integration", n=np.count_nonzero(mask), names=sec_name[mask]), dtype=np.int32)  
+        section_lookup = dict(zip(sec_name, index))
+        aggregated_sec_idx = np.asarray([section_lookup[name]
+            if name is not None and str(name).strip() else -1
+            for name in data["Aggregated Section"]],
+            dtype=np.int32
+        )
+
+        # Translate section dimensions
+        aggregator_mask = sec_model == SectionModel.Aggregator
+        normal_mask = ~aggregator_mask
+        sec_def = np.empty(n, dtype=object)
+        for i in np.flatnonzero(normal_mask):
+            sec_def[i] = self._section_definition[
+                (mat_type[i], sec_shape[i], sec_model[i])
+            ]
+        for i in np.flatnonzero(aggregator_mask):
+            sec_def[i] = None
+        max_columns = max(definition.dimensions.Count for definition in sec_def[normal_mask])
+        dimensions = np.full((n, max_columns), np.nan, dtype=np.float64)
+        unique_definitions = list(dict.fromkeys(sec_def[normal_mask]))
+        for definition in unique_definitions:
+            mask = np.asarray([normal_mask[i] and sec_def[i] is definition for i in range(n)], dtype=bool)
+            selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
+            translated_dims = definition.translate(selected_data, self._to_internalunits)
+            dimensions[mask, :definition.dimensions.Count] = translated_dims
+
+        # Compute section properties
         AMod = np.asarray(data["AMod"], dtype=np.float64)
         AvyMod = np.asarray(data["AvyMod"], dtype=np.float64)
         AvzMod = np.asarray(data["AvzMod"], dtype=np.float64)
         IzMod = np.asarray(data["IzMod"], dtype=np.float64)
         IyMod = np.asarray(data["IyMod"], dtype=np.float64)
         JxxMod = np.asarray(data["JxxMod"], dtype=np.float64)
-
-        # Translate section dimensions
-        secdim_def = [self._secdim_definition[(s, m)] for s, m in zip(sec_shape, sec_model)]
-        max_columns = max(definition.dimensions.Count for definition in secdim_def)
-        dimensions = np.full((n, max_columns), np.nan, dtype=np.float64)
-        unique_definitions = list(dict.fromkeys(secdim_def))
-        for definition in unique_definitions:
-            mask = np.asarray([d is definition for d in secdim_def], dtype=bool)
-            selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
-            translated_dims = definition.translate(selected_data, self._to_internalunits)
-            dimensions[mask, :definition.dimensions.Count] = translated_dims
-
-        # Compute section properties
-        (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = compute_section_properties(
-            sec_shape=sec_shape,
-            mat_type=mat_type, 
-            dimensions=dimensions,
+        normal_sec_props = compute_section_properties(
+            section_definitions=sec_def[normal_mask],
+            dimensions=dimensions[normal_mask],
         )
+        A = np.full(n, np.nan)
+        Avy = np.full(n, np.nan)
+        Avz = np.full(n, np.nan)
+        Iz = np.full(n, np.nan)
+        Iy = np.full(n, np.nan)
+        Jxx = np.full(n, np.nan)
+        alphaY = np.full(n, np.nan)
+        alphaZ = np.full(n, np.nan)
+        Abar_hoop = np.full(n, np.nan)
+        Abar_top = np.full(n, np.nan)
+        Abar_bot = np.full(n, np.nan)
+        Abar_int = np.full(n, np.nan)
+        (
+            A[normal_mask],
+            Avy[normal_mask],
+            Avz[normal_mask],
+            Iz[normal_mask],
+            Iy[normal_mask],
+            Jxx[normal_mask],
+            alphaY[normal_mask],
+            alphaZ[normal_mask],
+            Abar_hoop[normal_mask],
+            Abar_top[normal_mask],
+            Abar_bot[normal_mask],
+            Abar_int[normal_mask],
+        ) = normal_sec_props
         properties = np.column_stack((
-            dimensions,
             AMod * A,
             AvyMod * Avy,
             AvzMod * Avz,
@@ -450,6 +449,10 @@ class ExcelTranslator:
             JxxMod * Jxx,
             alphaY,
             alphaZ,
+            Abar_hoop,
+            Abar_top,
+            Abar_bot,
+            Abar_int,
         ))
         frame_sections = FrameSections(
             index = index,
@@ -457,209 +460,18 @@ class ExcelTranslator:
             sec_tag = sec_tag,
             sec_shape = sec_shape,
             sec_model = sec_model,
+            sec_def = sec_def,
             mats_idx = mats_idx,
             mat_type = mat_type,
             integration_type = integration_type,
             integration_tag = integration_tag,
-            properties = properties,
-        ) # Storing sections data to dataclass
-        self._secs_list.append(frame_sections) # Append FrameSections Properties into section list
-        return frame_sections
-    
-    def _translate_sec_fiber(self):
-        sheet_name = "Sec_Fiber"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=20,
-        ) # Reading Sheet "Sec_Fiber" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            sec_fiber = Sec_Fiber.empty()
-            self._secs_list.append(sec_fiber)
-            return sec_fiber
-        index = np.arange(n, dtype=np.int32)
-        sec_name = np.asarray(data["Section Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
-        sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        basesec_class, _, basesec_idx = self._retrieve_section_index(secs_name=data["Base Section"])
-        sec_shape = np.asarray([
-            self._secs_list[cls].sec_shape[idx]
-            for cls, idx in zip(basesec_class, basesec_idx)],
-            dtype="U32",
-        )
-        integration_type = np.asarray(data["Integration Type"], dtype="U15")
-        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n, names=sec_name), dtype=np.int32)
-        mats_class = np.full((n, 3), -1, dtype=np.int32)
-        mats_idx = np.full((n, 3), -1, dtype=np.int32)
-        material_columns = ["Material", "Material 2", "Material 3"]
-        for j, column in enumerate(material_columns):
-            materials = data[column]
-            mask = np.array([m is not None for m in materials])
-            if not np.any(mask):
-                continue
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=[m for m in materials if m is not None])
-            mats_class[mask, j] = mat_class
-            mats_idx[mask, j] = mat_idx
-        mat_type = np.empty(n, dtype="U15")
-        for i in range(n):
-            if mats_class[i, 0] >= 0:
-                j = 0
-            elif mats_class[i, 1] >= 0:
-                j = 1
-            elif mats_class[i, 2] >= 0:
-                j = 2
-            else:
-                continue
-            mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
-        sec_model = np.asarray(data["Section Model"], dtype="U15")
-        basesec_props = get_section_properties(
-            secs_list=self._secs_list,
-            sec_class=basesec_class,
-            sec_idx=basesec_idx,
-            props_name=["h", "b"],
-        )
-        cover = self._to_internalunits.length(values=data["cover"])
-        nbars_top = np.asarray(data["nBarsTop"], dtype=np.int32)
-        nbars_bot = np.asarray(data["nBarsBot"], dtype=np.int32)
-        nbars_int = np.asarray(data["nBarsInt"], dtype=np.int32)
-        bar_dia_hoop = self._to_internalunits.length(values=data["barDiaHoop"])
-        bar_dia_top = self._to_internalunits.length(values=data["barDiaTop"])
-        bar_dia_bot = self._to_internalunits.length(values=data["barDiaBot"])
-        bar_dia_int = self._to_internalunits.length(values=data["barDiaInt"])
-        dimensions = np.column_stack((
-            basesec_props,
-            cover,
-            nbars_top,
-            nbars_bot,
-            nbars_int,
-            bar_dia_hoop,
-            bar_dia_top,
-            bar_dia_bot,
-            bar_dia_int,
-        ))
-        (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,) = compute_fibersection_properties(
-            sec_shape=sec_shape,
-            mat_type=mat_type,
+            aggregated_sec_idx=aggregated_sec_idx,
             dimensions=dimensions,
-        )
-        properties = np.column_stack((
-            dimensions,
-            A,
-            Avy,
-            Avz,
-            Iz,
-            Iy,
-            Jxx,
-            Abar_top,
-            Abar_bot,
-            Abar_int,
-        ))
-        name_to_idx = dict(zip(sec_name, index))
-        sec_fiber = Sec_Fiber(
-            index = index,
-            sec_name = sec_name,
-            sec_tag=sec_tag,
-            sec_shape = sec_shape,
-            basesec_class = basesec_class,
-            basesec_idx = basesec_idx,
-            integration_type = integration_type,
-            integration_tag = integration_tag,
-            mats_class = mats_class,
-            mats_idx = mats_idx,
-            mat_type = mat_type,
-            sec_model = sec_model,
             properties = properties,
-            name_to_idx = name_to_idx,
         ) # Storing sections data to dataclass
-        self._secs_list.append(sec_fiber) # Append Sec_Fiber Properties into section list
-        return sec_fiber
-    
-    def _translate_sec_aggregator(self):
-        sheet_name = "Sec_Aggregator"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=15,
-        ) # Reading Sheet "Sec_Aggregator" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            sec_aggregator = Sec_Aggregator.empty()
-            self._secs_list.append(sec_aggregator)
-            return sec_aggregator
-        index = np.arange(n, dtype=np.int32)
-        sec_name = np.asarray(data["Section Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
-        sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        basesec_class, _, basesec_idx = self._retrieve_section_index(secs_name=data["Base Section"])
-        sec_shape = np.asarray([
-            self._secs_list[cls].sec_shape[idx]
-            for cls, idx in zip(basesec_class, basesec_idx)],
-            dtype="U32",
-        )
-        mats_class = np.full((n, 6), -1, dtype=np.int32)
-        mats_idx = np.full((n, 6), -1, dtype=np.int32)
-        material_columns = ["Material", "Material 2", "Material 3", "Material 4", "Material 5", "Material 6"]
-        for j, column in enumerate(material_columns):
-            materials = data[column]
-            material_mask = np.array([m is not None for m in materials])
-            if not np.any(material_mask):
-                continue
-            mat_class, _, mat_idx = self._retrieve_material_index(mats_name=[m for m in materials if m is not None])
-            mats_class[material_mask, j] = mat_class
-            mats_idx[material_mask, j] = mat_idx
-        mat_type = np.empty(n, dtype="U15")
-        for i in range(n):
-            if mats_class[i, 0] >= 0:
-                j = 0
-            elif mats_class[i, 1] >= 0:
-                j = 1
-            elif mats_class[i, 2] >= 0:
-                j = 2
-            elif mats_class[i, 3] >= 0:
-                j = 3
-            elif mats_class[i, 4] >= 0:
-                j = 4
-            elif mats_class[i, 5] >= 0:
-                j = 5
-            else:
-                continue
-            mat_type[i] = self._mats_list[mats_class[i, j]].mat_type[mats_idx[i, j]]
-        sec_model = np.asarray(data["Section Model"], dtype="U15")
-        aggregated_sec_class = np.full(n, -1, dtype=np.int32)
-        aggregated_sec_idx = np.full(n, -1, dtype=np.int32)
-        sections = data["Aggregated Section"]
-        section_mask = np.array([s is not None for s in sections])
-        if np.any(section_mask):
-            sec_class, _, sec_idx = self._retrieve_section_index(sec_name=[s for s in sections if s is not None])
-            aggregated_sec_class[section_mask] = sec_class
-            aggregated_sec_idx[section_mask] = sec_idx
-        sec_props = get_section_properties(
-            secs_list=self._secs_list,
-            sec_class=np.where(aggregated_sec_class >= 0, aggregated_sec_class, basesec_class),
-            sec_idx=np.where(aggregated_sec_idx >= 0, aggregated_sec_idx, basesec_idx),
-            props_name=["h", "b", "A", "Avy", "Avz", "Iz", "Iy", "Jxx"],
-        )
-        properties = sec_props
-        name_to_idx = dict(zip(sec_name, index))
-        sec_aggregator = Sec_Aggregator(
-            index = index,
-            sec_name = sec_name,
-            sec_tag=sec_tag,
-            sec_shape = sec_shape,
-            basesec_class = basesec_class,
-            basesec_idx = basesec_idx,
-            mats_class = mats_class,
-            mats_idx = mats_idx,
-            mat_type = mat_type,
-            sec_model = sec_model,
-            aggregated_sec_class = aggregated_sec_class,
-            aggregated_sec_idx = aggregated_sec_idx,
-            properties = properties,
-            name_to_idx = name_to_idx,
-        ) # Storing sections data to dataclass
-        self._secs_list.append(sec_aggregator) # Append Sec_Aggregator Properties into section list
-        return sec_aggregator
+        return frame_sections
 
-    def _translate_slab_sections(self):
+    def _translate_slab_sections(self, materials):
         sheet_name = "Slab Sections"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -672,25 +484,27 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         sec_name = np.asarray(data["Section Name"], dtype="U32")
         self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
-        mat_class, _, mat_idx = self._retrieve_material_index(mats_name=data["Material"])
-        mats_class = np.column_stack((
-            mat_class,
-        ))
-        mats_idx = np.column_stack((
-            mat_idx,
-        ))
+        mat_columns = ["Material"]
+        mats_idx = np.column_stack([
+            materials.name_to_idx(data[column]) for column in mat_columns
+        ])
+        mat_type = np.empty(n, dtype=np.int8)
+        for i in range(n):
+            if mats_idx[i, 0] >= 0:
+                j = 0
+            else:
+                continue
+            mat_type[i] = materials.mat_type[mats_idx[i, j]]
         t = self._to_internalunits.length(values=data["t"])
-        properties = np.column_stack((
+        dimensions = np.column_stack((
             t,
         ))
-        name_to_idx = dict(zip(sec_name, index))
         slab_sections = SlabSections(
             index = index,
             sec_name = sec_name,
-            mats_class = mats_class,
             mats_idx = mats_idx,
-            properties = properties,
-            name_to_idx = name_to_idx,
+            mat_type=mat_type,
+            dimensions = dimensions,
         ) # Storing slab sections data to dataclass
         return slab_sections
     
@@ -725,7 +539,7 @@ class ExcelTranslator:
         storeys = self._generate_storeys(storey_elevations=storey_elevations) # Generating Storey data from storey elevations
         return point_objects, storeys
 
-    def _translate_line_objects(self, point_objects):
+    def _translate_line_objects(self, point_objects, sections):
         sheet_name = "Line Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -736,15 +550,15 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
         self._validate_duplicate_value(col_data=unique_name, col_name="Line object")
-        iend_node = np.asarray(data["I-End"], dtype="U15")
-        jend_node = np.asarray(data["J-End"], dtype="U15")
+        iend_point = np.asarray(data["I-End"], dtype="U15")
+        jend_point = np.asarray(data["J-End"], dtype="U15")
         point_name_to_idx = point_objects["Name to Index"]
         end_points_idx = np.column_stack((
-            np.fromiter((point_name_to_idx[name] for name in iend_node), dtype=np.int32, count=n),
-            np.fromiter((point_name_to_idx[name] for name in jend_node), dtype=np.int32, count=n),
+            np.fromiter((point_name_to_idx[name] for name in iend_point), dtype=np.int32, count=n),
+            np.fromiter((point_name_to_idx[name] for name in jend_point), dtype=np.int32, count=n),
         ))
-        element_type = np.asarray(data["Element Type"], dtype="U15")
-        sec_class, _, sec_idx = self._retrieve_section_index(secs_name=data["Section"])
+        element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        sec_idx = sections.name_to_idx(data["Section"])
         is_auto_end_offsets = np.fromiter((
             str(x).strip().lower() == "auto from connectivity"
             for x in data["End Offset"]),
@@ -778,7 +592,6 @@ class ExcelTranslator:
             "Unique Name": unique_name,
             "End Points Index": end_points_idx,
             "Element Type": element_type,
-            "Section Class": sec_class,
             "Section Index": sec_idx,
             "Is Auto End Offsets": is_auto_end_offsets,
             "Rigid Zone Factor": rigid_zone_factor,
@@ -817,11 +630,8 @@ class ExcelTranslator:
                 line_objects=line_objects,
                 surface_name=unique_name[i],
             )
-        element_type = np.asarray(data["Element Type"], dtype="U15")
-        sec_class, _, sec_idx = self._retrieve_slabsection_index(
-            secs_name=data["Section"],
-            secs_list=[slab_sections],
-        )
+        element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        sec_idx = slab_sections.name_to_idx(data["Section"])
         name_to_idx = dict(zip(unique_name, index))
         surface_objects = {
             "Index": index,
@@ -829,7 +639,6 @@ class ExcelTranslator:
             "Edges Index": edges_idx,
             "Vertices Index": vertices_idx,
             "Element Type": element_type,
-            "Section Class": sec_class,
             "Section Index": sec_idx,
             "Name to Index": name_to_idx,
         } # Storing surface objects data to dictionary
@@ -877,7 +686,7 @@ class ExcelTranslator:
             point_loads = []
             return point_loads
         point_name = np.asarray(data["Point"], dtype="U15")
-        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         fx = np.where(
             [x is not None for x in data["FX"]],
             self._to_internalunits.force_pointload(values=data["FX"]), 
@@ -934,7 +743,7 @@ class ExcelTranslator:
             concentrated_line_loads = []
             return concentrated_line_loads
         line_name = np.asarray(data["Line"], dtype="U15")
-        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load_1 = np.where(
             [x is not None for x in data["Load 1"]],
@@ -1015,7 +824,7 @@ class ExcelTranslator:
             distributed_line_loads = []
             return distributed_line_loads
         line_name = np.asarray(data["Line"], dtype="U15")
-        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         uniform_load = np.where(
             [x is not None for x in data["Uniform Load"]],
@@ -1102,7 +911,7 @@ class ExcelTranslator:
             surface_loads = []
             return surface_loads
         surface_name = np.asarray(data["Surface"], dtype="U15")
-        loadcase_type = np.asarray(data["Load Case"], dtype="U15")
+        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = np.where(
             [x is not None for x in data["Load"]],

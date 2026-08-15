@@ -1,26 +1,10 @@
 import numpy as np
-from enum import IntEnum
-
-class RectangularElasticProperties(IntEnum):
-    h = 0
-    b = 1
-    Count = 2 # Total number of properties
-
-class RectangularFiberProperties(IntEnum):
-    h = 0
-    b = 1
-    cover = 2
-    barDiaHoop = 3
-    barDiaTop = 4
-    barDiaBot = 5
-    barDiaInt = 6
-    nBarsTop = 7
-    nBarsBot = 8
-    nBarsInt = 9
-    Count = 10 # Total number of properties
+from ..preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
+from .._section import _rectangular_elastic_props, _rectangular_concrete_fiber_props
 
 class RectangularElastic:
-    dimensions = RectangularElasticProperties
+    dimensions = RectangularElasticDimensions
+    compute = staticmethod(_rectangular_elastic_props)
     @staticmethod
     def translate(data, units):
         h = units.length(values=data["Dim1"])
@@ -30,8 +14,9 @@ class RectangularElastic:
             b,
         ))
 
-class RectangularFiber:
-    dimensions = RectangularFiberProperties
+class RectangularConcreteFiber:
+    dimensions = RectangularConcreteFiberDimensions
+    compute = staticmethod(_rectangular_concrete_fiber_props)
     @staticmethod
     def translate(data, units):
         h = units.length(values=data["Dim1"])

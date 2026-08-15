@@ -1,41 +1,5 @@
 import numpy as np
-from enum import IntEnum
-
-class ConcreteElasticProperties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fc = 4
-    Count = 5 # Total number of properties
-
-class Concrete04Properties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fc = 4
-    epsc = 5
-    epscu = 6
-    fct = 7
-    et = 8
-    beta = 9
-    Count = 10 # Total number of properties
-
-class Concrete04MinMaxProperties(IntEnum):
-    Unitweight = 0
-    E = 1
-    nu = 2
-    G = 3
-    fc = 4
-    epsc = 5
-    epscu = 6
-    fct = 7
-    et = 8
-    beta = 9
-    ecmax = 10
-    etmax = 11
-    Count = 12 # Total number of properties
+from ..preprocessing_class_index import ConcreteElasticProperties, Concrete04Properties, Concrete04MinMaxProperties
 
 class ConcreteElastic:
     properties = ConcreteElasticProperties
