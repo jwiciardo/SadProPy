@@ -1,43 +1,44 @@
 import numpy as np
 from .preprocessing_class_index import LoadDirection
-from sadpropy.utility.helperfunc import transform_to_local_axes
+from ..utility.helperfunc import transform_to_local_axes
+from ..utility.tolerance import Tolerance
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):
-    new_line_name = []
-    new_loadcase_type = []
-    new_load_direction = []
-    new_location = []
-    new_load = []
+    modified_line_name = []
+    modified_loadcase_type = []
+    modified_load_direction = []
+    modified_location = []
+    modified_load = []
 
     for i in range(len(line_name)):
         for j in range(loads.shape[1]):
             if np.isnan(loads[i, j]): # Skip empty loads
                 continue
-            new_line_name.append(line_name[i])
-            new_loadcase_type.append(loadcase_type[i])
-            new_load_direction.append(load_direction[i])
-            new_location.append(locations[i, j])
-            new_load.append(loads[i, j])
-    new_line_name = np.asarray(new_line_name, dtype="U15")
-    new_loadcase_type = np.asarray(new_loadcase_type, dtype="U15")
-    new_load_direction = np.asarray(new_load_direction, dtype="U15")
-    new_location = np.asarray(new_location, dtype=np.float64)
-    new_load = np.asarray(new_load, dtype=np.float64)
-    return new_line_name, new_loadcase_type, new_load_direction, new_location, new_load
+            modified_line_name.append(line_name[i])
+            modified_loadcase_type.append(loadcase_type[i])
+            modified_load_direction.append(load_direction[i])
+            modified_location.append(locations[i, j])
+            modified_load.append(loads[i, j])
+    modified_line_name = np.asarray(modified_line_name, dtype="U15")
+    modified_loadcase_type = np.asarray(modified_loadcase_type, dtype=np.int8)
+    modified_load_direction = np.asarray(modified_load_direction, dtype="U15")
+    modified_location = np.asarray(modified_location, dtype=np.float64)
+    modified_load = np.asarray(modified_load, dtype=np.float64)
+    return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 def get_distributed_line_loads(line_name, loadcase_type, load_direction, locations, uniform_load, loads):
-    new_line_name = []
-    new_loadcase_type = []
-    new_load_direction = []
-    new_location = []
-    new_load = []
+    modified_line_name = []
+    modified_loadcase_type = []
+    modified_load_direction = []
+    modified_location = []
+    modified_load = []
     for i in range(len(line_name)):
         if not np.isnan(uniform_load[i]):
-            new_line_name.append(line_name[i])
-            new_loadcase_type.append(loadcase_type[i])
-            new_load_direction.append(load_direction[i])
-            new_location.append([np.nan, np.nan])
-            new_load.append([uniform_load[i], uniform_load[i]])
+            modified_line_name.append(line_name[i])
+            modified_loadcase_type.append(loadcase_type[i])
+            modified_load_direction.append(load_direction[i])
+            modified_location.append([np.nan, np.nan])
+            modified_load.append([uniform_load[i], uniform_load[i]])
         for j in range(loads.shape[1] - 1):
             k = j + 1
             if np.isnan(loads[i, j]): # Skip empty load: first point
@@ -48,17 +49,17 @@ def get_distributed_line_loads(line_name, loadcase_type, load_direction, locatio
                 continue
             if np.isnan(locations[i, j + 1]): # Skip empty location: second point
                 continue
-            new_line_name.append(line_name[i])
-            new_loadcase_type.append(loadcase_type[i])
-            new_load_direction.append(load_direction[i])
-            new_location.append(locations[i, j:k+1])
-            new_load.append(loads[i, j:k+1])
-    new_line_name = np.asarray(new_line_name, dtype="U15")
-    new_loadcase_type = np.asarray(new_loadcase_type, dtype="U15")
-    new_load_direction = np.asarray(new_load_direction, dtype="U15")
-    new_location = np.asarray(new_location, dtype=np.float64)
-    new_load = np.asarray(new_load, dtype=np.float64)
-    return new_line_name, new_loadcase_type, new_load_direction, new_location, new_load
+            modified_line_name.append(line_name[i])
+            modified_loadcase_type.append(loadcase_type[i])
+            modified_load_direction.append(load_direction[i])
+            modified_location.append(locations[i, j:k+1])
+            modified_load.append(loads[i, j:k+1])
+    modified_line_name = np.asarray(modified_line_name, dtype="U15")
+    modified_loadcase_type = np.asarray(modified_loadcase_type, dtype="U15")
+    modified_load_direction = np.asarray(modified_load_direction, dtype="U15")
+    modified_location = np.asarray(modified_location, dtype=np.float64)
+    modified_load = np.asarray(modified_load, dtype=np.float64)
+    return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     grouping_keys = np.empty(
@@ -82,7 +83,7 @@ def generate_group_nodal_loads(node_tag, loadcase_type, loads):
 
 def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
-    element_idx = np.fromiter((elements.tag_to_idx[tag]
+    element_idx = np.fromiter((elements.tag_to_idx(tag)
         for tag in element_tag), dtype=np.int32, count=n)
     element_length = elements.length[element_idx]
     fraction_location = location / element_length
@@ -112,7 +113,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
 
     # Transform Load to Local axes
     m = len(result_element_tag)
-    unique_element_idx = np.fromiter((elements.tag_to_idx[tag]
+    unique_element_idx = np.fromiter((elements.tag_to_idx(tag)
         for tag in result_element_tag), dtype=np.int32, count=m)
     rotation_matrices = elements.rotation_matrices[unique_element_idx]
     direction_map = LoadDirection.get_direction(ndim)
@@ -131,7 +132,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
 
 def generate_group_distributed_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
-    element_idx = np.fromiter((elements.tag_to_idx[tag]
+    element_idx = np.fromiter((elements.tag_to_idx(tag)
         for tag in element_tag), dtype=np.int32, count=n)
     element_length = elements.length[element_idx]
     uniform_mask = np.all(np.isnan(location), axis=1)
@@ -229,7 +230,7 @@ def generate_group_distributed_element_loads(ndim, elements, element_tag, loadca
 
     # Transform Load to Local axes
     m = len(result_element_tag)
-    unique_element_idx = np.fromiter((elements.tag_to_idx[tag]
+    unique_element_idx = np.fromiter((elements.tag_to_idx(tag)
         for tag in result_element_tag), dtype=np.int32, count=m)
     rotation_matrices = elements.rotation_matrices[unique_element_idx]
     direction_map = LoadDirection.get_direction(ndim)

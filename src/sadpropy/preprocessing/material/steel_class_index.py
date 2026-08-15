@@ -4,13 +4,13 @@ from ..preprocessing_class_index import SteelElasticProperties, Steel02Propertie
 class SteelElastic:
     properties = SteelElasticProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fy = units.stress(values=data["Prop1"])
-        fu = units.stress(values=data["Prop2"])
+        fy = converter.stress(values=data["Prop1"])
+        fu = converter.stress(values=data["Prop2"])
         return np.column_stack((
             Unitweight,
             E,
@@ -23,13 +23,13 @@ class SteelElastic:
 class Steel02:
     properties = Steel02Properties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fy = units.stress(values=data["Prop1"])
-        fu = units.stress(values=data["Prop2"])
+        fy = converter.stress(values=data["Prop1"])
+        fu = converter.stress(values=data["Prop2"])
         eu = np.asarray(data["Prop3"], dtype=np.float64)
         ey = fy / E
         eoffset = ey + 0.002
@@ -47,7 +47,7 @@ class Steel02:
         a2 = np.asarray(data["Prop9"], dtype=np.float64)
         a3 = np.asarray(data["Prop10"], dtype=np.float64)
         a4 = np.asarray(data["Prop11"], dtype=np.float64)
-        f_init = units.stress(values=data["Prop12"])
+        f_init = converter.stress(values=data["Prop12"])
         return np.column_stack((
             Unitweight,
             E,
@@ -70,13 +70,13 @@ class Steel02:
 class Steel02MinMax:
     properties = Steel02MinMaxProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fy = units.stress(values=data["Prop1"])
-        fu = units.stress(values=data["Prop2"])
+        fy = converter.stress(values=data["Prop1"])
+        fu = converter.stress(values=data["Prop2"])
         eu = np.asarray(data["Prop3"], dtype=np.float64)
         ey = fy / E
         eoffset = ey + 0.002
@@ -94,9 +94,9 @@ class Steel02MinMax:
         a2 = np.asarray(data["Prop9"], dtype=np.float64)
         a3 = np.asarray(data["Prop10"], dtype=np.float64)
         a4 = np.asarray(data["Prop11"], dtype=np.float64)
-        f_init = units.stress(values=data["Prop12"])
-        ecmax = units.stress(values=data["Prop13"])
-        etmax = units.stress(values=data["Prop14"])
+        f_init = converter.stress(values=data["Prop12"])
+        ecmax = np.asarray(data["Prop13"], dtype=np.float64)
+        etmax = np.asarray(data["Prop14"], dtype=np.float64)
         return np.column_stack((
             Unitweight,
             E,

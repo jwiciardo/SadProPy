@@ -36,6 +36,19 @@ class Materials:
 
     def name_to_idx(self, names):
         lookup = dict(zip(self.mat_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Node '{name}' does not exist") from None
+
+        # Array case
         result = np.full(len(names), -1, dtype=np.int32)
         for i, name in enumerate(names):
             if name is None:
@@ -46,7 +59,7 @@ class Materials:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Material '{name}' does not exist") from None
+                raise ValidationError(f"Node '{name}' does not exist") from None
         return result
 
 # PROPERTIES: FRAME SECTIONS
@@ -68,6 +81,19 @@ class FrameSections:
 
     def name_to_idx(self, names):
         lookup = dict(zip(self.sec_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Node '{name}' does not exist") from None
+
+        # Array case
         result = np.full(len(names), -1, dtype=np.int32)
         for i, name in enumerate(names):
             if name is None:
@@ -78,7 +104,7 @@ class FrameSections:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Frame Section '{name}' does not exist") from None
+                raise ValidationError(f"Node '{name}' does not exist") from None
         return result
     
 # PROPERTIES: SLAB SECTIONS
@@ -92,6 +118,19 @@ class SlabSections:
 
     def name_to_idx(self, names):
         lookup = dict(zip(self.sec_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Node '{name}' does not exist") from None
+
+        # Array case
         result = np.full(len(names), -1, dtype=np.int32)
         for i, name in enumerate(names):
             if name is None:
@@ -102,17 +141,17 @@ class SlabSections:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Slab Section '{name}' does not exist") from None
+                raise ValidationError(f"Node '{name}' does not exist") from None
         return result
 
     @classmethod
     def empty(cls):
         return cls(
-            index=np.empty(0, dtype=np.int32),
-            sec_name=np.empty(0, dtype="U32"),
-            mats_idx=np.empty((0, 1), dtype=np.int32),
-            mat_type=np.empty(0, dtype=np.int8),            
-            dimensions=np.empty((0, 1), dtype=np.float64),
+            index = np.empty(0, dtype=np.int32),
+            sec_name = np.empty(0, dtype="U32"),
+            mats_idx = np.empty((0, 1), dtype=np.int32),
+            mat_type = np.empty(0, dtype=np.int8),            
+            dimensions = np.empty((0, 1), dtype=np.float64),
         )
     
 # STRUCTURE DATA
@@ -131,8 +170,76 @@ class Nodes:
     coords: np.ndarray                  # float64, shape (N,3)
     generated_source: np.ndarray        # int32, shape (N,)
     generated_from: np.ndarray          # str, shape (N,)
-    name_to_idx: dict[str, np.int32]
-    tag_to_idx: dict[np.int32, np.int32]
+
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.unique_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Node '{name}' does not exist") from None
+
+        # Array case
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Node '{name}' does not exist") from None
+        return result
+
+    def tag_to_idx(self, tags):
+        lookup = dict(zip(self.node_tag, self.index))
+        # Scalar case
+        if np.isscalar(tags):
+            if tags is None:
+                return -1
+            if isinstance(tags, str):
+                tag = tags.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    return -1
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid node tag '{tags}'") from None
+            else:
+                tag = int(tags)
+            try:
+                return lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Node tag '{tag}' does not exist") from None
+
+        # Array case
+        result = np.full(len(tags), -1, dtype=np.int32)
+        for i, tag in enumerate(tags):
+            if tag is None:
+                continue
+            if isinstance(tag, str):
+                tag = tag.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    continue
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid node tag '{tag}'") from None
+            else:
+                tag = int(tag)
+            try:
+                result[i] = lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Node tag '{tag}' does not exist") from None
+        return result
 
 @dataclass(slots=True, frozen=True)
 class Elements:
@@ -153,8 +260,76 @@ class Elements:
     rigid_zone_factor: np.ndarray       # float64, shape (N,)
     offsets_length: np.ndarray          # float64, shape (N,2)
     end_offsets: np.ndarray             # float64, shape (N,6)
-    name_to_idx: dict[str, np.int32]
-    tag_to_idx: dict[np.int32, np.int32]
+
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.unique_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+
+        # Array case
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+        return result
+
+    def tag_to_idx(self, tags):
+        lookup = dict(zip(self.element_tag, self.index))
+        # Scalar case
+        if np.isscalar(tags):
+            if tags is None:
+                return -1
+            if isinstance(tags, str):
+                tag = tags.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    return -1
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid element tag '{tags}'") from None
+            else:
+                tag = int(tags)
+            try:
+                return lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Element tag '{tag}' does not exist") from None
+
+        # Array case
+        result = np.full(len(tags), -1, dtype=np.int32)
+        for i, tag in enumerate(tags):
+            if tag is None:
+                continue
+            if isinstance(tag, str):
+                tag = tag.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    continue
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid element tag '{tag}'") from None
+            else:
+                tag = int(tag)
+            try:
+                result[i] = lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Element tag '{tag}' does not exist") from None
+        return result
 
 @dataclass(slots=True, frozen=True)
 class ZeroLengthElements:
@@ -162,10 +337,89 @@ class ZeroLengthElements:
     unique_name: np.ndarray             # str, shape (N,)
     element_tag: np.ndarray             # int32, shape (N,)
     end_nodes_idx: np.ndarray           # int32, shape (N,2)
-    element_type: np.ndarray            # str, shape(N,)
+    element_type: np.ndarray            # int8, shape(N,)
     rotation_matrices: np.ndarray       # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
-    name_to_idx: dict[str, np.int32]
-    tag_to_idx: dict[np.int32, np.int32]
+
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.unique_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+
+        # Array case
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+        return result
+
+    def tag_to_idx(self, tags):
+        lookup = dict(zip(self.element_tag, self.index))
+        # Scalar case
+        if np.isscalar(tags):
+            if tags is None:
+                return -1
+            if isinstance(tags, str):
+                tag = tags.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    return -1
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid element tag '{tags}'") from None
+            else:
+                tag = int(tags)
+            try:
+                return lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Element tag '{tag}' does not exist") from None
+
+        # Array case
+        result = np.full(len(tags), -1, dtype=np.int32)
+        for i, tag in enumerate(tags):
+            if tag is None:
+                continue
+            if isinstance(tag, str):
+                tag = tag.strip()
+                if not tag or tag.lower() in {"none", "nan"}:
+                    continue
+                try:
+                    tag = int(tag)
+                except ValueError:
+                    raise ValidationError(f"Invalid element tag '{tag}'") from None
+            else:
+                tag = int(tag)
+            try:
+                result[i] = lookup[tag]
+            except KeyError:
+                raise ValidationError(f"Element tag '{tag}' does not exist") from None
+        return result
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            unique_name = np.empty(0, dtype="U15"),
+            element_tag = np.empty(0, dtype=np.int32),
+            end_nodes_idx = np.empty((0, 2), dtype=np.int32),
+            element_type = np.empty(0, dtype=np.int8),
+            rotation_matrices = np.empty((0, 3, 3), dtype=np.int32),
+        )
 
 @dataclass(slots=True, frozen=True)
 class Shells:
@@ -175,7 +429,34 @@ class Shells:
     nodes_idx: np.ndarray               # int32, shape (N,4)
     element_type: np.ndarray            # int8, shape(N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
-    name_to_idx: dict[str, np.int32]
+
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.unique_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+
+        # Array case
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Element '{name}' does not exist") from None
+        return result
 
 # PROPERTIES: RESTRAINTS
 @dataclass(slots=True, frozen=True)

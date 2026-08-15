@@ -52,11 +52,10 @@ def transform_to_local_axes(values, rotation_matrices):
 # GET PARENT NODE
 def get_parent_node(nodes, child_node):
     nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
-    node_name_to_idx = nodes.name_to_idx # Retrieve node index from node name
     # Scalar case
     if np.isscalar(child_node): # Set condition if child node is scalar
         if nodes_generated_from[child_node] != "": # Set condition if parent name of generated node is not empty string
-            return node_name_to_idx[nodes_generated_from[child_node]] # If True, return parent node index
+            return nodes.name_to_idx(nodes_generated_from[child_node]) # If True, return parent node index
         parent_node = child_node # Otherwise, generated node is parent node then return generated node index
         return parent_node
 
@@ -66,7 +65,7 @@ def get_parent_node(nodes, child_node):
     mask = nodes_generated_from[child_node] != "" # Filter parent name of generated node is not empty string
     if np.any(mask): # Set condition if any parent name of generated node is not empty string
         parent_node[mask] = [
-            node_name_to_idx[name]
+            nodes.name_to_idx(name)
             for name in nodes_generated_from[child_node][mask]
         ] # If True, get parent node index from name to index dictionary
     return parent_node

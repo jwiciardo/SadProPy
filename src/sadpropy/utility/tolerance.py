@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-__all__ = ["Tolerance"]
-
 @dataclass(frozen=True)
 class Tolerance:
     FLOAT = 1e-12                   # Floating-point precision

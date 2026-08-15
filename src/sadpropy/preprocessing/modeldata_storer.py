@@ -14,10 +14,7 @@ from ._load import (
     generate_edge_load_segments,
 )
 from ._zerolengthelements import generate_zerolength_element_local_axes
-from .preprocessing_class_index import (
-    ElementType,
-    NodeSource,
-)
+from .preprocessing_class_index import ElementType, NodeSource
 from .preprocessing_dataclass import (
     ModelData,
     Nodes,
@@ -112,8 +109,6 @@ class ModelDataStorer:
         m = len(unique_name)
         index = np.arange(m, dtype=np.int32)
         node_tag = np.asarray(self._tagmanager.add(category="Node", n=m, names=unique_name), dtype=np.int32)
-        name_to_idx = dict(zip(unique_name, index))
-        tag_to_idx = dict(zip(node_tag, index))
         nodes = Nodes(
             index = index,
             unique_name = unique_name,
@@ -121,8 +116,6 @@ class ModelDataStorer:
             coords = coords,
             generated_source = generated_source,
             generated_from = generated_from,
-            name_to_idx=name_to_idx,
-            tag_to_idx = tag_to_idx,
         ) # Store nodes data to dataclass
         return nodes
 
@@ -162,8 +155,6 @@ class ModelDataStorer:
             offsets_length=offsets_length,
             rotation_matrices=rotation_matrices,
         )
-        name_to_idx = dict(zip(unique_name, index))
-        tag_to_idx = dict(zip(element_tag, index))
         elements = Elements(
             index = index,
             unique_name = unique_name,
@@ -182,8 +173,6 @@ class ModelDataStorer:
             rigid_zone_factor = rigid_zone_factor,
             offsets_length = offsets_length,
             end_offsets = end_offsets,
-            name_to_idx = name_to_idx,
-            tag_to_idx = tag_to_idx,
         ) # Store beamcolumn elements data to dataclass
         return elements
 
@@ -193,6 +182,9 @@ class ModelDataStorer:
         child_nodes = np.asarray([node_idx for node_idx in nodes.index[nodes_generated_from != ""]], dtype=np.int32) # Filter empty string values in nodes index
         parent_nodes = get_parent_node(nodes=nodes, child_node=child_nodes) # Get parent node
         n = len(child_nodes)
+        if n == 0:
+            zerolength_elements = ZeroLengthElements.empty()
+            return zerolength_elements
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         end_nodes_idx = np.empty((n, 2), dtype=np.int32)
@@ -200,14 +192,9 @@ class ModelDataStorer:
             name = f"ZL{i}"
             unique_name[i] = name
             end_nodes_idx[i] = [parent_nodes[i], child_nodes[i]]
-        if n != 0:
-            element_tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
-        else:
-            element_tag = np.empty(0, dtype=np.int32)
+        element_tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
         element_type = np.full(n, ElementType.ZeroLength, dtype=np.int8)
         rotation_matrices = generate_zerolength_element_local_axes(ndim=ndim, elements=elements, child_nodes=child_nodes)
-        name_to_idx = dict(zip(unique_name, index))
-        tag_to_idx = dict(zip(element_tag, index))
         zerolength_elements = ZeroLengthElements(
             index = index,
             unique_name = unique_name,
@@ -215,8 +202,6 @@ class ModelDataStorer:
             end_nodes_idx = end_nodes_idx,
             element_type = element_type,
             rotation_matrices = rotation_matrices,
-            name_to_idx = name_to_idx,
-            tag_to_idx = tag_to_idx,
         ) # Store zerolength elements data to dataclass
         return zerolength_elements
 
@@ -231,7 +216,6 @@ class ModelDataStorer:
         elements_idx = np.asarray([element for element in surface_objects["Edges Index"][mask]], dtype=np.int32)
         vertices = get_parent_node(nodes=nodes, child_node=surface_objects["Vertices Index"][mask])
         nodes_idx = np.asarray([node for node in vertices], dtype=np.int32)
-        name_to_idx = dict(zip(unique_name, index))
         shells = Shells(
             index = index,
             unique_name = unique_name,
@@ -239,7 +223,6 @@ class ModelDataStorer:
             nodes_idx = nodes_idx,
             element_type = element_type,
             sec_idx = sec_idx,
-            name_to_idx = name_to_idx,
         ) # Store shells data to dataclass
         return shells
 

@@ -1,5 +1,5 @@
 import numpy as np
-from sadpropy.utility._exceptions import ValidationError
+from ..utility._exceptions import ValidationError
 
 # GENERATE SURFACE CONNECTIVITY
 # Need to be vectorised for faster performance

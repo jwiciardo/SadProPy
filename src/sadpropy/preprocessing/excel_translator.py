@@ -25,14 +25,8 @@ from .preprocessing_dataclass import (
 )
 from ._surface import generate_surface_connectivity
 from ._section import compute_section_properties
-from ._load import (
-    get_concentrated_line_loads,
-    get_distributed_line_loads,
-)
-from ..utility import (
-    ConverterToInternalUnits,
-    UserDefinedUnits,
-)
+from ._load import get_concentrated_line_loads, get_distributed_line_loads
+from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
 from ..utility._exceptions import ValidationError
 from ..utility._filepath import get_filepath
@@ -233,6 +227,21 @@ class ExcelTranslator:
             ) # Store storeys data as dataclass
         return storeys
 
+    def _modify_empty_values(self, values, converter=None, dtype=object, filled_values=np.nan):
+        modified_values = np.where(
+            [value is not None for value in values],
+            converter(values=values) if converter is not None else np.asarray(values, dtype=dtype), 
+            filled_values,
+        )
+        return modified_values
+
+    def _group_typical_columns(self, columns, converter=None, dtype=object):
+        group_values = np.column_stack([
+            np.asarray(column, dtype=dtype) if converter is None else converter(values=column)
+            for column in columns
+        ])
+        return group_values
+
     # SUPPORTING METHODS
     def _translate_filepath_information(self):
         filepath_information = FilePathInformation(
@@ -319,7 +328,7 @@ class ExcelTranslator:
         for definition in unique_definitions:
             mask = np.asarray([d is definition for d in mat_def], dtype=bool)
             selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
-            translated_props = definition.translate(selected_data, self._to_internalunits)
+            translated_props = definition.translate(data=selected_data, converter=self._to_internalunits)
             properties[mask, :definition.properties.Count] = translated_props
         materials = Materials(
             index = index,
@@ -348,7 +357,7 @@ class ExcelTranslator:
         sec_model = np.asarray([self._section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
         mat_columns = ["Material", "Material2", "Material3", "Material4", "Material5", "Material6"]
         mats_idx = np.column_stack([
-            materials.name_to_idx(data[column]) for column in mat_columns
+            materials.name_to_idx(names=data[column]) for column in mat_columns
         ])
         mat_type = np.empty(n, dtype=np.int8)
         for i in range(n):
@@ -400,7 +409,7 @@ class ExcelTranslator:
         for definition in unique_definitions:
             mask = np.asarray([normal_mask[i] and sec_def[i] is definition for i in range(n)], dtype=bool)
             selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
-            translated_dims = definition.translate(selected_data, self._to_internalunits)
+            translated_dims = definition.translate(data=selected_data, converter=self._to_internalunits)
             dimensions[mask, :definition.dimensions.Count] = translated_dims
 
         # Compute section properties
@@ -486,7 +495,7 @@ class ExcelTranslator:
         self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
         mat_columns = ["Material"]
         mats_idx = np.column_stack([
-            materials.name_to_idx(data[column]) for column in mat_columns
+            materials.name_to_idx(names=data[column]) for column in mat_columns
         ])
         mat_type = np.empty(n, dtype=np.int8)
         for i in range(n):
@@ -519,14 +528,8 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
         self._validate_duplicate_value(col_data=unique_name, col_name="Point object")
-        coord_X = self._to_internalunits.length(values=data["X"])
-        coord_Y = self._to_internalunits.length(values=data["Y"])
-        coord_Z = self._to_internalunits.length(values=data["Z"])
-        coords = np.column_stack((
-            coord_X,
-            coord_Y,
-            coord_Z,
-        ))
+        coord_columns = [data["X"], data["Y"], data["Z"]]
+        coords = self._group_typical_columns(columns=coord_columns, converter=self._to_internalunits.length, dtype=np.float64)
         name_to_idx = dict(zip(unique_name, index))
         point_objects = {
             "Index": index,
@@ -558,7 +561,7 @@ class ExcelTranslator:
             np.fromiter((point_name_to_idx[name] for name in jend_point), dtype=np.int32, count=n),
         ))
         element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
-        sec_idx = sections.name_to_idx(data["Section"])
+        sec_idx = sections.name_to_idx(names=data["Section"])
         is_auto_end_offsets = np.fromiter((
             str(x).strip().lower() == "auto from connectivity"
             for x in data["End Offset"]),
@@ -566,20 +569,10 @@ class ExcelTranslator:
             count=n,
         )
         rigid_zone_factor = np.asarray(data["Rigid Zone Factor"], dtype=np.float64)
-        iend_offset_length = np.where(
-            [x is not None for x in data["I-End Offset Length"]],
-            self._to_internalunits.length(values=data["I-End Offset Length"]), 
-            0.0,
-        )
-        jend_offset_length = np.where(
-            [x is not None for x in data["J-End Offset Length"]],
-            self._to_internalunits.length(values=data["J-End Offset Length"]), 
-            0.0,
-        )
-        offsets_length = np.column_stack((
-            iend_offset_length,
-            jend_offset_length,
-        ))
+        offset_length_columns = ["I-End Offset Length", "J-End Offset Length"]
+        offsets_length = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=0.0) for column in offset_length_columns
+        ])
         is_zero_length_element = np.fromiter((
             str(x).strip().lower() == "yes"
             for x in data["Zero Length Element"]),
@@ -612,16 +605,8 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
         self._validate_duplicate_value(col_data=unique_name, col_name="Surface object")
-        edge_1 = np.asarray(data["Edge 1"], dtype="U15")
-        edge_2 = np.asarray(data["Edge 2"], dtype="U15")
-        edge_3 = np.asarray(data["Edge 3"], dtype="U15")
-        edge_4 = np.asarray(data["Edge 4"], dtype="U15")
-        edges_name = np.column_stack((
-            edge_1,
-            edge_2,
-            edge_3,
-            edge_4,
-        ))
+        edge_columns = [data["Edge 1"], data["Edge 2"], data["Edge 3"], data["Edge 4"]]
+        edges_name = self._group_typical_columns(columns=edge_columns, dtype="U15")
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
         for i in range(n):
@@ -631,7 +616,7 @@ class ExcelTranslator:
                 surface_name=unique_name[i],
             )
         element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
-        sec_idx = slab_sections.name_to_idx(data["Section"])
+        sec_idx = slab_sections.name_to_idx(names=data["Section"])
         name_to_idx = dict(zip(unique_name, index))
         surface_objects = {
             "Index": index,
@@ -655,20 +640,8 @@ class ExcelTranslator:
         point_name_to_idx = point_objects["Name to Index"]
         point_name = np.asarray(data["Point"], dtype="U15")
         point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
-        ux = np.asarray(data["UX"], dtype=np.int32)
-        uy = np.asarray(data["UY"], dtype=np.int32)
-        uz = np.asarray(data["UZ"], dtype=np.int32)
-        rx = np.asarray(data["RX"], dtype=np.int32)
-        ry = np.asarray(data["RY"], dtype=np.int32)
-        rz = np.asarray(data["RZ"], dtype=np.int32)
-        dofs = np.column_stack((
-            ux,
-            uy,
-            uz,
-            rx,
-            ry,
-            rz,
-        ))
+        dof_columns = [data["UX"], data["UY"], data["UZ"], data["RX"], data["RY"], data["RZ"]]
+        dofs = self._group_typical_columns(columns=dof_columns, dtype=np.int32)
         restraints = {
             "Point Index": point_idx,
             "DOFs": dofs,
@@ -687,44 +660,12 @@ class ExcelTranslator:
             return point_loads
         point_name = np.asarray(data["Point"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
-        fx = np.where(
-            [x is not None for x in data["FX"]],
-            self._to_internalunits.force_pointload(values=data["FX"]), 
-            0.0,
+        force_columns = ["FX", "FY", "FZ"]
+        moment_columns = ["MX", "MY", "MZ"]
+        loads = np.column_stack(
+            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.force_pointload, dtype=np.float64, filled_values=0.0) for column in force_columns] +
+            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.moment_pointload, dtype=np.float64, filled_values=0.0) for column in moment_columns]
         )
-        fy = np.where(
-            [x is not None for x in data["FY"]],
-            self._to_internalunits.force_pointload(values=data["FY"]), 
-            0.0,
-        )
-        fz = np.where(
-            [x is not None for x in data["FZ"]],
-            self._to_internalunits.force_pointload(values=data["FZ"]), 
-            0.0,
-        )
-        mx = np.where(
-            [x is not None for x in data["MX"]],
-            self._to_internalunits.moment_pointload(values=data["MX"]), 
-            0.0,
-        )
-        my = np.where(
-            [x is not None for x in data["MY"]],
-            self._to_internalunits.moment_pointload(values=data["MY"]), 
-            0.0,
-        )
-        mz = np.where(
-            [x is not None for x in data["MZ"]],
-            self._to_internalunits.moment_pointload(values=data["MZ"]), 
-            0.0,
-        )
-        loads = np.column_stack((
-            fx,
-            fy,
-            fz,
-            mx,
-            my,
-            mz,
-        ))
         point_loads = {
             "Point Name": point_name,
             "Load Case": loadcase_type,
@@ -745,59 +686,15 @@ class ExcelTranslator:
         line_name = np.asarray(data["Line"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
-        load_1 = np.where(
-            [x is not None for x in data["Load 1"]],
-            self._to_internalunits.concentrated_lineload(values=data["Load 1"]), 
-            np.nan,
-        )
-        load_2 = np.where(
-            [x is not None for x in data["Load 2"]],
-            self._to_internalunits.concentrated_lineload(values=data["Load 2"]), 
-            np.nan,
-        )
-        load_3 = np.where(
-            [x is not None for x in data["Load 3"]],
-            self._to_internalunits.concentrated_lineload(values=data["Load 3"]), 
-            np.nan,
-        )
-        load_4 = np.where(
-            [x is not None for x in data["Load 4"]],
-            self._to_internalunits.concentrated_lineload(values=data["Load 4"]), 
-            np.nan,
-        )
-        loads = np.column_stack((
-            load_1,
-            load_2,
-            load_3,
-            load_4,
-        ))
-        loc_1 = np.where(
-            [x is not None for x in data["Location 1"]],
-            self._to_internalunits.length(values=data["Location 1"]), 
-            np.nan,
-        )
-        loc_2 = np.where(
-            [x is not None for x in data["Location 2"]],
-            self._to_internalunits.length(values=data["Location 2"]), 
-            np.nan,
-        )
-        loc_3 = np.where(
-            [x is not None for x in data["Location 3"]],
-            self._to_internalunits.length(values=data["Location 3"]), 
-            np.nan,
-        )
-        loc_4 = np.where(
-            [x is not None for x in data["Location 4"]],
-            self._to_internalunits.length(values=data["Location 4"]), 
-            np.nan,
-        )
-        locations = np.column_stack((
-            loc_1,
-            loc_2,
-            loc_3,
-            loc_4,
-        ))
-        new_line_name, new_loadcase_type, new_load_direction, new_location, new_load = get_concentrated_line_loads(
+        load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
+        loads = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.concentrated_lineload, dtype=np.float64, filled_values=np.nan) for column in load_columns
+        ])
+        location_columns = ["Location 1", "Location 2", "Location 3", "Location 4"]
+        locations = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
+        ])
+        modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_concentrated_line_loads(
             line_name=line_name,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
@@ -805,11 +702,11 @@ class ExcelTranslator:
             loads=loads,
         )
         concentrated_line_loads = {
-            "Line Name": new_line_name,
-            "Load Case": new_loadcase_type,
-            "Direction": new_load_direction,
-            "Location": new_location,
-            "Load": new_load,
+            "Line Name": modified_line_name,
+            "Load Case": modified_loadcase_type,
+            "Direction": modified_load_direction,
+            "Location": modified_location,
+            "Load": modified_load,
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 
@@ -826,64 +723,16 @@ class ExcelTranslator:
         line_name = np.asarray(data["Line"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
-        uniform_load = np.where(
-            [x is not None for x in data["Uniform Load"]],
-            self._to_internalunits.distributed_lineload(values=data["Uniform Load"]), 
-            np.nan,
-        )
-        load_1 = np.where(
-            [x is not None for x in data["Load 1"]],
-            self._to_internalunits.distributed_lineload(values=data["Load 1"]), 
-            np.nan,
-        )
-        load_2 = np.where(
-            [x is not None for x in data["Load 2"]],
-            self._to_internalunits.distributed_lineload(values=data["Load 2"]), 
-            np.nan,
-        )
-        load_3 = np.where(
-            [x is not None for x in data["Load 3"]],
-            self._to_internalunits.distributed_lineload(values=data["Load 3"]), 
-            np.nan,
-        )
-        load_4 = np.where(
-            [x is not None for x in data["Load 4"]],
-            self._to_internalunits.distributed_lineload(values=data["Load 4"]), 
-            np.nan,
-        )
-        loads = np.column_stack((
-            load_1,
-            load_2,
-            load_3,
-            load_4,
-        ))
-        loc_1 = np.where(
-            [x is not None for x in data["Location 1"]],
-            self._to_internalunits.length(values=data["Location 1"]), 
-            np.nan,
-        )
-        loc_2 = np.where(
-            [x is not None for x in data["Location 2"]],
-            self._to_internalunits.length(values=data["Location 2"]), 
-            np.nan,
-        )
-        loc_3 = np.where(
-            [x is not None for x in data["Location 3"]],
-            self._to_internalunits.length(values=data["Location 3"]), 
-            np.nan,
-        )
-        loc_4 = np.where(
-            [x is not None for x in data["Location 4"]],
-            self._to_internalunits.length(values=data["Location 4"]), 
-            np.nan,
-        )
-        locations = np.column_stack((
-            loc_1,
-            loc_2,
-            loc_3,
-            loc_4,
-        ))
-        new_line_name, new_loadcase_type, new_load_direction, new_location, new_load = get_distributed_line_loads(
+        uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_lineload, dtype=np.float64, filled_values=np.nan)
+        load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
+        loads = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.distributed_lineload, dtype=np.float64, filled_values=np.nan) for column in load_columns
+        ])
+        location_columns = ["Location 1", "Location 2", "Location 3", "Location 4"]
+        locations = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
+        ])
+        modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_distributed_line_loads(
             line_name=line_name,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
@@ -892,11 +741,11 @@ class ExcelTranslator:
             loads=loads,
         )
         distributed_line_loads = {
-            "Line Name": new_line_name,
-            "Load Case": new_loadcase_type,
-            "Direction": new_load_direction,
-            "Load": new_load,
-            "Location": new_location,
+            "Line Name": modified_line_name,
+            "Load Case": modified_loadcase_type,
+            "Direction": modified_load_direction,
+            "Load": modified_load,
+            "Location": modified_location,
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
@@ -913,11 +762,7 @@ class ExcelTranslator:
         surface_name = np.asarray(data["Surface"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
-        load = np.where(
-            [x is not None for x in data["Load"]],
-            self._to_internalunits.surfaceload(values=data["Load"]), 
-            0.0,
-        )
+        load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.surfaceload, dtype=np.float64, filled_values=np.nan)
         surface_loads = {
             "Surface Name": surface_name,
             "Load Case": loadcase_type,

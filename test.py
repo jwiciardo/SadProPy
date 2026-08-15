@@ -57,8 +57,3 @@ for i in range(len(shells.elements_idx)):
 print(shell_loc)
 print(shell_load)
 
-
-
-from sadpropy.preprocessing.excel_translator import ExcelReader
-
-ExcelReader()

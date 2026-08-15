@@ -1,8 +1,6 @@
 import numpy as np
 from ._exceptions import ValidationError
 
-__all__ = ["TagManager"]
-
 class TagManager:
     __slots__ = (
         "_counters",

@@ -2,8 +2,8 @@ import numpy as np
 from collections import defaultdict
 from .preprocessing_class_index import ElementType, ConnectionEnd
 from ._section import get_section_dimensions
-from sadpropy.utility.helperfunc import transform_to_global_axes, transform_to_local_axes, get_parent_node
-from sadpropy.utility.tolerance import Tolerance
+from ..utility.helperfunc import transform_to_global_axes, transform_to_local_axes, get_parent_node
+from ..utility.tolerance import Tolerance
 
 # GENERATE LOCAL AXES
 def _compute_element_centroids(inode_coords, jnode_coords):

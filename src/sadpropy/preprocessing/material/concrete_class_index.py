@@ -4,12 +4,12 @@ from ..preprocessing_class_index import ConcreteElasticProperties, Concrete04Pro
 class ConcreteElastic:
     properties = ConcreteElasticProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fc = units.stress(values=data["Prop1"])
+        fc = converter.stress(values=data["Prop1"])
         return np.column_stack((
             Unitweight,
             E,
@@ -21,15 +21,15 @@ class ConcreteElastic:
 class Concrete04:
     properties = Concrete04Properties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fc = units.stress(values=data["Prop1"])
+        fc = converter.stress(values=data["Prop1"])
         epsc = np.asarray(data["Prop2"], dtype=np.float64)
         epscu = np.asarray(data["Prop3"], dtype=np.float64)
-        fct = units.stress(values=data["Prop4"])
+        fct = converter.stress(values=data["Prop4"])
         et = np.asarray(data["Prop5"], dtype=np.float64)
         et = np.where(
             et != 0.0,
@@ -53,15 +53,15 @@ class Concrete04:
 class Concrete04MinMax:
     properties = Concrete04MinMaxProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        fc = units.stress(values=data["Prop1"])
+        fc = converter.stress(values=data["Prop1"])
         epsc = np.asarray(data["Prop2"], dtype=np.float64)
         epscu = np.asarray(data["Prop3"], dtype=np.float64)
-        fct = units.stress(values=data["Prop4"])
+        fct = converter.stress(values=data["Prop4"])
         et = np.asarray(data["Prop5"], dtype=np.float64)
         et = np.where(
             et != 0.0,

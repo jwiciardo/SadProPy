@@ -4,18 +4,18 @@ from ..preprocessing_class_index import SpringIMKBilinearProperties, SpringIMKPe
 class SpringIMKBilinear:
     properties = SpringIMKBilinearProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        K0 = units.rotational_stiffness(values=data["Prop1"])
-        my_pos = units.moment(values=data["Prop4"])
-        my_neg = units.moment(values=data["Prop5"])
+        K0 = converter.rotational_stiffness(values=data["Prop1"])
+        my_pos = converter.moment(values=data["Prop4"])
+        my_neg = converter.moment(values=data["Prop5"])
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
-        mu_pos = units.moment(values=data["Prop6"])
-        mu_neg = units.moment(values=data["Prop7"])
+        mu_pos = converter.moment(values=data["Prop6"])
+        mu_neg = converter.moment(values=data["Prop7"])
         lamda_S = np.asarray(data["Prop8"], dtype=np.float64)
         lamda_C = np.asarray(data["Prop9"], dtype=np.float64)
         lamda_A = np.asarray(data["Prop10"], dtype=np.float64)
@@ -24,8 +24,8 @@ class SpringIMKBilinear:
         c_C = np.asarray(data["Prop13"], dtype=np.float64)
         c_A = np.asarray(data["Prop14"], dtype=np.float64)
         c_K = np.asarray(data["Prop15"], dtype=np.float64)
-        theta_p_pos = units.angle(values=data["Prop16"])
-        theta_p_neg = units.angle(values=data["Prop17"])
+        theta_p_pos = converter.angle(values=data["Prop16"])
+        theta_p_neg = converter.angle(values=data["Prop17"])
         Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
         Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
         as_pos = np.asarray(data["Prop2"], dtype=np.float64)
@@ -40,10 +40,10 @@ class SpringIMKBilinear:
             as_neg, 
             K0 / Kpy_neg,
         )
-        theta_pc_pos = units.angle(values=data["Prop18"])
-        theta_pc_neg = units.angle(values=data["Prop19"])
-        theta_u_pos = units.angle(values=data["Prop20"])
-        theta_u_neg = units.angle(values=data["Prop21"])
+        theta_pc_pos = converter.angle(values=data["Prop18"])
+        theta_pc_neg = converter.angle(values=data["Prop19"])
+        theta_u_pos = converter.angle(values=data["Prop20"])
+        theta_u_neg = converter.angle(values=data["Prop21"])
         res_pos = np.asarray(data["Prop22"], dtype=np.float64)
         res_neg = np.asarray(data["Prop23"], dtype=np.float64)
         D_pos = np.asarray(data["Prop24"], dtype=np.float64)
@@ -85,18 +85,18 @@ class SpringIMKBilinear:
 class SpringIMKPeakOriented:
     properties = SpringIMKPeakOrientedProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        K0 = units.rotational_stiffness(values=data["Prop1"])
-        my_pos = units.moment(values=data["Prop4"])
-        my_neg = units.moment(values=data["Prop5"])
+        K0 = converter.rotational_stiffness(values=data["Prop1"])
+        my_pos = converter.moment(values=data["Prop4"])
+        my_neg = converter.moment(values=data["Prop5"])
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
-        mu_pos = units.moment(values=data["Prop6"])
-        mu_neg = units.moment(values=data["Prop7"])
+        mu_pos = converter.moment(values=data["Prop6"])
+        mu_neg = converter.moment(values=data["Prop7"])
         lamda_S = np.asarray(data["Prop8"], dtype=np.float64)
         lamda_C = np.asarray(data["Prop9"], dtype=np.float64)
         lamda_A = np.asarray(data["Prop10"], dtype=np.float64)
@@ -105,8 +105,8 @@ class SpringIMKPeakOriented:
         c_C = np.asarray(data["Prop13"], dtype=np.float64)
         c_A = np.asarray(data["Prop14"], dtype=np.float64)
         c_K = np.asarray(data["Prop15"], dtype=np.float64)
-        theta_p_pos = units.angle(values=data["Prop16"])
-        theta_p_neg = units.angle(values=data["Prop17"])
+        theta_p_pos = converter.angle(values=data["Prop16"])
+        theta_p_neg = converter.angle(values=data["Prop17"])
         Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
         Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
         as_pos = np.asarray(data["Prop2"], dtype=np.float64)
@@ -121,10 +121,10 @@ class SpringIMKPeakOriented:
             as_neg, 
             K0 / Kpy_neg,
         )
-        theta_pc_pos = units.angle(values=data["Prop18"])
-        theta_pc_neg = units.angle(values=data["Prop19"])
-        theta_u_pos = units.angle(values=data["Prop20"])
-        theta_u_neg = units.angle(values=data["Prop21"])
+        theta_pc_pos = converter.angle(values=data["Prop18"])
+        theta_pc_neg = converter.angle(values=data["Prop19"])
+        theta_u_pos = converter.angle(values=data["Prop20"])
+        theta_u_neg = converter.angle(values=data["Prop21"])
         res_pos = np.asarray(data["Prop22"], dtype=np.float64)
         res_neg = np.asarray(data["Prop23"], dtype=np.float64)
         D_pos = np.asarray(data["Prop24"], dtype=np.float64)
@@ -164,18 +164,18 @@ class SpringIMKPeakOriented:
 class SpringIMKPinching:
     properties = SpringIMKPinchingProperties
     @staticmethod
-    def translate(data, units):
-        Unitweight = units.unitweight(values=data["Unitweight"])
-        E = units.stress(values=data["E"])
+    def translate(data, converter):
+        Unitweight = converter.unitweight(values=data["Unitweight"])
+        E = converter.stress(values=data["E"])
         nu = np.asarray(data["nu"], dtype=np.float64)
         G = E / (2.0 * (1.0 + nu))
-        K0 = units.rotational_stiffness(values=data["Prop1"])
-        my_pos = units.moment(values=data["Prop4"])
-        my_neg = units.moment(values=data["Prop5"])
+        K0 = converter.rotational_stiffness(values=data["Prop1"])
+        my_pos = converter.moment(values=data["Prop4"])
+        my_neg = converter.moment(values=data["Prop5"])
         theta_e_pos = my_pos / K0
         theta_e_neg = my_neg / K0
-        mu_pos = units.moment(values=data["Prop6"])
-        mu_neg = units.moment(values=data["Prop7"])
+        mu_pos = converter.moment(values=data["Prop6"])
+        mu_neg = converter.moment(values=data["Prop7"])
         lamda_S = np.asarray(data["Prop8"], dtype=np.float64)
         lamda_C = np.asarray(data["Prop9"], dtype=np.float64)
         lamda_A = np.asarray(data["Prop10"], dtype=np.float64)
@@ -184,8 +184,8 @@ class SpringIMKPinching:
         c_C = np.asarray(data["Prop13"], dtype=np.float64)
         c_A = np.asarray(data["Prop14"], dtype=np.float64)
         c_K = np.asarray(data["Prop15"], dtype=np.float64)
-        theta_p_pos = units.angle(values=data["Prop16"])
-        theta_p_neg = units.angle(values=data["Prop17"])
+        theta_p_pos = converter.angle(values=data["Prop16"])
+        theta_p_neg = converter.angle(values=data["Prop17"])
         Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
         Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
         as_pos = np.asarray(data["Prop2"], dtype=np.float64)
@@ -200,10 +200,10 @@ class SpringIMKPinching:
             as_neg, 
             K0 / Kpy_neg,
         )
-        theta_pc_pos = units.angle(values=data["Prop18"])
-        theta_pc_neg = units.angle(values=data["Prop19"])
-        theta_u_pos = units.angle(values=data["Prop20"])
-        theta_u_neg = units.angle(values=data["Prop21"])
+        theta_pc_pos = converter.angle(values=data["Prop18"])
+        theta_pc_neg = converter.angle(values=data["Prop19"])
+        theta_u_pos = converter.angle(values=data["Prop20"])
+        theta_u_neg = converter.angle(values=data["Prop21"])
         res_pos = np.asarray(data["Prop22"], dtype=np.float64)
         res_neg = np.asarray(data["Prop23"], dtype=np.float64)
         D_pos = np.asarray(data["Prop24"], dtype=np.float64)
