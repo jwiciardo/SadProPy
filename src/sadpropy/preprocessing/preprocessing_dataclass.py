@@ -2,13 +2,10 @@ import numpy as np
 from dataclasses import dataclass
 from sadpropy.utility import UserDefinedUnits
 from .preprocessing_class_index import (
-    Concrete04Properties,
-    Steel02Properties,
-    MinMaxProperties,
-    IMKProperties,
     FiberSectionProperties,
     SectionAggregatorProperties,
 )
+from sadpropy.utility._exceptions import ValidationError
 
 # PROJECT
 @dataclass(slots=True, frozen=True)
@@ -38,106 +35,20 @@ class Materials:
     mat_tag: np.ndarray                 # int32, shape (N,)
     mat_type: np.ndarray                # int8, shape (N,)
     mat_model: np.ndarray               # int8, shape (N,)
-    properties: np.ndarray              # float64, shape (N,32)
-    name_to_idx: dict[str, np.int8]
+    properties: np.ndarray              # float64, shape (N,Max.columns)
 
-@dataclass(slots=True, frozen=True)
-class Mat_Concrete04:
-    index: np.ndarray                   # int32, shape (N,)
-    mat_name: np.ndarray                # str, shape (N,)
-    mat_tag: np.ndarray                 # int32, shape (N,)
-    basemat_class: np.ndarray           # int32, shape (N,)
-    basemat_idx: np.ndarray             # int32, shape (N,)
-    mat_type: np.ndarray                # str, shape (N,)
-    mat_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,10)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            mat_name=np.empty(0, dtype="U32"),
-            mat_tag=np.empty(0, dtype=np.int32),
-            basemat_class=np.empty(0, dtype=np.int32),
-            basemat_idx=np.empty(0, dtype=np.int32),
-            mat_type=np.empty(0, dtype="U15"),
-            mat_model=np.empty(0, dtype="U15"),
-            properties=np.empty((0, len(Concrete04Properties)), dtype=np.float64),
-            name_to_idx={},
-        )
-
-@dataclass(slots=True, frozen=True)
-class Mat_Steel02:
-    index: np.ndarray                   # int32, shape (N,)
-    mat_name: np.ndarray                # str, shape (N,)
-    mat_tag: np.ndarray                 # int32, shape (N,)
-    basemat_class: np.ndarray          # int32, shape (N,)
-    basemat_idx: np.ndarray            # int32, shape (N,)
-    mat_type: np.ndarray                # str, shape (N,)
-    mat_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,14)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            mat_name=np.empty(0, dtype="U32"),
-            mat_tag=np.empty(0, dtype=np.int32),
-            basemat_class=np.empty(0, dtype=np.int32),
-            basemat_idx=np.empty(0, dtype=np.int32),
-            mat_type=np.empty(0, dtype="U15"),
-            mat_model=np.empty(0, dtype="U15"),
-            properties=np.empty((0, len(Steel02Properties)), dtype=np.float64),
-            name_to_idx={},
-        )
-
-@dataclass(slots=True, frozen=True)
-class Mat_MinMax:
-    index: np.ndarray                   # int32, shape (N,)
-    mat_name: np.ndarray                # str, shape (N,)
-    mat_tag: np.ndarray                 # int32, shape (N,)
-    basemat_class: np.ndarray           # int32, shape (N,)
-    basemat_idx: np.ndarray             # int32, shape (N,)
-    mat_type: np.ndarray                # str, shape (N,)
-    mat_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,6)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            mat_name=np.empty(0, dtype="U32"),
-            mat_tag=np.empty(0, dtype=np.int32),
-            basemat_class=np.empty(0, dtype=np.int32),
-            basemat_idx=np.empty(0, dtype=np.int32),
-            mat_type=np.empty(0, dtype="U15"),
-            mat_model=np.empty(0, dtype="U15"),
-            properties=np.empty((0, len(MinMaxProperties)), dtype=np.float64),
-            name_to_idx={},
-        )
-
-@dataclass(slots=True, frozen=True)
-class Mat_IMK:
-    index: np.ndarray                   # int32, shape (N,)
-    mat_name: np.ndarray                # str, shape (N,)
-    mat_tag: np.ndarray                 # int32, shape (N,)
-    mat_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,27)
-    name_to_idx: dict[str, np.int32]
-
-    @classmethod
-    def empty(cls):
-        return cls(
-            index=np.empty(0, dtype=np.int32),
-            mat_name=np.empty(0, dtype="U32"),
-            mat_tag=np.empty(0, dtype=np.int32),
-            mat_model=np.empty(0, dtype="U15"),
-            properties=np.empty((0, len(IMKProperties)), dtype=np.float64),
-            name_to_idx={},
-        )
+    def name_to_idx(self, names):
+        lookup = {name: i for i, name in enumerate(self.mat_name)}
+        result = np.empty(len(names), dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None or not str(name).strip():
+                result[i] = -1
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Material '{name}' does not exist") from None
+        return result
 
 # PROPERTIES: FRAME SECTIONS
 @dataclass(slots=True, frozen=True)
@@ -145,13 +56,26 @@ class FrameSections:
     index: np.ndarray                   # int32, shape (N,)
     sec_name: np.ndarray                # str, shape (N,)
     sec_tag: np.ndarray                 # int32, shape (N,)
-    sec_shape: np.ndarray               # str, shape (N,)
-    mats_class: np.ndarray              # int32, shape (N,1)
-    mats_idx: np.ndarray                # int32, shape (N,1)
-    mat_type: np.ndarray                # str, shape (N,)
-    sec_model: np.ndarray               # str, shape (N,)
-    properties: np.ndarray              # float64, shape (N,10)
-    name_to_idx: dict[str, np.int32]
+    sec_shape: np.ndarray               # int8, shape (N,)
+    sec_model: np.ndarray               # int8, shape (N,)
+    mats_idx: np.ndarray                # int32, shape (N,3)
+    mat_type: np.ndarray                # int8, shape (N,)
+    integration_type: np.ndarray        # int8, shape (N,)
+    integration_tag: np.ndarray         # int32, shape (N,)
+    properties: np.ndarray              # float64, shape (N,Max.columns)
+
+    def name_to_idx(self, names):
+        lookup = {name: i for i, name in enumerate(self.sec_name)}
+        result = np.empty(len(names), dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None or not str(name).strip():
+                result[i] = -1
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Section '{name}' does not exist") from None
+        return result
     
 @dataclass(slots=True, frozen=True)
 class Sec_Fiber:
@@ -392,11 +316,6 @@ class ModelData:
     userdefined_units: UserDefinedUnits
     analysis_preferences: AnalysisPreferences
     materials: Materials
-    mat_concrete04: Mat_Concrete04
-    mat_steel02: Mat_Steel02
-    mat_minmax: Mat_MinMax
-    mat_imk: Mat_IMK
-    materials_list: list
     frame_sections: FrameSections
     sec_fiber: Sec_Fiber
     sec_aggregator: Sec_Aggregator
@@ -421,11 +340,6 @@ class ModelData:
             userdefined_units = None,
             analysis_preferences = None,
             materials = None,
-            mat_concrete04 = None,
-            mat_steel02 = None,
-            mat_minmax = None,
-            mat_imk = None,
-            materials_list = [],
             frame_sections = None,
             sec_fiber = None,
             sec_aggregator = None,

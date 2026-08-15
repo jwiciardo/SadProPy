@@ -83,9 +83,10 @@ class Steel02:
         ey = fy / E
         eoffset = ey + 0.002
         Epy = (fu - fy) / (eu - eoffset)
+        b = np.asarray(data["Prop4"], dtype=np.float64) 
         b = np.where(
-            np.asarray(data["Prop4"], dtype=np.float64) != 0.0,
-            np.asarray(data["Prop4"], dtype=np.float64), 
+            b != 0.0,
+            b, 
             Epy / E,
         )
         R0 = np.asarray(data["Prop5"], dtype=np.float64)
@@ -129,9 +130,10 @@ class Steel02MinMax:
         ey = fy / E
         eoffset = ey + 0.002
         Epy = (fu - fy) / (eu - eoffset)
+        b = np.asarray(data["Prop4"], dtype=np.float64) 
         b = np.where(
-            np.asarray(data["Prop4"], dtype=np.float64) != 0.0,
-            np.asarray(data["Prop4"], dtype=np.float64), 
+            b != 0.0,
+            b, 
             Epy / E,
         )
         R0 = np.asarray(data["Prop5"], dtype=np.float64)
@@ -161,6 +163,6 @@ class Steel02MinMax:
             a3,
             a4,
             f_init,
-            ecmax,
+            -ecmax,
             etmax,
         ))

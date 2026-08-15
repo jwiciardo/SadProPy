@@ -66,9 +66,10 @@ class Concrete04:
         epsc = np.asarray(data["Prop2"], dtype=np.float64)
         epscu = np.asarray(data["Prop3"], dtype=np.float64)
         fct = units.stress(values=data["Prop4"])
+        et = np.asarray(data["Prop5"], dtype=np.float64)
         et = np.where(
-            np.asarray(data["Prop5"], dtype=np.float64) != 0.0,
-            np.asarray(data["Prop5"], dtype=np.float64), 
+            et != 0.0,
+            et,
             fct * epsc / fc,
         )
         beta = np.asarray(data["Prop6"], dtype=np.float64)
@@ -77,9 +78,9 @@ class Concrete04:
             E,
             nu,
             G,
-            fc,
-            epsc,
-            epscu,
+            -fc,
+            -epsc,
+            -epscu,
             fct,
             et,
             beta,
@@ -97,9 +98,10 @@ class Concrete04MinMax:
         epsc = np.asarray(data["Prop2"], dtype=np.float64)
         epscu = np.asarray(data["Prop3"], dtype=np.float64)
         fct = units.stress(values=data["Prop4"])
+        et = np.asarray(data["Prop5"], dtype=np.float64)
         et = np.where(
-            np.asarray(data["Prop5"], dtype=np.float64) != 0.0,
-            np.asarray(data["Prop5"], dtype=np.float64), 
+            et != 0.0,
+            et,
             fct * epsc / fc,
         )
         beta = np.asarray(data["Prop6"], dtype=np.float64)
@@ -110,12 +112,12 @@ class Concrete04MinMax:
             E,
             nu,
             G,
-            fc,
-            epsc,
-            epscu,
+            -fc,
+            -epsc,
+            -epscu,
             fct,
             et,
             beta,
-            ecmax,
+            -ecmax,
             etmax,
         ))

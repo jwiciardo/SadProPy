@@ -1,32 +1,22 @@
 import warnings
 import numpy as np
 from openpyxl import load_workbook
-from .concrete_class_index import (
-    ConcreteElastic,
-    Concrete04,
-    Concrete04MinMax,
-)
-from .steel_class_index import (
-    SteelElastic,
-    Steel02,
-    Steel02MinMax,
-)
 from .preprocessing_class_index import (
     MaterialType,
     MaterialModel,
-    SpringIMKBilinearProperties,
-    SpringIMKPeakOrientedProperties,
-    SpringIMKPinchingProperties,
+    SectionShape,
+    SectionModel,
+    IntegrationType,
 )
+from .material.concrete_class_index import ConcreteElastic, Concrete04, Concrete04MinMax
+from .material.steel_class_index import SteelElastic, Steel02, Steel02MinMax
+from .material.spring_class_index import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
+from .section.rectangular_class_index import RectangularElastic, RectangularFiber
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
     AnalysisPreferences,
     Materials,
-    Mat_Concrete04,
-    Mat_Steel02,
-    Mat_MinMax,
-    Mat_IMK,
     FrameSections,
     Sec_Fiber,
     Sec_Aggregator,
@@ -129,11 +119,6 @@ class ExcelTranslator:
             "IMKPeakOriented": MaterialModel.IMKPeakOriented,
             "IMKPinching": MaterialModel.IMKPinching,
         }
-        self._matprop_index = {
-            (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinearProperties,
-            (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOrientedProperties,
-            (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinchingProperties,
-        }
         self._matprop_definition = {
             (MaterialType.Concrete, MaterialModel.Elastic): ConcreteElastic,
             (MaterialType.Concrete, MaterialModel.Concrete04): Concrete04,
@@ -141,9 +126,30 @@ class ExcelTranslator:
             (MaterialType.Steel, MaterialModel.Elastic): SteelElastic,
             (MaterialType.Steel, MaterialModel.Steel02): Steel02,
             (MaterialType.Steel, MaterialModel.Steel02MinMax): Steel02MinMax,
+            (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinear,
+            (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOriented,
+            (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinching,
         }
-        self._mats_list = []
-        self._hinge_mats_list = []
+        self._section_shape = {
+            "Rectangular": SectionShape.Rectangular,
+            "Circular": SectionShape.Circular,
+            "Wide Flange": SectionShape.WideFlange,
+            "Channel": SectionShape.Channel,
+            "Rectangular Hollow": SectionShape.RectangularHollow,
+            "Circular Hollow": SectionShape.CircularHollow,
+        }
+        self._section_model = {
+            "Elastic": SectionModel.Elastic,
+            "Fiber": SectionModel.Fiber,
+        }
+        self._secdim_definition = {
+            (SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
+            (SectionShape.Rectangular, SectionModel.Fiber): RectangularFiber,
+        }
+        self._integration_type = {
+            "Lobatto": IntegrationType.Lobatto,
+            "Hinge Radau": IntegrationType.HingeRadau,
+        }
         self._secs_list = []
 
     # MAIN METHOD: EXCEL TRANSLATOR
@@ -152,11 +158,7 @@ class ExcelTranslator:
         project_information = self._translate_project_information()
         analysis_preferences = self._translate_analysis_preferences()
         materials = self._translate_materials()
-        mat_concrete04 = self._translate_mat_concrete04()
-        mat_steel02 = self._translate_mat_steel02()
-        mat_minmax = self._translate_mat_minmax()
-        mat_imk = self._translate_mat_imk()
-        frame_sections = self._translate_frame_sections()
+        frame_sections = self._translate_frame_sections(materials=materials)
         sec_fiber = self._translate_sec_fiber()
         sec_aggregator = self._translate_sec_aggregator()
         slab_sections = self._translate_slab_sections()
@@ -177,10 +179,6 @@ class ExcelTranslator:
             "Userdefined Units": self._units,
             "Analysis Preferences": analysis_preferences,
             "Materials": materials,
-            "Mat: Concrete04": mat_concrete04,
-            "Mat: Steel02": mat_steel02,
-            "Mat: Minmax": mat_minmax,
-            "Mat: IMK": mat_imk,
             "Materials List": self._mats_list,
             "Frame Sections": frame_sections,
             "Sec: Fiber": sec_fiber,
@@ -365,24 +363,17 @@ class ExcelTranslator:
         mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
         mat_type = np.asarray([self._material_type[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
         mat_model = np.asarray([self._material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
+
+        # Translate material properties
         matprop_def = [self._matprop_definition[(t, m)] for t, m in zip(mat_type, mat_model)]
-        print(matprop_def[0])
-        Unitweight = self._to_internalunits.unitweight(values=data["Unitweight"])
-        E = self._to_internalunits.stress(values=data["E"])
-        nu = np.asarray(data["nu"], dtype=np.float64)
-        G = E / (2.0 * (1.0 + nu))
-        props = np.column_stack((
-            Unitweight,
-            E,
-            nu,
-            G,
-            *[np.asarray(data[f"Prop{i}"], dtype=np.float64) for i in range(1, 29)],
-        ))
-        props_count = np.asarray([idx.Count for idx in matprop_idx], dtype=np.int8)
-        column_index = np.arange(props.shape[1])
-        props[column_index >= props_count[:, None]] = np.nan
-        print(props)
-        name_to_idx = dict(zip(mat_name, index))
+        max_columns = max(definition.properties.Count for definition in matprop_def)
+        properties = np.full((n, max_columns), np.nan, dtype=np.float64)
+        unique_definitions = list(dict.fromkeys(matprop_def))
+        for definition in unique_definitions:
+            mask = np.asarray([d is definition for d in matprop_def], dtype=bool)
+            selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
+            translated_props = definition.translate(selected_data, self._to_internalunits)
+            properties[mask, :definition.properties.Count] = translated_props
         materials = Materials(
             index = index,
             mat_name = mat_name,
@@ -390,326 +381,60 @@ class ExcelTranslator:
             mat_type = mat_type,
             mat_model = mat_model,
             properties = properties,
-            name_to_idx = name_to_idx,
         ) # Storing materials data to dataclass
-        self._mats_list.append(materials) # Append Materials Properties into material list
         return materials
     
-    def _translate_mat_concrete04(self):
-        sheet_name = "Mat_Concrete04"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=12,
-        ) # Reading Sheet "Mat_Concrete04" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            mat_concrete04 = Mat_Concrete04.empty()
-            self._mats_list.append(mat_concrete04)
-            return mat_concrete04
-        index = np.arange(n, dtype=np.int32)
-        mat_name = np.asarray(data["Material Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
-        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base Material"])
-        mat_type = np.asarray([
-            self._mats_list[cls].mat_type[idx]
-            for cls, idx in zip(basemat_class, basemat_idx)],
-            dtype="U15",
-        )
-        mat_model = np.asarray(data["Material Model"], dtype="U15")
-        basemat_props = get_material_properties(
-            mats_list=self._mats_list,
-            mat_class=basemat_class,
-            mat_idx=basemat_idx,
-            props_name=["Unitweight", "E", "nu", "G"],
-        )
-        fc = self._to_internalunits.stress(values=data["fc"])
-        epsc = np.asarray(data["epsc"], dtype=np.float64)
-        epscu = np.asarray(data["epscu"], dtype=np.float64)
-        fct = self._to_internalunits.stress(values=data["fct"])
-        et = np.where(
-            np.asarray(data["et"], dtype=np.float64) != 0.0,
-            np.asarray(data["et"], dtype=np.float64), 
-            fct * epsc / fc,
-        )
-        beta = np.asarray(data["beta"], dtype=np.float64)
-        properties = np.column_stack((
-            basemat_props,
-            fc,
-            epsc,
-            epscu,
-            fct,
-            et,
-            beta,
-        ))
-        name_to_idx = dict(zip(mat_name, index))
-        mat_concrete04 = Mat_Concrete04(
-            index = index,
-            mat_name = mat_name,
-            mat_tag=mat_tag,
-            basemat_class = basemat_class,
-            basemat_idx = basemat_idx,
-            mat_type = mat_type,
-            mat_model = mat_model,
-            properties = properties,
-            name_to_idx = name_to_idx,
-        ) # Storing materials data to dataclass
-        self._mats_list.append(mat_concrete04) # Append Mat_Concrete04 Properties into material list
-        return mat_concrete04
-
-    def _translate_mat_steel02(self):
-        sheet_name = "Mat_Steel02"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=18,
-        ) # Reading Sheet "Mat_Steel02" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            mat_steel02 = Mat_Steel02.empty()
-            self._mats_list.append(mat_steel02)
-            return mat_steel02
-        index = np.arange(n, dtype=np.int32)
-        mat_name = np.asarray(data["Material Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
-        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base Material"])
-        mat_type = np.asarray([
-            self._mats_list[cls].mat_type[idx]
-            for cls, idx in zip(basemat_class, basemat_idx)],
-            dtype="U15",
-        )
-        mat_model = np.asarray(data["Material Model"], dtype="U15")
-        basemat_props = get_material_properties(
-            mats_list=self._mats_list,
-            mat_class=basemat_class,
-            mat_idx=basemat_idx,
-            props_name=["Unitweight", "E", "nu", "G"],
-        )
-        E = basemat_props[:, 1]
-        fy = self._to_internalunits.stress(values=data["fy"])
-        fu = self._to_internalunits.stress(values=data["fu"])
-        eu = np.asarray(data["eu"], dtype=np.float64)
-        ey = fy / E
-        eoffset = ey + 0.002
-        Epy = (fu - fy) / (eu - eoffset)    
-        b = np.where(
-            np.asarray(data["b"], dtype=np.float64) != 0.0,
-            np.asarray(data["b"], dtype=np.float64), 
-            Epy / E,
-        )
-        R0 = np.asarray(data["R0"], dtype=np.float64)
-        cR1 = np.asarray(data["cR1"], dtype=np.float64)
-        cR2 = np.asarray(data["cR2"], dtype=np.float64)
-        a1 = np.asarray(data["a1"], dtype=np.float64)
-        a2 = np.asarray(data["a2"], dtype=np.float64)
-        a3 = np.asarray(data["a3"], dtype=np.float64)
-        a4 = np.asarray(data["a4"], dtype=np.float64)
-        f_init = self._to_internalunits.stress(values=data["f_init"])
-        properties = np.column_stack((
-            basemat_props,
-            fy,
-            b,
-            R0,
-            cR1,
-            cR2,
-            a1,
-            a2,
-            a3,
-            a4,
-            f_init,
-        ))
-        name_to_idx = dict(zip(mat_name, index))
-        mat_steel02 = Mat_Steel02(
-            index = index,
-            mat_name = mat_name,
-            mat_tag=mat_tag,
-            basemat_class = basemat_class,
-            basemat_idx = basemat_idx,
-            mat_type = mat_type,
-            mat_model = mat_model,
-            properties = properties,
-            name_to_idx = name_to_idx,
-        ) # Storing materials data to dataclass
-        self._mats_list.append(mat_steel02) # Append Mat_Steel02 Properties into material list
-        return mat_steel02
-
-    def _translate_mat_minmax(self):
-        sheet_name = "Mat_MinMax"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=8,
-        ) # Reading Sheet "Mat_MinMax" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            mat_minmax = Mat_MinMax.empty()
-            self._mats_list.append(mat_minmax)
-            return mat_minmax
-        index = np.arange(n, dtype=np.int32)
-        mat_name = np.asarray(data["Material Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
-        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        basemat_class, _, basemat_idx = self._retrieve_material_index(mats_name=data["Base NL Material"])
-        mat_type = np.asarray([
-            self._mats_list[cls].mat_type[idx]
-            for cls, idx in zip(basemat_class, basemat_idx)],
-            dtype="U15",
-        )
-        mat_model = np.asarray(data["Material Model"], dtype="U15")
-        basemat_props = get_material_properties(
-            mats_list=self._mats_list,
-            mat_class=basemat_class,
-            mat_idx=basemat_idx,
-            props_name=["Unitweight", "E", "nu", "G"],
-        )
-        ecmax = np.asarray(data["ecmax"], dtype=np.float64)
-        etmax = np.asarray(data["etmax"], dtype=np.float64)
-        properties = np.column_stack((
-            basemat_props,
-            ecmax,
-            etmax,
-        ))
-        name_to_idx = dict(zip(mat_name, index))
-        mat_minmax = Mat_MinMax(
-            index = index,
-            mat_name = mat_name,
-            mat_tag=mat_tag,
-            basemat_class = basemat_class,
-            basemat_idx = basemat_idx,
-            mat_type = mat_type,
-            mat_model = mat_model,
-            properties = properties,
-            name_to_idx = name_to_idx
-        ) # Storing materials data to dataclass
-        self._mats_list.append(mat_minmax) # Append Mat_MinMax Properties into material list
-        return mat_minmax
-    
-    def _translate_mat_imk(self):
-        sheet_name = "Mat_IMK"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=19,
-        ) # Reading Sheet "Mat_IMK" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            mat_imk = Mat_IMK.empty()
-            return mat_imk
-        index = np.arange(n, dtype=np.int32)
-        mat_name = np.asarray(data["Material Name"], dtype="U32")
-        self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
-        mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        mat_model = np.asarray(data["Material Model"], dtype="U15")
-        K0 = self._to_internalunits.rotational_stiffness(values=data["K0"])
-        my_pos = self._to_internalunits.moment(values=data["My_Pos"])
-        my_neg = self._to_internalunits.moment(values=data["My_Neg"])
-        theta_e_pos = my_pos / K0
-        theta_e_neg = my_neg / K0
-        mu_pos = self._to_internalunits.moment(values=data["Mu_Pos"])
-        mu_neg = self._to_internalunits.moment(values=data["Mu_Neg"])
-        fpr_pos = np.asarray(data["Fpr_Pos"], dtype=np.float64)
-        fpr_neg = np.asarray(data["Fpr_Neg"], dtype=np.float64)
-        a_pinch = np.asarray(data["A_pinch"], dtype=np.float64)
-        nfactor = np.asarray(data["nFactor"], dtype=np.float64)
-        lamda_s = np.asarray(data["Lamda_S"], dtype=np.float64)
-        lamda_c = np.asarray(data["Lamda_C"], dtype=np.float64)
-        lamda_a = np.asarray(data["Lamda_A"], dtype=np.float64)
-        lamda_k = np.asarray(data["Lamda_K"], dtype=np.float64)
-        c_s = np.asarray(data["c_S"], dtype=np.float64)
-        c_c = np.asarray(data["c_C"], dtype=np.float64)
-        c_a = np.asarray(data["c_A"], dtype=np.float64)
-        c_k = np.asarray(data["c_K"], dtype=np.float64)
-        theta_p_pos = self._to_internalunits.angle(values=data["theta_p_Pos"])
-        theta_p_neg = self._to_internalunits.angle(values=data["theta_p_Neg"])
-        Kpy_pos = (mu_pos - my_pos) / (theta_p_pos - theta_e_pos)
-        Kpy_neg = (mu_neg - my_neg) / (theta_p_neg - theta_e_neg)
-        as_pos = K0 / Kpy_pos
-        as_neg = K0 / Kpy_neg
-        theta_pc_pos = self._to_internalunits.angle(values=data["theta_pc_Pos"])
-        theta_pc_neg = self._to_internalunits.angle(values=data["theta_pc_Neg"])
-        res_pos = np.asarray(data["Res_Pos"], dtype=np.float64)
-        res_neg = np.asarray(data["Res_Neg"], dtype=np.float64)
-        theta_u_pos = self._to_internalunits.angle(values=data["theta_u_Pos"])
-        theta_u_neg = self._to_internalunits.angle(values=data["theta_u_Neg"])
-        d_pos = np.asarray(data["D_Pos"], dtype=np.float64)
-        d_neg = np.asarray(data["D_Neg"], dtype=np.float64)
-        properties = np.column_stack((
-            K0,
-            as_pos,
-            as_neg,
-            my_pos,
-            my_neg,
-            fpr_pos,
-            fpr_neg,
-            a_pinch,
-            nfactor,
-            lamda_s,
-            lamda_c,
-            lamda_a,
-            lamda_k,
-            c_s,
-            c_c,
-            c_a,
-            c_k,
-            theta_p_pos,
-            theta_p_neg,
-            theta_pc_pos,
-            theta_pc_neg,
-            res_pos,
-            res_neg,
-            theta_u_pos,
-            theta_u_neg,
-            d_pos,
-            d_neg,
-        ))
-        name_to_idx = dict(zip(mat_name, index))
-        mat_imk = Mat_IMK(
-            index = index,
-            mat_name = mat_name,
-            mat_tag=mat_tag,
-            mat_model = mat_model,
-            properties = properties,
-            name_to_idx = name_to_idx,
-        ) # Storing materials data to dataclass
-        self._hinge_mats_list.append(mat_imk) # Append Materials Properties into hinge material list
-        return mat_imk
-    
-    def _translate_frame_sections(self):
+    def _translate_frame_sections(self, materials):
         sheet_name = "Frame Sections"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
-            start_row=15,
+            start_row=17,
         ) # Reading Sheet "Frame Sections" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
         sec_name = np.asarray(data["Section Name"], dtype="U32")
         self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
         sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        sec_shape = np.asarray(data["Section Shape"], dtype="U32")
-        mat_class, _, mat_idx = self._retrieve_material_index(mats_name=data["Material"])
-        mats_class = np.column_stack((
-            mat_class,
-        ))
+        sec_shape = np.asarray([self._section_shape[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
+        sec_model = np.asarray([self._section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
+        mat_idx = materials.name_to_idx(data["Material"])
+        mat2_idx = materials.name_to_idx(data["Material2"])
+        mat3_idx = materials.name_to_idx(data["Material3"])
         mats_idx = np.column_stack((
             mat_idx,
+            mat2_idx,
+            mat3_idx
         ))
-        mat_type = np.asarray([
-            self._mats_list[cls].mat_type[idx]
-            for cls, idx in zip(mat_class, mat_idx)],
-            dtype="U15",
+        mat_type = materials.mat_type[mat_idx]
+        integration_type = np.asarray([
+            self._integration_type[value.strip().title()]
+            if value is not None and value.strip() else -1
+            for value in data["Integration Type"]],
+            dtype=np.int8
         )
-        sec_model = np.asarray(data["Section Model"], dtype="U15")
-        h = self._to_internalunits.length(values=data["h"])
-        b = self._to_internalunits.length(values=data["b"])
+        n_integration = np.count_nonzero(integration_type != -1)
+        sec_with_integration_name = sec_name[integration_type != -1]
+        integration_tag = np.asarray(self._tagmanager.add(category="Beam Integration", n=n_integration, names=sec_with_integration_name), dtype=np.int32)
         AMod = np.asarray(data["AMod"], dtype=np.float64)
         AvyMod = np.asarray(data["AvyMod"], dtype=np.float64)
         AvzMod = np.asarray(data["AvzMod"], dtype=np.float64)
         IzMod = np.asarray(data["IzMod"], dtype=np.float64)
         IyMod = np.asarray(data["IyMod"], dtype=np.float64)
         JxxMod = np.asarray(data["JxxMod"], dtype=np.float64)
-        dimensions = np.column_stack((
-            h,
-            b,
-        ))
+
+        # Translate section dimensions
+        secdim_def = [self._secdim_definition[(s, m)] for s, m in zip(sec_shape, sec_model)]
+        max_columns = max(definition.dimensions.Count for definition in secdim_def)
+        dimensions = np.full((n, max_columns), np.nan, dtype=np.float64)
+        unique_definitions = list(dict.fromkeys(secdim_def))
+        for definition in unique_definitions:
+            mask = np.asarray([d is definition for d in secdim_def], dtype=bool)
+            selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
+            translated_dims = definition.translate(selected_data, self._to_internalunits)
+            dimensions[mask, :definition.dimensions.Count] = translated_dims
+
+        # Compute section properties
         (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,) = compute_section_properties(
             sec_shape=sec_shape,
             mat_type=mat_type, 
@@ -726,18 +451,17 @@ class ExcelTranslator:
             alphaY,
             alphaZ,
         ))
-        name_to_idx = dict(zip(sec_name, index))
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,
-            sec_tag=sec_tag,
+            sec_tag = sec_tag,
             sec_shape = sec_shape,
-            mats_class = mats_class,
+            sec_model = sec_model,
             mats_idx = mats_idx,
             mat_type = mat_type,
-            sec_model = sec_model,
+            integration_type = integration_type,
+            integration_tag = integration_tag,
             properties = properties,
-            name_to_idx = name_to_idx
         ) # Storing sections data to dataclass
         self._secs_list.append(frame_sections) # Append FrameSections Properties into section list
         return frame_sections

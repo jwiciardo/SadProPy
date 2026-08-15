@@ -1,5 +1,6 @@
 import numpy as np
-from .preprocessing_class_index import FrameSectionProperties, FiberSectionProperties, PropertiesClassRegistry
+from .section.rectangular_class_index import RectangularElasticProperties, RectangularFiberProperties, RectangularElastic, RectangularFiber
+from .preprocessing_class_index import MaterialType, SectionShape, SectionModel
 from sadpropy.utility._exceptions import ValidationError
 
 # COMPUTE REINFORCEMENT AREA
@@ -8,9 +9,9 @@ def rebar_area(dia):
      return A_rebar
 
 # COMPUTE SECTION PROPERTIES
-def _rectangular_concrete_section(dimensions):
-    h = dimensions[:, FrameSectionProperties.h]
-    b = dimensions[:, FrameSectionProperties.b]
+def _rectangular_elastic_props(dimensions):
+    h = dimensions[:, RectangularElasticProperties.h]
+    b = dimensions[:, RectangularElasticProperties.b]
 
     alphaY = np.full(len(h), 5.0 / 6.0) # Shear shape factor
     alphaZ = np.full(len(b), 5.0 / 6.0) # Shear shape factor
@@ -23,54 +24,17 @@ def _rectangular_concrete_section(dimensions):
     Jxx = h * b**3 * ((16.0/3.0) - 3.36 * (b / h) * (1.0 - b**4 / (12.0 * h**4))) / 16.0 # Torsional constant
     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
 
-SECTION_FUNCTIONS = {
-    ("Concrete", "Rectangular"): _rectangular_concrete_section,
-    #("Steel", "Wide Flange"): _wideflange_steel_section,
-    #("Concrete", "Circular"): _circular_concrete_section,
-}
-
-def compute_section_properties(sec_shape, mat_type, dimensions):
-     n = len(sec_shape)
-     A = np.zeros(n)
-     Avy = np.zeros(n)
-     Avz = np.zeros(n)
-     Iz = np.zeros(n)
-     Iy = np.zeros(n)
-     Jxx = np.zeros(n)
-     alphaY = np.zeros(n)
-     alphaZ = np.zeros(n)
-     for mattype, shape in np.unique(np.column_stack((mat_type, sec_shape)), axis=0,):
-          mask = ((mat_type == mattype) & (sec_shape == shape))
-          try:
-               section_func = SECTION_FUNCTIONS[(mattype, shape)]
-          except KeyError:
-               raise ValidationError(
-                    f"Unsupported section "
-                    f"'{mattype} {shape}'"
-               )
-          (
-               A[mask],
-               Avy[mask],
-               Avz[mask],
-               Iz[mask],
-               Iy[mask],
-               Jxx[mask],
-               alphaY[mask],
-               alphaZ[mask],
-          ) = section_func(dimensions=dimensions[mask])
-     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
-
-def _rectangular_concrete_fibersection(dimensions):
-     h = dimensions[:, FiberSectionProperties.h]
-     b = dimensions[:, FiberSectionProperties.b]
-     cover = dimensions[:, FiberSectionProperties.cover]
-     nBars_top = (dimensions[:, FiberSectionProperties.nBars_top].astype(np.int32))
-     nBars_bot = (dimensions[:, FiberSectionProperties.nBars_bot].astype(np.int32))
-     nBars_int = (dimensions[:, FiberSectionProperties.nBars_int].astype(np.int32))
-     barDia_hoop = dimensions[:, FiberSectionProperties.barDia_hoop]
-     barDia_top = dimensions[:, FiberSectionProperties.barDia_top]
-     barDia_bot = dimensions[:, FiberSectionProperties.barDia_bot]
-     barDia_int = dimensions[:, FiberSectionProperties.barDia_int]
+def _rectangular_concrete_fiber_props(dimensions):
+     h = dimensions[:, RectangularFiberProperties.h]
+     b = dimensions[:, RectangularFiberProperties.b]
+     cover = dimensions[:, RectangularFiberProperties.cover]
+     barDia_hoop = dimensions[:, RectangularFiberProperties.barDia_hoop]
+     barDia_top = dimensions[:, RectangularFiberProperties.barDia_top]
+     barDia_bot = dimensions[:, RectangularFiberProperties.barDia_bot]
+     barDia_int = dimensions[:, RectangularFiberProperties.barDia_int]
+     nBars_top = (dimensions[:, RectangularFiberProperties.nBars_top].astype(np.int8))
+     nBars_bot = (dimensions[:, RectangularFiberProperties.nBars_bot].astype(np.int8))
+     nBars_int = (dimensions[:, RectangularFiberProperties.nBars_int].astype(np.int8))     
      Abar_hoop, Abar_top, Abar_bot, Abar_int = rebar_area(barDia_hoop), rebar_area(barDia_top), rebar_area(barDia_bot), rebar_area(barDia_int)
      
      # General Section Properties
@@ -133,12 +97,44 @@ def _rectangular_concrete_fibersection(dimensions):
      Iy = Iyc + Iybar # Second moment of area of section about local y axis
      return (A, Avy, Avz, Iz, Iy, Jxx, Abar_top, Abar_bot, Abar_int,)
 
-FIBERSECTION_FUNCTIONS = {
-    ("Concrete", "Rectangular"): _rectangular_concrete_fibersection,
-    #("Steel", "Wide Flange"): _wideflange_steel_fibersection,
-    #("Concrete", "Circular"): _circular_concrete_fibersection,
+SECTION_FUNCTIONS = {
+    (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): _rectangular_elastic_props,
+    (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): _rectangular_elastic_props,
+    (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): _rectangular_concrete_fiber_props,
 }
-def compute_fibersection_properties(sec_shape, mat_type, dimensions):
+
+def compute_elastic_section_properties(sec_shape, sec_model, mat_type, dimensions):
+     n = len(sec_shape)
+     A = np.zeros(n)
+     Avy = np.zeros(n)
+     Avz = np.zeros(n)
+     Iz = np.zeros(n)
+     Iy = np.zeros(n)
+     Jxx = np.zeros(n)
+     alphaY = np.zeros(n)
+     alphaZ = np.zeros(n)
+     for mattype, shape, model in np.unique(np.column_stack((mat_type, sec_shape, sec_model)), axis=0,):
+          mask = ((mat_type == mattype) & (sec_shape == shape) & (sec_model == model))
+          try:
+               section_func = SECTION_FUNCTIONS[(mattype, shape, model)]
+          except KeyError:
+               raise ValidationError(
+                    f"Unsupported section "
+                    f"'{mattype} {shape} {model}'"
+               )
+          (
+               A[mask],
+               Avy[mask],
+               Avz[mask],
+               Iz[mask],
+               Iy[mask],
+               Jxx[mask],
+               alphaY[mask],
+               alphaZ[mask],
+          ) = section_func(dimensions=dimensions[mask])
+     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ,)
+
+def compute_fibersection_properties(sec_shape, sec_model, mat_type, dimensions):
      n = len(sec_shape)
      A = np.zeros(n)
      Avy = np.zeros(n)
@@ -149,14 +145,14 @@ def compute_fibersection_properties(sec_shape, mat_type, dimensions):
      Abar_top = np.zeros(n)
      Abar_bot = np.zeros(n)
      Abar_int = np.zeros(n)
-     for mattype, shape in np.unique(np.column_stack((mat_type, sec_shape)), axis=0,):
-          mask = ((mat_type == mattype) & (sec_shape == shape))
+     for mattype, shape, model in np.unique(np.column_stack((mat_type, sec_shape, sec_model)), axis=0,):
+          mask = ((mat_type == mattype) & (sec_shape == shape) & (sec_model == model))
           try:
-               section_func = FIBERSECTION_FUNCTIONS[(mattype, shape)]
+               section_func = SECTION_FUNCTIONS[(mattype, shape, model)]
           except KeyError:
                raise ValidationError(
                     f"Unsupported section "
-                    f"'{mattype} {shape}'"
+                    f"'{mattype} {shape} {model}'"
                )
           (
                A[mask],
