@@ -10,7 +10,7 @@ def _set_axes(ax, title, view, coords):
         "Top": (90, -90),
         "Bottom": (-90, -90),
     } # View dictionary
-    ax.set_title(title, fontsize=15, pad=0) # Set title for a plot
+    ax.set_title(title, fontsize=14, y=1.0) # Set title for a plot
     elev, azim = views[view] # Retrieve elevation and azimuth for views
     ax.view_init(elev=elev, azim=azim) # Set viewing angle
     ax.axis('off')

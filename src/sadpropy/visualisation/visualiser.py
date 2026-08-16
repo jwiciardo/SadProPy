@@ -75,13 +75,15 @@ class Visualisation:
             show_finite_length_hinges=False,
             show_fiber_section=False,
         ):
-        fig = plt.figure(figsize=(12, 10)) # Start plotting figure
+        fig = plt.figure(figsize=(12, 8)) # Start plotting figure
         ax = fig.add_subplot(111, projection="3d") # Add axis in 3D
 
         # General Data
         title = "UNDEFORMED MODEL"
         ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         storeys = self._modeldata.storeys # Retrieve storeys data
+        materials = self._modeldata.materials # Retrieve materials data
+        sections = self._modeldata.frame_sections # Retrieve frame sections data
 
         # Nodes
         nodes = self._modeldata.nodes # Retrieve nodes data
@@ -106,6 +108,8 @@ class Visualisation:
         if show_elements: # Set condition if show_elements is True or False
             _plot_elements(
                 ax=ax,
+                materials=materials,
+                sections=sections,
                 coords=coords,
                 elements=elements,
                 colour_by=colour_by,

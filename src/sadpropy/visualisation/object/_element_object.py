@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from ...utility._exception import ValidationError
 
-def _plot_elements(ax, coords, elements, colour_by, show_labels, linewidth=1.2):
+def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, linewidth=1.2):
     # Colour List
     colour_cycle = [
         "blue",
@@ -30,21 +30,18 @@ def _plot_elements(ax, coords, elements, colour_by, show_labels, linewidth=1.2):
             return
         
         # Get element categories
-        sections_list = self._modeldata.sections_list # Retrieve sections list
-        materials_list = self._modeldata.materials_list # Retrieve materials list
         if colour_by is None: # Return default if colour_by is None
             categories = np.full(len(elements.index), "Default", dtype="U15")
         else:
             categories = np.empty(len(elements.index), dtype="U15") # Preallocated empty categories array
             for i in elements.index: # Loop over element index
-                section = sections_list[elements.sec_class[i]] # Get section data
-                material = materials_list[section.mats_class[elements.sec_idx[i]][0]] # Get material data
                 if colour_by == "Section": # Get section name if colour_by is "Section"
-                    categories[i] = section.sec_name[elements.sec_idx[i]]
+                    categories[i] = sections.sec_name[elements.sec_idx[i]]
                 elif colour_by == "Element Type": # Get element type if colour_by is "Element Type"
                     categories[i] = elements.element_type[i]
                 elif colour_by == "Material": # Get material name if colour_by is "Material"
-                    categories[i] = material.mat_name[section.mats_idx[elements.sec_idx[i]][0]]
+                    mats_idx = sections.mats_idx[elements.sec_idx[i]]
+                    categories[i] = materials.mat_name[mats_idx[np.argmax(mats_idx != -1)]]
                 else:
                     raise ValidationError(f"Unknown colour_by='{colour_by}'"
                         "Choose None or between 'Section', 'Material', or 'Element Type'")
@@ -120,6 +117,6 @@ def _plot_elements(ax, coords, elements, colour_by, show_labels, linewidth=1.2):
             handles=handles,
             title=f"Colour by: {colour_by}",
             loc="upper left",
-            bbox_to_anchor=(1.02, 1.0),
+            bbox_to_anchor=(1.02, 0.90),
             borderaxespad=0,
         ) # Plot legends

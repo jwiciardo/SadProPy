@@ -393,6 +393,10 @@ class ExcelTranslator:
         # Translate section dimensions
         aggregator_mask = sec_model == SectionModel.Aggregator
         normal_mask = ~aggregator_mask
+        invalid_aggregator = (aggregator_mask & (aggregated_sec_idx < 0))
+        if np.any(invalid_aggregator):
+            raise ValidationError("Every Aggregator section must specify an Aggregated Section")
+        
         sec_def = np.empty(n, dtype=object)
         for i in np.flatnonzero(normal_mask):
             sec_def[i] = self._section_definition[
