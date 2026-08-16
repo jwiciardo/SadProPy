@@ -70,7 +70,9 @@ class TagManager:
     # MAIN METHOD: LOOKUP
     def get_tag(self, category, names):
         self._validate_category(category)
-        names = np.atleast_1d(names).astype("U32")
+        names = np.asarray(names, dtype="U32")
+        original_shape = names.shape
+        names = names.ravel()
         lookup = self._name_to_tag[category]
         tags = np.empty(len(names), dtype=np.int32)
         for i, name in enumerate(names):
@@ -78,11 +80,13 @@ class TagManager:
                 tags[i] = lookup[name]
             except KeyError:
                 raise ValidationError(f"{category} name '{name}' not found") from None
-        return tags
+        return tags.reshape(original_shape)
 
     def get_name(self, category, tags):
         self._validate_category(category)
-        tags = np.atleast_1d(tags).astype(np.int32)
+        tags = np.asarray(tags, dtype=np.int32)
+        original_shape = tags.shape
+        tags = tags.ravel()
         lookup = self._tag_to_name[category]
         names = np.empty(len(tags), dtype="U64")
         for i, tag in enumerate(tags):
@@ -90,7 +94,7 @@ class TagManager:
                 names[i] = lookup[int(tag)]
             except KeyError:
                 raise ValidationError(f"{category} tag '{tag}' not found") from None
-        return names
+        return names.reshape(original_shape)
 
     # MAIN METHOD: GET INFORMATION
     def next_tag(self, category):

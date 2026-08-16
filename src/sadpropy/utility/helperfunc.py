@@ -55,7 +55,7 @@ def get_parent_node(nodes, child_node):
     # Scalar case
     if np.isscalar(child_node): # Set condition if child node is scalar
         if nodes_generated_from[child_node] != "": # Set condition if parent name of generated node is not empty string
-            return nodes.name_to_idx(nodes_generated_from[child_node]) # If True, return parent node index
+            return nodes.name_to_idx(names=nodes_generated_from[child_node]) # If True, return parent node index
         parent_node = child_node # Otherwise, generated node is parent node then return generated node index
         return parent_node
 
@@ -65,7 +65,7 @@ def get_parent_node(nodes, child_node):
     mask = nodes_generated_from[child_node] != "" # Filter parent name of generated node is not empty string
     if np.any(mask): # Set condition if any parent name of generated node is not empty string
         parent_node[mask] = [
-            nodes.name_to_idx(name)
+            nodes.name_to_idx(names=name)
             for name in nodes_generated_from[child_node][mask]
         ] # If True, get parent node index from name to index dictionary
     return parent_node

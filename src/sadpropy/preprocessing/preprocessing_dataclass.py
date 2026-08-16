@@ -470,14 +470,14 @@ class Restraints:
 @dataclass(slots=True, frozen=True)
 class NodalLoads:
     node_tag: np.ndarray                # int32, shape (N,)
-    loadcase: np.ndarray                # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
     loads: np.ndarray                   # float64, shape (N,6)
 
     @classmethod
     def empty(cls):
         return cls(
             node_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int8),
             loads=np.empty((0, 6), dtype=np.float64),
         )
 
@@ -485,7 +485,7 @@ class NodalLoads:
 @dataclass(slots=True, frozen=True)
 class ConcentratedElementLoads:
     element_tag: np.ndarray             # int32, shape (N,)
-    loadcase: np.ndarray                # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
     loads: np.ndarray                   # float64, shape (N,3)
 
@@ -493,7 +493,7 @@ class ConcentratedElementLoads:
     def empty(cls):
         return cls(
             element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int8),
             location=np.empty(0, dtype=np.float64),
             loads=np.empty((0, 3), dtype=np.float64),
         )
@@ -502,7 +502,7 @@ class ConcentratedElementLoads:
 @dataclass(slots=True, frozen=True)
 class DistributedElementLoads:
     element_tag: np.ndarray             # int32, shape (N,)
-    loadcase: np.ndarray                # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
     loads: np.ndarray                   # float64, shape (N,3)
 
@@ -510,16 +510,16 @@ class DistributedElementLoads:
     def empty(cls):
         return cls(
             element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int32),
+            loadcase=np.empty(0, dtype=np.int8),
             location=np.empty((0, 2), dtype=np.float64),
             loads=np.empty((0, 2, 3), dtype=np.float64),
         )
 
-# LOADS: SURFACE TO ELEMENT LOADS
+# LOADS: SHELL TO ELEMENT LOADS
 @dataclass(slots=True, frozen=True)
-class SurfaceToElementLoads:
+class ShellToElementLoads:
     element_tag: np.ndarray             # int32, shape (N,)
-    loadcase: np.ndarray                # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
     loads: np.ndarray                   # float64, shape (N,3)
 
@@ -527,9 +527,9 @@ class SurfaceToElementLoads:
     def empty(cls):
         return cls(
             element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int32),
-            location=np.empty(0, dtype=np.float64),
-            loads=np.empty((0, 3), dtype=np.float64),
+            loadcase=np.empty(0, dtype=np.int8),
+            location=np.empty((0, 2), dtype=np.float64),
+            loads=np.empty((0, 2, 3), dtype=np.float64),
         )
 
 # MODEL DATA
@@ -551,7 +551,7 @@ class ModelData:
     nodal_loads: NodalLoads
     concentrated_element_loads: ConcentratedElementLoads
     distributed_element_loads: DistributedElementLoads
-    surface_to_element_loads: SurfaceToElementLoads
+    shell_to_element_loads: ShellToElementLoads
 
     @classmethod
     def empty(cls):
@@ -572,5 +572,5 @@ class ModelData:
             nodal_loads = None,
             concentrated_element_loads = None,
             distributed_element_loads = None,
-            surface_to_element_loads = None,
+            shell_to_element_loads = None,
         )

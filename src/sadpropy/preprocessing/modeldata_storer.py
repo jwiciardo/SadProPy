@@ -25,7 +25,7 @@ from .preprocessing_dataclass import (
     NodalLoads,
     ConcentratedElementLoads,
     DistributedElementLoads,
-    SurfaceToElementLoads,
+    ShellToElementLoads,
 )
 from sadpropy.utility import TagManager
 from sadpropy.utility.helperfunc import transform_to_local_axes, get_parent_node
@@ -49,7 +49,7 @@ class ModelDataStorer:
         nodal_loads = self._generate_nodal_loads()
         concentrated_element_loads = self._generate_concentrated_element_loads(elements=elements)
         distributed_element_loads = self._generate_distributed_element_loads(elements=elements)
-        surface_to_element_loads = self._generate_surface_to_element_loads(nodes=nodes, elements=elements, shells=shells)
+        shell_to_element_loads = self._generate_shell_to_element_loads(nodes=nodes, elements=elements, shells=shells)
         print()
         return ModelData(
             filepath_information = self._translator_data["Filepath Information"],
@@ -68,7 +68,7 @@ class ModelDataStorer:
             nodal_loads = nodal_loads,
             concentrated_element_loads = concentrated_element_loads,
             distributed_element_loads = distributed_element_loads,
-            surface_to_element_loads = surface_to_element_loads,
+            shell_to_element_loads = shell_to_element_loads,
         )
     
     # SUPPORTING METHODS
@@ -179,12 +179,12 @@ class ModelDataStorer:
     def _generate_zero_length_elements(self, nodes, elements):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
         nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
+        if len(nodes.index[nodes_generated_from != ""]) == 0:
+            zerolength_elements = ZeroLengthElements.empty()
+            return zerolength_elements
         child_nodes = np.asarray([node_idx for node_idx in nodes.index[nodes_generated_from != ""]], dtype=np.int32) # Filter empty string values in nodes index
         parent_nodes = get_parent_node(nodes=nodes, child_node=child_nodes) # Get parent node
         n = len(child_nodes)
-        if n == 0:
-            zerolength_elements = ZeroLengthElements.empty()
-            return zerolength_elements
         index = np.arange(n, dtype=np.int32)
         unique_name = np.empty(n, dtype="U15")
         end_nodes_idx = np.empty((n, 2), dtype=np.int32)
@@ -248,7 +248,7 @@ class ModelDataStorer:
             return nodal_loads
         point_name = point_loads["Point Name"]
         n = len(point_name)
-        node_tag = self._tagmanager.get_tag(category="Node", names=point_name) # Retrieve node tag)
+        node_tag = self._tagmanager.get_tag(category="Node", names=point_name) # Retrieve node tag
         loadcase_type = point_loads["Load Case"]
         loads = point_loads["Loads"] # Retrieve point loads
         result_node_tag, result_loadcase_type, result_loads = generate_group_nodal_loads(
@@ -326,7 +326,21 @@ class ModelDataStorer:
         print(distributed_element_loads)
         return distributed_element_loads
 
-    def _generate_surface_to_element_loads(self, nodes, elements, shells):
+    def _generate_shell_to_element_loads(self, nodes, elements, shells):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        surface_loads = self._translator_data["Surface Loads"] # Retrieve surface loads data
+        if len(surface_loads) == 0:
+            shell_to_element_loads = ShellToElementLoads.empty()
+            return shell_to_element_loads
+        surface_name = surface_loads["Surface Name"]
+        n = len(surface_name)
+        shell_idx = shells.name_to_idx(names=surface_name)
+        elements_idx = shells.elements_idx[shell_idx]
+        elements_name = elements.unique_name[elements_idx]
+        element_tag = self._tagmanager.get_tag(category="Element", names=elements_name) # Retrieve element tag
+        
+        print(element_tag)
+
         location, load = generate_edge_load_segments(
             edge_length=8.0,
             perpendicular_length=8.0,

@@ -83,7 +83,7 @@ def generate_group_nodal_loads(node_tag, loadcase_type, loads):
 
 def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
-    element_idx = np.fromiter((elements.tag_to_idx(tag)
+    element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in element_tag), dtype=np.int32, count=n)
     element_length = elements.length[element_idx]
     fraction_location = location / element_length
@@ -113,7 +113,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
 
     # Transform Load to Local axes
     m = len(result_element_tag)
-    unique_element_idx = np.fromiter((elements.tag_to_idx(tag)
+    unique_element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in result_element_tag), dtype=np.int32, count=m)
     rotation_matrices = elements.rotation_matrices[unique_element_idx]
     direction_map = LoadDirection.get_direction(ndim)
@@ -132,7 +132,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
 
 def generate_group_distributed_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
-    element_idx = np.fromiter((elements.tag_to_idx(tag)
+    element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in element_tag), dtype=np.int32, count=n)
     element_length = elements.length[element_idx]
     uniform_mask = np.all(np.isnan(location), axis=1)
@@ -230,7 +230,7 @@ def generate_group_distributed_element_loads(ndim, elements, element_tag, loadca
 
     # Transform Load to Local axes
     m = len(result_element_tag)
-    unique_element_idx = np.fromiter((elements.tag_to_idx(tag)
+    unique_element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in result_element_tag), dtype=np.int32, count=m)
     rotation_matrices = elements.rotation_matrices[unique_element_idx]
     direction_map = LoadDirection.get_direction(ndim)
