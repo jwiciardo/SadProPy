@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from ..utility import UserDefinedUnits
-from ..utility._exceptions import ValidationError
+from ..utility._exception import ValidationError
 
 # PROJECT
 @dataclass(slots=True, frozen=True)

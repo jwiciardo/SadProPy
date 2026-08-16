@@ -27,7 +27,7 @@ from .preprocessing_dataclass import (
     ShellToElementLoads,
 )
 from sadpropy.utility import TagManager
-from sadpropy.utility.helperfunc import transform_to_local_axes, get_parent_node
+from sadpropy.utility.helperfunc import get_parent_node
 
 __all__ = ["ModelDataStorer"]
 
@@ -348,6 +348,5 @@ class ModelDataStorer:
             location = result_location,
             loads = transformed_loads,
         ) # Store shell to element loads data to dataclass
-        print(shell_to_element_loads)
         return shell_to_element_loads
 

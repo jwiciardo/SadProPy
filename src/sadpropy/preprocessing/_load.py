@@ -1,5 +1,5 @@
 import numpy as np
-from .preprocessing_class_index import LoadDirection
+from .preprocessing_class import LoadDirection
 from ..utility.helperfunc import transform_to_local_axes
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):
@@ -104,6 +104,7 @@ def get_surface_to_edge_loads(surface_name, line_objects, surface_objects, loadc
     modified_load = np.asarray(segment_load, dtype=np.float64)
     return modified_surface_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
+# Need to be vectorised for faster performance
 def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     grouping_keys = np.empty(
         len(node_tag),
@@ -124,6 +125,7 @@ def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     result_loads = summed_loads
     return result_node_tag, result_loadcase_type, result_loads
 
+# Need to be vectorised for faster performance
 def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
     element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
@@ -173,6 +175,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
         transformed_loads[local_mask] = (direction_vectors[local_mask] * result_load[local_mask, None])
     return result_element_tag, result_loadcase_type, result_location, transformed_loads
 
+# Need to be vectorised for faster performance
 def generate_group_distributed_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
     element_idx = np.fromiter((elements.tag_to_idx(tags=tag)

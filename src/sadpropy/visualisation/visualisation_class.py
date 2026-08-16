@@ -1,8 +1,7 @@
 import numpy as np
-from ._vis_dataclass import Symbol3D
+from .visualisation_dataclass import Symbol3D
 
 class StructuralSymbols:
-
     @staticmethod
     def fixed():
         vertices = np.array([

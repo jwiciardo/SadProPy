@@ -1,5 +1,3 @@
-from sadpropy.version import version as __version__
-from .visualiser import *
+from .visualiser import Visualisation
 
-__all__ = []
-__all__ += visualiser.__all__
+__all__ = ["Visualisation"]

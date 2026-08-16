@@ -1,8 +1,8 @@
 from pathlib import Path
-from sadpropy.preprocessing.excel_translator import ExcelTranslator
-from sadpropy.preprocessing.modeldata_storer import ModelDataStorer
-from sadpropy.preprocessing.preprocessing_dataclass import ModelData
-from sadpropy.preprocessing.model import Model
+from ..preprocessing.excel_translator import ExcelTranslator
+from ..preprocessing.modeldata_storer import ModelDataStorer
+from ..preprocessing.preprocessing_dataclass import ModelData
+from ..preprocessing.model import Model
 
 class Session:
     def __init__(self):

@@ -1,5 +1,4 @@
 from .tolerance import Tolerance
-from ._exceptions import ValidationError
 
 __all__ = ["significant_figures", "rayleigh_damping_coefficients"]
 

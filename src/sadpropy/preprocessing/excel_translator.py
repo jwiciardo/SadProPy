@@ -28,7 +28,7 @@ from ._section import compute_section_properties
 from ._load import get_concentrated_line_loads, get_distributed_line_loads, get_surface_to_edge_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
-from ..utility._exceptions import ValidationError
+from ..utility._exception import ValidationError
 from ..utility._filepath import get_filepath
 
 class ExcelReader:

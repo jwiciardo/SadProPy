@@ -1,5 +1,5 @@
 import numpy as np
-from ._exceptions import ValidationError
+from ._exception import ValidationError
 
 class TagManager:
     __slots__ = (

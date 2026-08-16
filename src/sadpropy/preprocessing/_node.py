@@ -1,6 +1,6 @@
 import numpy as np
 from .preprocessing_class_index import NodeSource, ConnectionEnd
-from ..utility._exceptions import ValidationError
+from ..utility._exception import ValidationError
 
 # AUTOGENERATE NODES
 def autogenerate_nodes(usr_nodes, line_objects):
