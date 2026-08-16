@@ -52,10 +52,6 @@ class Visualisation:
             "RZ": {"offset": (0, 0, -1), "marker": "|"},
         }
 
-    # HELPER METHOD
-    
-    
-
     # MAIN METHOD
     def undeformed_model(
             self,
