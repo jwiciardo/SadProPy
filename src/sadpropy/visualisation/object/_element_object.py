@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from ...utility._exception import ValidationError
 
-def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, linewidth=1.2):
+def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, show_rigid_offsets, linewidth=1.2):
     # Colour List
     colour_cycle = [
         "blue",
@@ -70,30 +70,40 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
         eoj = end_offsets[i][3:] * rigid_zone_factor[i] # Retrieve J-end offset vector
         noi = ni + eoi # Determine I-node offset coordinate
         noj = nj + eoj # Determine J-node offset coordinate
-        ax.plot(
-            [ni[0], noi[0]],
-            [ni[1], noi[1]],
-            [ni[2], noi[2]],
-            color=colours[i],
-            linewidth=3.0,
-            zorder=2,
-        ) # Plot I-end offset
-        ax.plot(
-            [noi[0], noj[0]],
-            [noi[1], noj[1]],
-            [noi[2], noj[2]],
-            color=colours[i],
-            linewidth=linewidth,
-            zorder=2,
-        ) # Plot elements
-        ax.plot(
-            [noj[0], nj[0]],
-            [noj[1], nj[1]],
-            [noj[2], nj[2]],
-            color=colours[i],
-            linewidth=3.0,
-            zorder=2,
-        ) # Plot J-end offset
+        if show_rigid_offsets:
+            ax.plot(
+                [ni[0], noi[0]],
+                [ni[1], noi[1]],
+                [ni[2], noi[2]],
+                color=colours[i],
+                linewidth=3.0,
+                zorder=2,
+            ) # Plot I-end offset
+            ax.plot(
+                [noi[0], noj[0]],
+                [noi[1], noj[1]],
+                [noi[2], noj[2]],
+                color=colours[i],
+                linewidth=linewidth,
+                zorder=2,
+            ) # Plot elements
+            ax.plot(
+                [noj[0], nj[0]],
+                [noj[1], nj[1]],
+                [noj[2], nj[2]],
+                color=colours[i],
+                linewidth=3.0,
+                zorder=2,
+            ) # Plot J-end offset
+        else:
+            ax.plot(
+                [ni[0], nj[0]],
+                [ni[1], nj[1]],
+                [ni[2], nj[2]],
+                color=colours[i],
+                linewidth=linewidth,
+                zorder=2,
+            ) # Plot elements
 
         if show_labels: # Set condition if show_labels is True or False
             c = elements.centroids[i] # Retrieve centroid of the elements
@@ -115,7 +125,8 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
         ] # Set handles for legends
         ax.legend(
             handles=handles,
-            title=f"Colour by: {colour_by}",
+            title=f"View by Colours of: {colour_by}",
+            alignment="left",
             loc="upper left",
             bbox_to_anchor=(1.02, 0.90),
             borderaxespad=0,

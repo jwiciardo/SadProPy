@@ -1,6 +1,7 @@
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from ...utility.helperfunc import transform_to_global_axes
 
-def _draw_symbol(ax, symbol, node_coords, rotation_matrix, size, colour, linewidth):
+def _draw_symbol(ax, symbol, node_coords, rotation_matrix, size, colour, linewidth, alpha):
     vertices = symbol.vertices.copy()
     vertices *= size
     vertices = transform_to_global_axes(
@@ -17,3 +18,9 @@ def _draw_symbol(ax, symbol, node_coords, rotation_matrix, size, colour, linewid
             linewidth=linewidth,
             zorder=10,
         )
+    ax.add_collection3d(Poly3DCollection(
+            [vertices],
+            facecolor=colour,
+            edgecolor="none",
+            alpha=alpha,
+        ))

@@ -24,7 +24,7 @@ from .preprocessing_dataclass import (
     Storeys,
 )
 from ._surface import generate_surface_connectivity
-from ._section import compute_section_properties
+from ._section import compute_section_properties, trace_aggregated_sections
 from ._load import get_concentrated_line_loads, get_distributed_line_loads, get_surface_to_edge_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
@@ -356,33 +356,19 @@ class ExcelTranslator:
         mats_idx = np.column_stack([
             materials.name_to_idx(names=data[column]) for column in mat_columns
         ])
-        mat_type = np.empty(n, dtype=np.int8)
+        mat_type = np.full(n, -1, dtype=np.int8)
         for i in range(n):
-            if mats_idx[i, 0] >= 0:
-                j = 0
-            elif mats_idx[i, 1] >= 0:
-                j = 1
-            elif mats_idx[i, 2] >= 0:
-                j = 2
-            elif mats_idx[i, 3] >= 0:
-                j = 3
-            elif mats_idx[i, 4] >= 0:
-                j = 4
-            elif mats_idx[i, 5] >= 0:
-                j = 5
-            else:
-                continue
-            mat_type[i] = materials.mat_type[mats_idx[i, j]]
+            mat_type[i] = materials.mat_type[mats_idx[i][np.argmax(mats_idx[i] != -1)]]
         integration_type = np.asarray([
             self._integration_type[value.strip().title()]
             if value is not None and value.strip() else -1
             for value in data["Integration Type"]],
             dtype=np.int8
         )
-        mask = integration_type != -1
+        integration_mask = integration_type != -1 # Integration masking
         integration_tag = np.full(n, -1, dtype=np.int32)
-        if np.any(mask):
-            integration_tag[mask] = np.asarray(self._tagmanager.add(category="Beam Integration", n=np.count_nonzero(mask), names=sec_name[mask]), dtype=np.int32)  
+        if np.any(integration_mask):
+            integration_tag[integration_mask] = np.asarray(self._tagmanager.add(category="Beam Integration", n=np.count_nonzero(integration_mask), names=sec_name[integration_mask]), dtype=np.int32)  
         section_lookup = dict(zip(sec_name, index))
         aggregated_sec_idx = np.asarray([section_lookup[name]
             if name is not None and str(name).strip() else -1
@@ -391,27 +377,35 @@ class ExcelTranslator:
         )
 
         # Translate section dimensions
-        aggregator_mask = sec_model == SectionModel.Aggregator
-        normal_mask = ~aggregator_mask
-        invalid_aggregator = (aggregator_mask & (aggregated_sec_idx < 0))
-        if np.any(invalid_aggregator):
-            raise ValidationError("Every Aggregator section must specify an Aggregated Section")
-        
+        aggregator_sec_mask = sec_model == SectionModel.Aggregator # Aggregator section masking
+        normal_sec_mask = ~aggregator_sec_mask # Normal section masking
+        resolved_sec_idx = trace_aggregated_sections(
+            aggregated_sec_idx=aggregated_sec_idx,
+            aggregator_mask=aggregator_sec_mask,
+            sec_name=sec_name,
+        )
         sec_def = np.empty(n, dtype=object)
-        for i in np.flatnonzero(normal_mask):
+        normal_sec_idx = np.flatnonzero(normal_sec_mask)
+        for i in normal_sec_idx:
             sec_def[i] = self._section_definition[
                 (mat_type[i], sec_shape[i], sec_model[i])
             ]
-        for i in np.flatnonzero(aggregator_mask):
-            sec_def[i] = None
-        max_columns = max(definition.dimensions.Count for definition in sec_def[normal_mask])
+        sec_def[aggregator_sec_mask] = sec_def[resolved_sec_idx[aggregator_sec_mask]]
+        max_columns = max(definition.dimensions.Count for definition in sec_def[normal_sec_mask])
         dimensions = np.full((n, max_columns), np.nan, dtype=np.float64)
-        unique_definitions = list(dict.fromkeys(sec_def[normal_mask]))
+        unique_definitions = list(dict.fromkeys(sec_def[normal_sec_mask]))
         for definition in unique_definitions:
-            mask = np.asarray([normal_mask[i] and sec_def[i] is definition for i in range(n)], dtype=bool)
+            mask = (
+                normal_sec_mask 
+                & np.fromiter(
+                    (value is definition for value in sec_def),
+                    dtype=bool,
+                    count=n,
+                ))
             selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
             translated_dims = definition.translate(data=selected_data, converter=self._to_internalunits)
             dimensions[mask, :definition.dimensions.Count] = translated_dims
+        dimensions[aggregator_sec_mask] = dimensions[resolved_sec_idx[aggregator_sec_mask]]
 
         # Compute section properties
         AMod = np.asarray(data["AMod"], dtype=np.float64)
@@ -421,49 +415,18 @@ class ExcelTranslator:
         IyMod = np.asarray(data["IyMod"], dtype=np.float64)
         JxxMod = np.asarray(data["JxxMod"], dtype=np.float64)
         normal_sec_props = compute_section_properties(
-            section_definitions=sec_def[normal_mask],
-            dimensions=dimensions[normal_mask],
+            section_definitions=sec_def[normal_sec_mask],
+            dimensions=dimensions[normal_sec_mask],
         )
-        A = np.full(n, np.nan)
-        Avy = np.full(n, np.nan)
-        Avz = np.full(n, np.nan)
-        Iz = np.full(n, np.nan)
-        Iy = np.full(n, np.nan)
-        Jxx = np.full(n, np.nan)
-        alphaY = np.full(n, np.nan)
-        alphaZ = np.full(n, np.nan)
-        Abar_hoop = np.full(n, np.nan)
-        Abar_top = np.full(n, np.nan)
-        Abar_bot = np.full(n, np.nan)
-        Abar_int = np.full(n, np.nan)
-        (
-            A[normal_mask],
-            Avy[normal_mask],
-            Avz[normal_mask],
-            Iz[normal_mask],
-            Iy[normal_mask],
-            Jxx[normal_mask],
-            alphaY[normal_mask],
-            alphaZ[normal_mask],
-            Abar_hoop[normal_mask],
-            Abar_top[normal_mask],
-            Abar_bot[normal_mask],
-            Abar_int[normal_mask],
-        ) = normal_sec_props
-        properties = np.column_stack((
-            AMod * A,
-            AvyMod * Avy,
-            AvzMod * Avz,
-            IzMod * Iz,
-            IyMod * Iy,
-            JxxMod * Jxx,
-            alphaY,
-            alphaZ,
-            Abar_hoop,
-            Abar_top,
-            Abar_bot,
-            Abar_int,
-        ))
+        properties = np.full((n, 12), np.nan, dtype=np.float64)
+        properties[normal_sec_mask] = np.column_stack(normal_sec_props)
+        properties[aggregator_sec_mask] = properties[resolved_sec_idx[aggregator_sec_mask]]
+        properties[:, 0] *= AMod
+        properties[:, 1] *= AvyMod
+        properties[:, 2] *= AvzMod
+        properties[:, 3] *= IzMod
+        properties[:, 4] *= IyMod
+        properties[:, 5] *= JxxMod
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,

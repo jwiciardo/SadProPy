@@ -1,5 +1,6 @@
 import numpy as np
 from .preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
+from ..utility._exception import ValidationError
 
 # COMPUTE REINFORCEMENT AREA
 def rebar_area(dia):
@@ -8,19 +9,19 @@ def rebar_area(dia):
 
 # COMPUTE SECTION PROPERTIES
 def _rectangular_elastic_props(dimensions):
-    h = dimensions[:, RectangularElasticDimensions.h]
-    b = dimensions[:, RectangularElasticDimensions.b]
+     h = dimensions[:, RectangularElasticDimensions.h]
+     b = dimensions[:, RectangularElasticDimensions.b]
 
-    alphaY = np.full(len(h), 5.0 / 6.0) # Shear shape factor
-    alphaZ = np.full(len(b), 5.0 / 6.0) # Shear shape factor
+     alphaY = np.full(len(h), 5.0 / 6.0) # Shear shape factor
+     alphaZ = np.full(len(b), 5.0 / 6.0) # Shear shape factor
 
-    A = h * b # Cross-sectional area
-    Avy = alphaY * A # Shear area of section
-    Avz = alphaZ * A # Shear area of section
-    Iz = b * h**3 / 12.0 # Second moment of area of section about local z axis
-    Iy = h * b**3 / 12.0 # Second moment of area of section about local y axis
-    Jxx = h * b**3 * ((16.0/3.0) - 3.36 * (b / h) * (1.0 - b**4 / (12.0 * h**4))) / 16.0 # Torsional constant
-    return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, np.nan, np.nan, np.nan, np.nan)
+     A = h * b # Cross-sectional area
+     Avy = alphaY * A # Shear area of section
+     Avz = alphaZ * A # Shear area of section
+     Iz = b * h**3 / 12.0 # Second moment of area of section about local z axis
+     Iy = h * b**3 / 12.0 # Second moment of area of section about local y axis
+     Jxx = h * b**3 * ((16.0/3.0) - 3.36 * (b / h) * (1.0 - b**4 / (12.0 * h**4))) / 16.0 # Torsional constant
+     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, np.nan, np.nan, np.nan, np.nan)
 
 def _rectangular_concrete_fiber_props(dimensions):
      h = dimensions[:, RectangularConcreteFiberDimensions.h]
@@ -130,18 +131,47 @@ def compute_section_properties(section_definitions, dimensions):
 
 # GET SECTION DATA
 def get_section_dimensions(sections, sec_idx, dims_name):
-    sec_idx = np.asarray(sec_idx, dtype=np.int32)
-    result = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
-    mask = sec_idx != -1
-    for i in np.flatnonzero(mask):
-        definition = sections.sec_def[sec_idx[i]]
-        for j, name in enumerate(dims_name):
-            try:
-                column = definition.dimensions[name]
-            except KeyError:
-                raise ValueError(
-                    f"Dimension '{name}' is not defined for "
-                    f"section '{sections.sec_name[sec_idx[i]]}'"
-                ) from None
-            result[i, j] = sections.dimensions[sec_idx[i], column]
-    return result
+     sec_idx = np.asarray(sec_idx, dtype=np.int32)
+     result = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
+     mask = sec_idx != -1
+     for i in np.flatnonzero(mask):
+          definition = sections.sec_def[sec_idx[i]]
+          for j, name in enumerate(dims_name):
+               try:
+                    column = definition.dimensions[name]
+               except KeyError:
+                    raise ValueError(
+                         f"Dimension '{name}' is not defined for "
+                         f"section '{sections.sec_name[sec_idx[i]]}'"
+                    ) from None
+               result[i, j] = sections.dimensions[sec_idx[i], column]
+     return result
+
+# TRACE AGGREGATED SECTION CHAIN OF SECTION AGGREGATION
+def trace_aggregated_sections(aggregated_sec_idx, aggregator_mask, sec_name):
+     n = len(aggregated_sec_idx)
+     invalid_aggregator = (aggregator_mask & (aggregated_sec_idx < 0))
+     if np.any(invalid_aggregator):
+          invalid_names = sec_name[invalid_aggregator]
+          raise ValidationError(
+               "The following Aggregator sections do not"
+               "specify an Aggregated Section: "
+               f"{invalid_names.tolist()}")
+
+     resolved_sec_idx = np.arange(n, dtype=np.int32)
+     resolved_sec_idx[aggregator_mask] = (aggregated_sec_idx[aggregator_mask])
+     for _ in range(n):
+          chained = aggregator_mask[resolved_sec_idx]
+          if not np.any(chained):
+               break
+          next_idx = resolved_sec_idx.copy()
+          next_idx[chained] = (aggregated_sec_idx[resolved_sec_idx[chained]])
+          if np.array_equal(next_idx, resolved_sec_idx):
+               break
+          resolved_sec_idx = next_idx
+     else:
+          raise ValidationError(
+               "Circular reference detected in "
+               "'Aggregated Section'"
+          )
+     return resolved_sec_idx

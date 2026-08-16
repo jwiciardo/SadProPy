@@ -53,7 +53,7 @@ class Visualisation:
         }
 
     # MAIN METHOD
-    def undeformed_model(
+    def undeformed_shape(
             self,
             view="Isometric",
             colour_by=None,
@@ -65,17 +65,17 @@ class Visualisation:
             show_element_labels=True,
             show_spring_hinges=False,
             show_end_releases=False,
-            show_end_length_offsets=False,
+            show_end_rigid_offsets=False,
             show_global_axes=True,
             show_local_axes=False,
-            show_finite_length_hinges=False,
+            show_hinges_length=False,
             show_fiber_section=False,
         ):
         fig = plt.figure(figsize=(12, 8)) # Start plotting figure
         ax = fig.add_subplot(111, projection="3d") # Add axis in 3D
 
         # General Data
-        title = "UNDEFORMED MODEL"
+        title = "Undeformed Shape"
         ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         storeys = self._modeldata.storeys # Retrieve storeys data
         materials = self._modeldata.materials # Retrieve materials data
@@ -110,6 +110,7 @@ class Visualisation:
                 elements=elements,
                 colour_by=colour_by,
                 show_labels=show_element_labels,
+                show_rigid_offsets=show_end_rigid_offsets,
             ) # Plot nodes if show_elements is True
             _plot_zerolength_elements(
                 ax=ax,
@@ -117,6 +118,7 @@ class Visualisation:
                 zerolength_elements=zerolength_elements,
                 rotation_matrices=zerolength_elements.rotation_matrices,
                 show_labels=show_element_labels,
+                show_hinges=show_spring_hinges,
             )
         if show_restraints: # Set condition if show_restraints is True or False
             _plot_restraints(

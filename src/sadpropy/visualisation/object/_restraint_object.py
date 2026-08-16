@@ -2,7 +2,7 @@ import numpy as np
 from ..visualisation_class import StructuralSymbols
 from ._symbol_object import _draw_symbol
 
-def _plot_restraints(ax, coords, rotation_matrix, restraints, colour="black", linewidth=1.2):
+def _plot_restraints(ax, coords, rotation_matrix, restraints, colour="black", linewidth=1.2, alpha=0.0):
     model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
     symbol_size = 0.02 * model_size # Set symbol size
 
@@ -16,4 +16,5 @@ def _plot_restraints(ax, coords, rotation_matrix, restraints, colour="black", li
                 size=symbol_size,
                 colour=colour,
                 linewidth=linewidth,
+                alpha=alpha,
             ) # Plot marker for restraints

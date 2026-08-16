@@ -121,31 +121,31 @@ def _draw_local_axes(ax, elements, show_axes, linewidth=1.2):
         arrow_length = 0.2 * np.min(elements.length)
         for ele_idx in elements.index:
             c = elements.centroids[ele_idx]
-            lx = elements.local_x[ele_idx]
-            ly = elements.local_y[ele_idx]
-            lz = elements.local_z[ele_idx]
+            vecx = elements.rotation_matrices[:, :, 0][ele_idx]
+            vecy = elements.rotation_matrices[:, :, 1][ele_idx]
+            vecz = elements.rotation_matrices[:, :, 2][ele_idx]
             ax.quiver(
                 c[0], c[1], c[2],
-                *(arrow_length * lx),
+                *(arrow_length * vecx),
                 color="red",
                 linewidth=linewidth,
                 zorder=10,
             )
             ax.quiver(
                 c[0], c[1], c[2],
-                *(arrow_length * ly),
+                *(arrow_length * vecy),
                 color="green",
                 linewidth=linewidth,
                 zorder=10,
             )
             ax.quiver(
                 c[0], c[1], c[2],
-                *(arrow_length * lz),
+                *(arrow_length * vecz),
                 color="blue",
                 linewidth=linewidth,
                 zorder=10,
             )
-            tip_x = c + arrow_length * lx
+            tip_x = c + arrow_length * vecx
             ax.text(
                 tip_x[0],
                 tip_x[1],
@@ -155,7 +155,7 @@ def _draw_local_axes(ax, elements, show_axes, linewidth=1.2):
                 fontsize=8,
                 zorder=10,
             )
-            tip_y = c + arrow_length * ly
+            tip_y = c + arrow_length * vecy
             ax.text(
                 tip_y[0],
                 tip_y[1],
@@ -165,7 +165,7 @@ def _draw_local_axes(ax, elements, show_axes, linewidth=1.2):
                 fontsize=8,
                 zorder=10,
             )
-            tip_z = c + arrow_length * lz
+            tip_z = c + arrow_length * vecz
             ax.text(
                 tip_z[0],
                 tip_z[1],
