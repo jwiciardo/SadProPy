@@ -169,15 +169,12 @@ class ExcelTranslator:
         slab_sections = self._translate_slab_sections(materials=materials)
         point_objects, storeys = self._translate_point_objects(project_information=project_information)
         line_objects = self._translate_line_objects(point_objects=point_objects, sections=frame_sections)
-        surface_objects = self._translate_surface_objects(
-            line_objects=line_objects,
-            slab_sections=slab_sections,
-        )
+        surface_objects = self._translate_surface_objects(line_objects=line_objects, slab_sections=slab_sections)
         restraints = self._translate_restraints(point_objects=point_objects)
         point_loads = self._translate_point_loads()
         concentrated_line_loads = self._translate_concentrated_line_loads()
         distributed_line_loads = self._translate_distributed_line_loads()
-        surface_loads = self._translate_surface_loads()
+        surface_loads = self._translate_surface_loads(line_objects=line_objects, surface_objects=surface_objects)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -562,6 +559,9 @@ class ExcelTranslator:
         ))
         element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = sections.name_to_idx(names=data["Section"])
+        iend_coords = point_objects["Coordinates"][end_points_idx[:, 0]]
+        jend_coords = point_objects["Coordinates"][end_points_idx[:, 1]]
+        length = np.linalg.norm(jend_coords - iend_coords, axis=1)
         is_auto_end_offsets = np.fromiter((
             str(x).strip().lower() == "auto from connectivity"
             for x in data["End Offset"]),
@@ -586,6 +586,7 @@ class ExcelTranslator:
             "End Points Index": end_points_idx,
             "Element Type": element_type,
             "Section Index": sec_idx,
+            "Length": length,
             "Is Auto End Offsets": is_auto_end_offsets,
             "Rigid Zone Factor": rigid_zone_factor,
             "Offsets Length": offsets_length,
@@ -749,7 +750,7 @@ class ExcelTranslator:
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
-    def _translate_surface_loads(self):
+    def _translate_surface_loads(self, line_objects, surface_objects):
         sheet_name="Surface Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -763,6 +764,13 @@ class ExcelTranslator:
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.surfaceload, dtype=np.float64, filled_values=np.nan)
+        surface_idx = np.asarray([surface_objects["Name to Index"][name] for name in surface_name], dtype=np.int32)
+        edges_idx = surface_objects["Edges Index"][surface_idx]
+        edges_name = line_objects["Unique Name"][edges_idx]
+        edges_length = line_objects["Length"][edges_idx]
+
+        print(edges_length)
+
         surface_loads = {
             "Surface Name": surface_name,
             "Load Case": loadcase_type,

@@ -61,6 +61,17 @@ def get_distributed_line_loads(line_name, loadcase_type, load_direction, locatio
     modified_load = np.asarray(modified_load, dtype=np.float64)
     return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
+def get_surface_to_edge_loads(surface_name, edges_name, edges_length, loadcase_type, load_direction, load):
+    surface_width = np.min(edges_length, axis=1)
+    edge_load_magnitude = load * surface_width / 2.0
+    is_shortest_length = np.isclose(edges_length, surface_width[:, np.newaxis])
+    modified_surface_name = []
+    modified_edges_name = []
+    modified_loadcase_type = []
+    modified_load_direction = []
+    modified_load = []
+
+
 def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     grouping_keys = np.empty(
         len(node_tag),

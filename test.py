@@ -21,39 +21,71 @@ shells = Shells(
     elements_idx =  np.asarray([[0, 5, 2, 4], [1, 6, 3, 5]], dtype=np.int32),
     loads = np.asarray([-12.0, -10.0], dtype=np.float64),
 )
-print()
 
-def _generate_shell_element_load(length, half_width, line_load, is_shortest):
-    if is_shortest:
-        locations = np.array([[0.0, half_width], [half_width, length]], dtype=np.float64)
-        loads = np.array([[0.0, line_load], [line_load, 0.0]], dtype=np.float64)
-    else:
-        middle = length - half_width
-        locations = np.array([[0.0, half_width], [half_width, middle], [middle, length]], dtype=np.float64)
-        loads = np.array([[0.0, line_load], [line_load, line_load], [line_load, 0.0]], dtype=np.float64)
-    return locations, loads
 
-elements_length = elements.length[shells.elements_idx]
+shells_idx = shells.index
+elements_idx = shells.elements_idx
+elements_length = elements.length[elements_idx]
 shell_width = np.min(elements_length, axis=1)
-half_width = shell_width * 0.5
-line_load = shells.loads * half_width
+line_load = shells.loads * shell_width / 2.0
 is_shortest = np.isclose(elements_length, shell_width[:, np.newaxis])
+
 shell_loc = []
 shell_load = []
-for i in range(len(shells.elements_idx)):
-    shell_loc_i = []
-    shell_load_i = []
-    for j, length in enumerate(elements_length[i]):
-        loc_ij, load_ij = _generate_shell_element_load(
-            length=length,
-            half_width=half_width[i],
-            line_load=line_load[i],
-            is_shortest=is_shortest[i, j],
-        )
-        shell_loc_i.append(loc_ij)
-        shell_load_i.append(load_ij)
-    shell_loc.append(shell_loc_i)
-    shell_load.append(shell_load_i)
+for i in range(len(shells_idx)):
+    for j in range(len(elements_idx)):
+        length = elements_length[i, j]
+        load = line_load[i]
+        n = len(elements_idx)
+        if is_shortest[i, j]:
+            n = 2
+            for k in range(n):
+                if (k + 1) == n:
+                    loc_i = k * length / n
+                    loc_j = (k + 1) * length / n
+                    loc_ij = np.asarray([loc_i, loc_j], dtype=np.float64)
+                    load_i = k * load
+                    load_j = 0.0 * load
+                    load_ij = np.asarray([load_i, load_j], dtype=np.float64)
+                else:
+                    loc_i = k * length / n
+                    loc_j = (k + 1) * length / n
+                    loc_ij = np.asarray([loc_i, loc_j], dtype=np.float64)
+                    load_i = k * load
+                    load_j = (k + 1) * load
+                    load_ij = np.asarray([load_i, load_j], dtype=np.float64)
+                shell_loc.append(loc_ij)
+                shell_load.append(load_ij)
+        else:
+            n = 3
+            for k in range(n):
+                if (k + 1) == n:
+                    loc_i = k * length / n
+                    loc_j = (k + 1) * length / n
+                    loc_ij = np.asarray([loc_i, loc_j], dtype=np.float64)
+                    load_i = (k - 1) * load
+                    load_j = 0.0 * load
+                    load_ij = np.asarray([load_i, load_j], dtype=np.float64)
+                elif (k + 1) == (n - 1):
+                    loc_i = k * length / n
+                    loc_j = (k + 1) * length / n
+                    loc_ij = np.asarray([loc_i, loc_j], dtype=np.float64)
+                    load_i = k * load
+                    load_j = k * load
+                    load_ij = np.asarray([load_i, load_j], dtype=np.float64)
+                else:
+                    loc_i = k * length / n
+                    loc_j = (k + 1) * length / n
+                    loc_ij = np.asarray([loc_i, loc_j], dtype=np.float64)
+                    load_i = k * load
+                    load_j = (k + 1) * load
+                    load_ij = np.asarray([load_i, load_j], dtype=np.float64)
+                shell_loc.append(loc_ij)
+                shell_load.append(load_ij)
 print(shell_loc)
 print(shell_load)
-
+print(elements_idx[0])
+print(elements_length[0, 0])
+print(shell_width[0])
+print(line_load[0])
+print(is_shortest[0, 0])

@@ -17,16 +17,16 @@ def generate_element_local_axes(nodes, end_nodes_index, ndim):
     if ndim == 3: # 3D Structure
         d_vectors = jnode_coords - inode_coords # Determine direction vectors
         length = np.linalg.norm(d_vectors, axis=1) # Compute length of elements
-        local_x = d_vectors / length[:, None] # Determine local x-axis
-        reference = np.tile(np.array([0.0, 0.0, 1.0]), (len(local_x), 1)) # Define reference direction, default is toward global Z-axis
-        vertical = np.abs(local_x[:, 2]) > 0.99 # Build masking for vertical elements
+        vector_x = d_vectors / length[:, None] # Determine vector x-axis
+        reference = np.tile(np.array([0.0, 0.0, 1.0]), (len(vector_x), 1)) # Define reference direction, default is toward global Z-axis
+        vertical = np.abs(vector_x[:, 2]) > 0.99 # Build masking for vertical elements
         reference[vertical] = np.array([1.0, 0.0, 0.0]) # Change reference direction for vertical elements which is toward global X-axis
-        local_z = np.cross(local_x, reference) # Determine local z-axis using cross product of local x-axis and reference direction
-        local_z /= np.linalg.norm(local_z, axis=1)[:, None] # Normalise local z-axis
-        local_y = np.cross(local_z, local_x) # Determine local y-axis using cross product of local z-axis and local x-axis
-        local_y /= np.linalg.norm(local_y, axis=1)[:, None] # Normalise local y-axis
-        rotation_matrices = np.stack((local_x, local_y, local_z), axis=2) # Build rotation matrices 3x3 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, local_z, rotation_matrices)
+        vector_z = np.cross(vector_x, reference) # Determine vector z-axis using cross product of vector x-axis and reference direction
+        vector_z /= np.linalg.norm(vector_z, axis=1)[:, None] # Normalise vector z-axis
+        vector_y = np.cross(vector_z, vector_x) # Determine vector y-axis using cross product of vector z-axis and vector x-axis
+        vector_y /= np.linalg.norm(vector_y, axis=1)[:, None] # Normalise vector y-axis
+        rotation_matrices = np.stack((vector_x, vector_y, vector_z), axis=2) # Build rotation matrices 3x3 for transforming global to local axes and local to global axes
+        return (centroids, vector_x, vector_y, vector_z, rotation_matrices)
     else: # 2D Structure
         inode_coords = inode_coords[:2] # Retrieve I-end node coordinates (X, Y)
         jnode_coords = jnode_coords[:2] # Retrieve J-end node coordinates (X, Y)
@@ -34,10 +34,10 @@ def generate_element_local_axes(nodes, end_nodes_index, ndim):
         length = np.linalg.norm(d_vectors, axis=1) # Compute length of elements
         cx = d_vectors[:, 0] / length # Compute the x-component of the direction cosine of elements
         cy = d_vectors[:, 1] / length # Compute the y-component of the direction cosine of elements
-        local_x = np.column_stack((cx, cy)) # Determine local x-axis
-        local_y = np.column_stack((-cy, cx)) # Determine local y-axis
-        rotation_matrices = np.stack((local_x, local_y), axis=2) # Build rotation matrices 2x2 for transforming global to local axes and local to global axes
-        return (centroids, length, local_x, local_y, None, rotation_matrices)
+        vector_x = np.column_stack((cx, cy)) # Determine vector x-axis
+        vector_y = np.column_stack((-cy, cx)) # Determine vector y-axis
+        rotation_matrices = np.stack((vector_x, vector_y), axis=2) # Build rotation matrices 2x2 for transforming global to local axes and local to global axes
+        return (centroids, vector_x, vector_y, None, rotation_matrices)
 
 # GENERATE ELEMENT CONNECTIVITY
 def _map_node_to_element(iend_nodes_idx, jend_nodes_idx):
