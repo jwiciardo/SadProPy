@@ -1,7 +1,6 @@
 import numpy as np
 from .preprocessing_class_index import LoadDirection
 from ..utility.helperfunc import transform_to_local_axes
-from ..utility.tolerance import Tolerance
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):
     modified_line_name = []
@@ -26,51 +25,89 @@ def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locati
     modified_load = np.asarray(modified_load, dtype=np.float64)
     return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
-def get_distributed_line_loads(line_name, loadcase_type, load_direction, locations, uniform_load, loads):
-    modified_line_name = []
-    modified_loadcase_type = []
-    modified_load_direction = []
-    modified_location = []
-    modified_load = []
-    for i in range(len(line_name)):
-        if not np.isnan(uniform_load[i]):
-            modified_line_name.append(line_name[i])
-            modified_loadcase_type.append(loadcase_type[i])
-            modified_load_direction.append(load_direction[i])
-            modified_location.append([np.nan, np.nan])
-            modified_load.append([uniform_load[i], uniform_load[i]])
-        for j in range(loads.shape[1] - 1):
-            k = j + 1
-            if np.isnan(loads[i, j]): # Skip empty load: first point
-                continue
-            if np.isnan(loads[i, j + 1]): # Skip empty load: second point
-                continue
-            if np.isnan(locations[i, j]): # Skip empty location: first point
-                continue
-            if np.isnan(locations[i, j + 1]): # Skip empty location: second point
-                continue
-            modified_line_name.append(line_name[i])
-            modified_loadcase_type.append(loadcase_type[i])
-            modified_load_direction.append(load_direction[i])
-            modified_location.append(locations[i, j:k+1])
-            modified_load.append(loads[i, j:k+1])
-    modified_line_name = np.asarray(modified_line_name, dtype="U15")
-    modified_loadcase_type = np.asarray(modified_loadcase_type, dtype="U15")
-    modified_load_direction = np.asarray(modified_load_direction, dtype="U15")
-    modified_location = np.asarray(modified_location, dtype=np.float64)
-    modified_load = np.asarray(modified_load, dtype=np.float64)
+def get_distributed_line_loads(line_name, line_objects, loadcase_type, load_direction, locations, uniform_load, loads):
+    line_idx = np.asarray([line_objects["Name to Index"][name] for name in line_name], dtype=np.int32)
+    line_length = line_objects["Length"][line_idx]
+
+    # Determine line name, loadcase type, load direction, location, and load for each segment of uniform load
+    uniform_load_mask = ~np.isnan(uniform_load) # Uniform load masking
+    segment_uniform_load_line_name = line_name[uniform_load_mask] # Line name for each segment of uniform load
+    segment_uniform_load_loadcase_type = loadcase_type[uniform_load_mask] # Loadcase type for each segment of uniform load
+    segment_uniform_load_load_direction = load_direction[uniform_load_mask] # Load direction for each segment of uniform load
+    segment_uniform_load_location = np.column_stack((
+        np.zeros(uniform_load_mask.sum(), dtype=np.float64),
+        line_length[uniform_load_mask],
+    )) # Location for each segment of uniform load
+    segment_uniform_load = np.column_stack((
+        uniform_load[uniform_load_mask],
+        uniform_load[uniform_load_mask],
+    )) # Uniform load for each segment
+
+    # Determine line name, loadcase type, load direction, location, and load for each segment of nonuniform load
+    segment_nonuniform_loads_mask = (
+        ~np.isnan(loads[:, :-1])
+        & ~np.isnan(loads[:, 1:])
+        & ~np.isnan(loads[:, :-1])
+        & ~np.isnan(loads[:, 1:])
+    ) # Nonuniform loads for each segment masking
+    row_idx, col_idx = np.nonzero(segment_nonuniform_loads_mask) # Determine row and column index of valid nonuniform loads for each segment
+    segment_nonuniform_load_line_name = line_name[row_idx] # Line name for each segment of nonuniform load
+    segment_nonuniform_load_loadcase_type = loadcase_type[row_idx] # Loadcase type for each segment of nonuniform load
+    segment_nonuniform_load_load_direction = load_direction[row_idx] # Load direction for each segment of nonuniform load
+    segment_nonuniform_load_location = np.column_stack((
+        locations[row_idx, col_idx],
+        locations[row_idx, col_idx + 1],
+    )) # Location for each segment of nonuniform load
+    segment_nonuniform_load = np.column_stack((
+        loads[row_idx, col_idx],
+        loads[row_idx, col_idx + 1],
+    )) # Nonuniform load for each segment
+
+    # Modified distributed line loads
+    modified_line_name = np.concatenate((segment_uniform_load_line_name, segment_nonuniform_load_line_name)).astype("U15")
+    modified_loadcase_type = np.concatenate((segment_uniform_load_loadcase_type, segment_nonuniform_load_loadcase_type)).astype("U15")
+    modified_load_direction = np.concatenate((segment_uniform_load_load_direction, segment_nonuniform_load_load_direction)).astype("U15")
+    modified_location = np.vstack((segment_uniform_load_location, segment_nonuniform_load_location)).astype(np.float64)
+    modified_load = np.vstack((segment_uniform_load, segment_nonuniform_load)).astype(np.float64)
     return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
-def get_surface_to_edge_loads(surface_name, edges_name, edges_length, loadcase_type, load_direction, load):
+def get_surface_to_edge_loads(surface_name, line_objects, surface_objects, loadcase_type, load_direction, load):
+    surface_idx = np.asarray([surface_objects["Name to Index"][name] for name in surface_name], dtype=np.int32)
+    edges_idx = surface_objects["Edges Index"][surface_idx]
+    edges_name = line_objects["Unique Name"][edges_idx]
+    edges_length = line_objects["Length"][edges_idx]
     surface_width = np.min(edges_length, axis=1)
-    edge_load_magnitude = load * surface_width / 2.0
-    is_shortest_length = np.isclose(edges_length, surface_width[:, np.newaxis])
-    modified_surface_name = []
-    modified_edges_name = []
-    modified_loadcase_type = []
-    modified_load_direction = []
-    modified_load = []
+    edge_load_magnitude = load * surface_width / 2.0 # Load magnitude for each edge
+    shortest_length_mask = np.isclose(edges_length, surface_width[:, np.newaxis]) # Shortest length masking
 
+    # Determine surface name, edge name, loadcase type, and load direction for each segment
+    n_edge_segments = np.where(shortest_length_mask, 2, 3) # Number of edge segments of surface to edge load distribution
+    segment_surface_name = np.repeat(np.broadcast_to(surface_name[:, None], edges_name.shape).ravel(), n_edge_segments.ravel()) # Surface name for each segment
+    segment_edge_name = np.repeat(edges_name.ravel(), n_edge_segments.ravel()) # Edge name for each segment
+    segment_loadcase_type = np.repeat(np.broadcast_to(loadcase_type[:, None], edges_name.shape).ravel(), n_edge_segments.ravel()) # Loadcase type for each segment
+    segment_load_direction = np.repeat(np.broadcast_to(load_direction[:, None], edges_name.shape).ravel(), n_edge_segments.ravel()) # Load direction for each segment
+    edge_length_per_segment = np.repeat(edges_length.ravel(), n_edge_segments.ravel()) # Edge length for each segment
+    edge_load_magnitude_per_segment = np.repeat(np.broadcast_to(edge_load_magnitude[:, None], edges_name.shape).ravel(), n_edge_segments.ravel()) # Load magnitude for each segment
+    shortest_length_mask_per_segment = np.repeat(shortest_length_mask.ravel(), n_edge_segments.ravel()) # Shortest length masking for each segment
+
+    # Determine location, and load for each segment
+    segment_idx = np.concatenate([np.arange(n) for n in n_edge_segments.ravel()]) # Flattened segment index
+    divisor = np.where(shortest_length_mask_per_segment, 2.0, 3.0)
+    loc_start = (segment_idx * edge_length_per_segment / divisor)
+    loc_end = ((segment_idx + 1) * edge_length_per_segment / divisor)
+    segment_location = np.column_stack((loc_start, loc_end)) # Location for each segment
+    load_start = np.where(segment_idx == 0, 0.0, edge_load_magnitude_per_segment)
+    load_end = np.where(segment_idx == divisor - 1, 0.0, edge_load_magnitude_per_segment)
+    segment_load = np.column_stack((load_start, load_end)) # Load for each segment
+
+    # Modified surface to edge loads
+    modified_surface_name = np.asarray(segment_surface_name, dtype="U15")
+    modified_edge_name = np.asarray(segment_edge_name, dtype="U15")
+    modified_loadcase_type = np.asarray(segment_loadcase_type, dtype="U15")
+    modified_load_direction = np.asarray(segment_load_direction, dtype="U15")
+    modified_location = np.asarray(segment_location, dtype=np.float64)
+    modified_load = np.asarray(segment_load, dtype=np.float64)
+    return modified_surface_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     grouping_keys = np.empty(

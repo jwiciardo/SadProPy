@@ -262,7 +262,6 @@ class ModelDataStorer:
             loadcase = result_loadcase_type,
             loads = result_loads,
         ) # Store nodal loads data to dataclass
-        print(nodal_loads)
         return nodal_loads
 
     def _generate_concentrated_element_loads(self, elements):
@@ -293,7 +292,6 @@ class ModelDataStorer:
             location = result_location,
             loads = transformed_loads,
         ) # Store concentrated element loads data to dataclass
-        print(concentrated_element_loads)
         return concentrated_element_loads
 
     def _generate_distributed_element_loads(self, elements):
@@ -329,56 +327,17 @@ class ModelDataStorer:
 
     def _generate_shell_to_element_loads(self, nodes, elements, shells):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
-        surface_loads = self._translator_data["Surface Loads"] # Retrieve surface loads data
-        if len(surface_loads) == 0:
+        surface_to_edge_loads = self._translator_data["Surface to Edge Loads"] # Retrieve surface to edge loads data
+        print(surface_to_edge_loads)
+        if len(surface_to_edge_loads) == 0:
             shell_to_element_loads = ShellToElementLoads.empty()
             return shell_to_element_loads
-        surface_name = surface_loads["Surface Name"]
+        surface_name = surface_to_edge_loads["Surface Name"]
         n = len(surface_name)
-        loadcase_type = surface_loads["Load Case"]
-        direction = surface_loads["Direction"] # Retrieve load direction
-        load = surface_loads["Load"] # Retrieve distributed line loads
+        loadcase_type = surface_to_edge_loads["Load Case"]
+        direction = surface_to_edge_loads["Direction"] # Retrieve load direction
+        load = surface_to_edge_loads["Load"] # Retrieve distributed line loads
         shell_idx = shells.name_to_idx(names=surface_name)
-
-        
-        def _generate_shell_element_load(length, half_width, line_load, is_shortest):
-            if is_shortest:
-                locations = np.array([[0.0, half_width], [half_width, length]], dtype=np.float64)
-                loads = np.array([[0.0, line_load], [line_load, 0.0]], dtype=np.float64)
-            else:
-                middle = length - half_width
-                locations = np.array([[0.0, half_width], [half_width, middle], [middle, length]], dtype=np.float64)
-                loads = np.array([[0.0, line_load], [line_load, line_load], [line_load, 0.0]], dtype=np.float64)
-            return locations, loads
-
-        elements_idx = shells.elements_idx[shell_idx]
-        elements_name = elements.unique_name[elements_idx]
-        elements_length = elements.length[elements_idx]
-        shell_width = np.min(elements_length, axis=1)
-        half_width = shell_width * 0.5
-        element_load_magnitude = load * half_width
-        is_shortest = np.isclose(elements_length, shell_width[:, np.newaxis])
-        shell_loc = []
-        shell_load = []
-        for i in range(len(elements_idx)):
-            shell_loc_i = []
-            shell_load_i = []
-            for j, length in enumerate(elements_length[i]):
-                loc_ij, load_ij = _generate_shell_element_load(
-                    length=length,
-                    half_width=half_width[i],
-                    line_load=element_load_magnitude[i],
-                    is_shortest=is_shortest[i, j],
-                )
-                shell_loc_i.append(loc_ij)
-                shell_load_i.append(load_ij)
-            shell_loc.append(shell_loc_i)
-            shell_load.append(shell_load_i)
-        shell_loc = np.asarray(shell_loc, dtype=np.float64)
-        shell_load = np.asarray(shell_load, dtype=np.float64)
-        print(shell_loc)
-        print(shell_load)
-
 
         location, load = generate_edge_load_segments(
             edge_length=8.0,

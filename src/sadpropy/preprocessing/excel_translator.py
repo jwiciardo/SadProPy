@@ -25,7 +25,7 @@ from .preprocessing_dataclass import (
 )
 from ._surface import generate_surface_connectivity
 from ._section import compute_section_properties
-from ._load import get_concentrated_line_loads, get_distributed_line_loads
+from ._load import get_concentrated_line_loads, get_distributed_line_loads, get_surface_to_edge_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
 from ..utility._exceptions import ValidationError
@@ -173,8 +173,8 @@ class ExcelTranslator:
         restraints = self._translate_restraints(point_objects=point_objects)
         point_loads = self._translate_point_loads()
         concentrated_line_loads = self._translate_concentrated_line_loads()
-        distributed_line_loads = self._translate_distributed_line_loads()
-        surface_loads = self._translate_surface_loads(line_objects=line_objects, surface_objects=surface_objects)
+        distributed_line_loads = self._translate_distributed_line_loads(line_objects=line_objects)
+        surface_to_edge_loads = self._translate_surface_loads(line_objects=line_objects, surface_objects=surface_objects)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -191,7 +191,7 @@ class ExcelTranslator:
             "Point Loads": point_loads,
             "Concentrated Line Loads": concentrated_line_loads,
             "Distributed Line Loads": distributed_line_loads,
-            "Surface Loads": surface_loads,
+            "Surface to Edge Loads": surface_to_edge_loads,
         }
 
     # HELPER METHOD
@@ -711,7 +711,7 @@ class ExcelTranslator:
         } # Storing Concentrated Line Loads data to dictionary
         return concentrated_line_loads
 
-    def _translate_distributed_line_loads(self):
+    def _translate_distributed_line_loads(self, line_objects):
         sheet_name="Distributed Line Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -735,6 +735,7 @@ class ExcelTranslator:
         ])
         modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_distributed_line_loads(
             line_name=line_name,
+            line_objects=line_objects,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
             locations=locations,
@@ -745,8 +746,8 @@ class ExcelTranslator:
             "Line Name": modified_line_name,
             "Load Case": modified_loadcase_type,
             "Direction": modified_load_direction,
-            "Load": modified_load,
             "Location": modified_location,
+            "Load": modified_load,
         } # Storing Distributed Line Loads data to dictionary
         return distributed_line_loads
 
@@ -764,17 +765,20 @@ class ExcelTranslator:
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.surfaceload, dtype=np.float64, filled_values=np.nan)
-        surface_idx = np.asarray([surface_objects["Name to Index"][name] for name in surface_name], dtype=np.int32)
-        edges_idx = surface_objects["Edges Index"][surface_idx]
-        edges_name = line_objects["Unique Name"][edges_idx]
-        edges_length = line_objects["Length"][edges_idx]
-
-        print(edges_length)
-
-        surface_loads = {
-            "Surface Name": surface_name,
-            "Load Case": loadcase_type,
-            "Direction": load_direction,
-            "Load": load,
+        modified_surface_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_surface_to_edge_loads(
+            surface_name=surface_name,
+            line_objects=line_objects,
+            surface_objects=surface_objects,
+            loadcase_type=loadcase_type,
+            load_direction=load_direction,
+            load=load,
+        )
+        surface_to_edge_loads = {
+            "Surface Name": modified_surface_name,
+            "Edge Name": modified_edge_name,
+            "Load Case": modified_loadcase_type,
+            "Direction": modified_load_direction,
+            "Location": modified_location,
+            "Load": modified_load,
         } # Storing Surface Loads data to dictionary
-        return surface_loads
+        return surface_to_edge_loads
