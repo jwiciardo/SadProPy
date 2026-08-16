@@ -3,26 +3,21 @@ from .preprocessing_class_index import LoadDirection
 from ..utility.helperfunc import transform_to_local_axes
 
 def get_concentrated_line_loads(line_name, loadcase_type, load_direction, locations, loads):
-    modified_line_name = []
-    modified_loadcase_type = []
-    modified_load_direction = []
-    modified_location = []
-    modified_load = []
+    # Determine line name, loadcase type, load direction, location, and load for each segment
+    segment_loads_mask = ~np.isnan(loads) # Loads for each segment masking
+    line_idx, load_idx = np.nonzero(segment_loads_mask) # Determine line index and load index of valid loads for each segment
+    segment_line_name = line_name[line_idx] # Line name for each segment
+    segment_loadcase_type = loadcase_type[line_idx] # Loadcase type for each segment
+    segment_load_direction = load_direction[line_idx] # Load direction for each segment
+    segment_location = locations[line_idx, load_idx] # Location for each segment
+    segment_load = loads[line_idx, load_idx] # Load for each segment
 
-    for i in range(len(line_name)):
-        for j in range(loads.shape[1]):
-            if np.isnan(loads[i, j]): # Skip empty loads
-                continue
-            modified_line_name.append(line_name[i])
-            modified_loadcase_type.append(loadcase_type[i])
-            modified_load_direction.append(load_direction[i])
-            modified_location.append(locations[i, j])
-            modified_load.append(loads[i, j])
-    modified_line_name = np.asarray(modified_line_name, dtype="U15")
-    modified_loadcase_type = np.asarray(modified_loadcase_type, dtype=np.int8)
-    modified_load_direction = np.asarray(modified_load_direction, dtype="U15")
-    modified_location = np.asarray(modified_location, dtype=np.float64)
-    modified_load = np.asarray(modified_load, dtype=np.float64)
+    # Modified concentrated line loads
+    modified_line_name = np.asarray(segment_line_name, dtype="U15")
+    modified_loadcase_type = np.asarray(segment_loadcase_type, dtype=np.int8)
+    modified_load_direction = np.asarray(segment_load_direction, dtype="U15")
+    modified_location = np.asarray(segment_location, dtype=np.float64)
+    modified_load = np.asarray(segment_load, dtype=np.float64)
     return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 def get_distributed_line_loads(line_name, line_objects, loadcase_type, load_direction, locations, uniform_load, loads):
@@ -31,10 +26,10 @@ def get_distributed_line_loads(line_name, line_objects, loadcase_type, load_dire
 
     # Determine line name, loadcase type, load direction, location, and load for each segment of uniform load
     uniform_load_mask = ~np.isnan(uniform_load) # Uniform load masking
-    segment_uniform_load_line_name = line_name[uniform_load_mask] # Line name for each segment of uniform load
-    segment_uniform_load_loadcase_type = loadcase_type[uniform_load_mask] # Loadcase type for each segment of uniform load
-    segment_uniform_load_load_direction = load_direction[uniform_load_mask] # Load direction for each segment of uniform load
-    segment_uniform_load_location = np.column_stack((
+    segment_uniform_line_name = line_name[uniform_load_mask] # Line name for each segment of uniform load
+    segment_uniform_loadcase_type = loadcase_type[uniform_load_mask] # Loadcase type for each segment of uniform load
+    segment_uniform_load_direction = load_direction[uniform_load_mask] # Load direction for each segment of uniform load
+    segment_uniform_location = np.column_stack((
         np.zeros(uniform_load_mask.sum(), dtype=np.float64),
         line_length[uniform_load_mask],
     )) # Location for each segment of uniform load
@@ -50,25 +45,25 @@ def get_distributed_line_loads(line_name, line_objects, loadcase_type, load_dire
         & ~np.isnan(loads[:, :-1])
         & ~np.isnan(loads[:, 1:])
     ) # Nonuniform loads for each segment masking
-    row_idx, col_idx = np.nonzero(segment_nonuniform_loads_mask) # Determine row and column index of valid nonuniform loads for each segment
-    segment_nonuniform_load_line_name = line_name[row_idx] # Line name for each segment of nonuniform load
-    segment_nonuniform_load_loadcase_type = loadcase_type[row_idx] # Loadcase type for each segment of nonuniform load
-    segment_nonuniform_load_load_direction = load_direction[row_idx] # Load direction for each segment of nonuniform load
-    segment_nonuniform_load_location = np.column_stack((
-        locations[row_idx, col_idx],
-        locations[row_idx, col_idx + 1],
+    line_idx, load_idx = np.nonzero(segment_nonuniform_loads_mask) # Determine line index and load index of valid nonuniform loads for each segment
+    segment_nonuniform_line_name = line_name[line_idx] # Line name for each segment of nonuniform load
+    segment_nonuniform_loadcase_type = loadcase_type[line_idx] # Loadcase type for each segment of nonuniform load
+    segment_nonuniform_load_direction = load_direction[line_idx] # Load direction for each segment of nonuniform load
+    segment_nonuniform_location = np.column_stack((
+        locations[line_idx, load_idx],
+        locations[line_idx, load_idx + 1],
     )) # Location for each segment of nonuniform load
     segment_nonuniform_load = np.column_stack((
-        loads[row_idx, col_idx],
-        loads[row_idx, col_idx + 1],
+        loads[line_idx, load_idx],
+        loads[line_idx, load_idx + 1],
     )) # Nonuniform load for each segment
 
     # Modified distributed line loads
-    modified_line_name = np.concatenate((segment_uniform_load_line_name, segment_nonuniform_load_line_name)).astype("U15")
-    modified_loadcase_type = np.concatenate((segment_uniform_load_loadcase_type, segment_nonuniform_load_loadcase_type)).astype("U15")
-    modified_load_direction = np.concatenate((segment_uniform_load_load_direction, segment_nonuniform_load_load_direction)).astype("U15")
-    modified_location = np.vstack((segment_uniform_load_location, segment_nonuniform_load_location)).astype(np.float64)
-    modified_load = np.vstack((segment_uniform_load, segment_nonuniform_load)).astype(np.float64)
+    modified_line_name = np.concatenate((segment_uniform_line_name, segment_nonuniform_line_name)).astype(dtype="U15")
+    modified_loadcase_type = np.concatenate((segment_uniform_loadcase_type, segment_nonuniform_loadcase_type)).astype(dtype=np.int8)
+    modified_load_direction = np.concatenate((segment_uniform_load_direction, segment_nonuniform_load_direction)).astype(dtype="U15")
+    modified_location = np.vstack((segment_uniform_location, segment_nonuniform_location)).astype(dtype=np.float64)
+    modified_load = np.vstack((segment_uniform_load, segment_nonuniform_load)).astype(dtype=np.float64)
     return modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 def get_surface_to_edge_loads(surface_name, line_objects, surface_objects, loadcase_type, load_direction, load):
@@ -103,7 +98,7 @@ def get_surface_to_edge_loads(surface_name, line_objects, surface_objects, loadc
     # Modified surface to edge loads
     modified_surface_name = np.asarray(segment_surface_name, dtype="U15")
     modified_edge_name = np.asarray(segment_edge_name, dtype="U15")
-    modified_loadcase_type = np.asarray(segment_loadcase_type, dtype="U15")
+    modified_loadcase_type = np.asarray(segment_loadcase_type, dtype=np.int8)
     modified_load_direction = np.asarray(segment_load_direction, dtype="U15")
     modified_location = np.asarray(segment_location, dtype=np.float64)
     modified_load = np.asarray(segment_load, dtype=np.float64)
@@ -294,61 +289,3 @@ def generate_group_distributed_element_loads(ndim, elements, element_tag, loadca
     if np.any(local_mask):
         transformed_loads[local_mask] = (result_load[local_mask, :, None] * direction_vectors[local_mask, None, :])
     return result_element_tag, result_loadcase_type, result_location, transformed_loads
-
-def _tributary_width(x, edge_length, perpendicular_length):
-    return min(x, perpendicular_length / 2.0, edge_length - x)
-
-def generate_edge_load_segments(edge_length, perpendicular_length, surface_load):
-    # --------------------------------------------------------------
-    # Important locations along the edge
-    # --------------------------------------------------------------
-    breakpoints = np.array([0.0, perpendicular_length / 2.0, edge_length - perpendicular_length / 2.0, edge_length])
-
-    # Keep only locations that are actually inside the edge
-    breakpoints = breakpoints[(breakpoints >= 0.0) & (breakpoints <= edge_length)]
-
-    # Remove duplicate points
-    breakpoints = np.unique(breakpoints)
-
-    result_location = []
-    result_load = []
-    # --------------------------------------------------------------
-    # Generate piecewise-linear segments
-    # --------------------------------------------------------------
-    for x1, x2 in zip(breakpoints[:-1], breakpoints[1:]):
-        if np.isclose(x1, x2):
-            continue
-        b1 = _tributary_width(x=x1, edge_length=edge_length, perpendicular_length=perpendicular_length)
-        b2 = _tributary_width(x=x2, edge_length=edge_length, perpendicular_length=perpendicular_length)
-        w1 = surface_load * b1
-        w2 = surface_load * b2
-
-        # Ignore a completely zero segment
-        if np.isclose(w1, 0.0) and np.isclose(w2, 0.0):
-            continue
-        result_location.append([x1, x2])
-        result_load.append([w1, w2])
-    return (np.asarray(result_location, dtype=np.float64), np.asarray(result_load, dtype=np.float64))
-
-def _surface_edge_lengths(vertices, coordinates):
-    points = coordinates[vertices]
-    next_points = np.roll(points, -1, axis=0)
-    edge_vectors = next_points - points
-    edge_lengths = np.linalg.norm(edge_vectors, axis=1)
-    return edge_lengths
-
-def generate_surface_edge_load(
-    edge_length: float,
-    tributary_width: float,
-    surface_load: float,
-):
-    max_line_load = surface_load * tributary_width
-    location = np.asarray(
-        [0.0, edge_length],
-        dtype=np.float64,
-    )
-    load = np.asarray(
-        [0.0, max_line_load],
-        dtype=np.float64,
-    )
-    return location, load

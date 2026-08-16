@@ -752,7 +752,7 @@ class ExcelTranslator:
         return distributed_line_loads
 
     def _translate_surface_loads(self, line_objects, surface_objects):
-        sheet_name="Surface Loads"
+        sheet_name="Surface to Line Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 

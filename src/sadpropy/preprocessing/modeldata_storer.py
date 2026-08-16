@@ -11,7 +11,6 @@ from ._load import (
     generate_group_nodal_loads,
     generate_group_concentrated_element_loads,
     generate_group_distributed_element_loads,
-    generate_edge_load_segments,
 )
 from ._zerolengthelements import generate_zerolength_element_local_axes
 from .preprocessing_class_index import ElementType, NodeSource
@@ -49,7 +48,7 @@ class ModelDataStorer:
         nodal_loads = self._generate_nodal_loads()
         concentrated_element_loads = self._generate_concentrated_element_loads(elements=elements)
         distributed_element_loads = self._generate_distributed_element_loads(elements=elements)
-        shell_to_element_loads = self._generate_shell_to_element_loads(nodes=nodes, elements=elements, shells=shells)
+        shell_to_element_loads = self._generate_shell_to_element_loads(elements=elements)
         print()
         return ModelData(
             filepath_information = self._translator_data["Filepath Information"],
@@ -248,9 +247,8 @@ class ModelDataStorer:
             nodal_loads = NodalLoads.empty()
             return nodal_loads
         point_name = point_loads["Point Name"]
-        n = len(point_name)
         node_tag = self._tagmanager.get_tag(category="Node", names=point_name) # Retrieve node tag
-        loadcase_type = point_loads["Load Case"]
+        loadcase_type = point_loads["Load Case"] # Retrieve load case
         loads = point_loads["Loads"] # Retrieve point loads
         result_node_tag, result_loadcase_type, result_loads = generate_group_nodal_loads(
             node_tag=node_tag,
@@ -271,9 +269,8 @@ class ModelDataStorer:
             concentrated_element_loads = ConcentratedElementLoads.empty()
             return concentrated_element_loads
         line_name = concentrated_line_loads["Line Name"]
-        n = len(line_name)
         element_tag = self._tagmanager.get_tag(category="Element", names=line_name) # Retrieve element tag
-        loadcase_type = concentrated_line_loads["Load Case"]
+        loadcase_type = concentrated_line_loads["Load Case"] # Retrieve load case
         direction = concentrated_line_loads["Direction"] # Retrieve load direction
         load = concentrated_line_loads["Load"] # Retrieve concentrated line loads
         location = concentrated_line_loads["Location"] # Retrieve concentrated line loads location
@@ -301,9 +298,8 @@ class ModelDataStorer:
             distributed_element_loads = DistributedElementLoads.empty()
             return distributed_element_loads
         line_name = distributed_line_loads["Line Name"]
-        n = len(line_name)
         element_tag = self._tagmanager.get_tag(category="Element", names=line_name) # Retrieve element tag
-        loadcase_type = distributed_line_loads["Load Case"]
+        loadcase_type = distributed_line_loads["Load Case"] # Retrieve load case
         direction = distributed_line_loads["Direction"] # Retrieve load direction
         load = distributed_line_loads["Load"] # Retrieve distributed line loads
         location = distributed_line_loads["Location"] # Retrieve distributed line loads location
@@ -322,26 +318,36 @@ class ModelDataStorer:
             location = result_location,
             loads = transformed_loads,
         ) # Store distributed element loads data to dataclass
-        print(distributed_element_loads)
         return distributed_element_loads
 
-    def _generate_shell_to_element_loads(self, nodes, elements, shells):
+    def _generate_shell_to_element_loads(self, elements):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
         surface_to_edge_loads = self._translator_data["Surface to Edge Loads"] # Retrieve surface to edge loads data
-        print(surface_to_edge_loads)
         if len(surface_to_edge_loads) == 0:
             shell_to_element_loads = ShellToElementLoads.empty()
             return shell_to_element_loads
         surface_name = surface_to_edge_loads["Surface Name"]
-        n = len(surface_name)
-        loadcase_type = surface_to_edge_loads["Load Case"]
+        edge_name = surface_to_edge_loads["Edge Name"]
+        element_tag = self._tagmanager.get_tag(category="Element", names=edge_name) # Retrieve element tag
+        loadcase_type = surface_to_edge_loads["Load Case"] # Retrieve load case
         direction = surface_to_edge_loads["Direction"] # Retrieve load direction
-        load = surface_to_edge_loads["Load"] # Retrieve distributed line loads
-        shell_idx = shells.name_to_idx(names=surface_name)
-
-        location, load = generate_edge_load_segments(
-            edge_length=8.0,
-            perpendicular_length=8.0,
-            surface_load=3.12,
+        load = surface_to_edge_loads["Load"] # Retrieve shell to element loads
+        location = surface_to_edge_loads["Location"] # Retrieve shell to element loads location
+        result_element_tag, result_loadcase_type, result_location, transformed_loads = generate_group_distributed_element_loads(
+            ndim=ndim,
+            elements=elements,
+            element_tag=element_tag,
+            loadcase_type=loadcase_type,
+            direction=direction,
+            location=location,
+            load=load,
         )
+        shell_to_element_loads = ShellToElementLoads(
+            element_tag = result_element_tag,
+            loadcase = result_loadcase_type,
+            location = result_location,
+            loads = transformed_loads,
+        ) # Store shell to element loads data to dataclass
+        print(shell_to_element_loads)
+        return shell_to_element_loads
 
