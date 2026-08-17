@@ -24,6 +24,7 @@ class Session:
         self._model = model
         return self._model
 
+    @property
     def model(self):
         if self._model is None:
             raise RuntimeError("No active model. Create new() model or open() model first")

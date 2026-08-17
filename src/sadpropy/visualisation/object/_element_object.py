@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from ...utility._exception import ValidationError
 
-def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, show_rigid_offsets, linewidth=1.2):
+def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, show_rigid_end_offsets, linewidth=1.2):
     # Colour List
     colour_cycle = [
         "blue",
@@ -70,7 +70,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
         eoj = end_offsets[i][3:] * rigid_zone_factor[i] # Retrieve J-end offset vector
         noi = ni + eoi # Determine I-node offset coordinate
         noj = nj + eoj # Determine J-node offset coordinate
-        if show_rigid_offsets:
+        if show_rigid_end_offsets:
             ax.plot(
                 [ni[0], noi[0]],
                 [ni[1], noi[1]],
@@ -115,7 +115,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 fontsize=8,
                 color="black",
                 zorder=2,
-            ) # Plot nodes labels
+            ) # Plot elements labels
         
         # Generate legends
         if not category_colours: # Set condition if category_colours is "Default" return nothing

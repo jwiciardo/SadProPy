@@ -15,9 +15,9 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
         xlabels = [convert_number_to_letters(num=i) for i in range(len(xticks))] # Set X-axis coordinate label
         if ndim == 3:
             ylabels = [str(i + 1) for i in range(len(yticks))] # Set Y-axis coordinate label
-            zlabels = sorted([storeys[storey].name for storey in storeys]) # Set Z-axis coordinate label
+            zlabels = sorted(storeys.name) # Set Z-axis coordinate label
         else:
-            ylabels = sorted([storeys[storey].name for storey in storeys]) # Set Y-axis coordinate label
+            ylabels = sorted(storeys.name) # Set Y-axis coordinate label
             zlabels = None # Set Z-axis coordinate label as None
         return xlabels, ylabels, zlabels
 
@@ -33,13 +33,13 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
         xmax = coords[:, 0].max()
         if ndim == 3:
             yticks = get_ticks(coords[:, 1])
-            zticks = np.sort(np.array([storeys[storey].elevation for storey in storeys], dtype=float))
+            zticks = np.sort(storeys.elevation)
             ymin = coords[:, 1].min()
             ymax = coords[:, 1].max()
             zmin = coords[:, 2].min()
             zmax = coords[:, 2].max()
         else:
-            yticks = np.sort(np.array([storeys[storey].elevation for storey in storeys], dtype=float))
+            yticks = np.sort(storeys.elevation)
             ymin = coords[:, 1].min()
             ymax = coords[:, 1].max()
         xlabels, ylabels, zlabels = set_grid_labels(xticks=xticks, yticks=yticks)

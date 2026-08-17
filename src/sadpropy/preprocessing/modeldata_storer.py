@@ -22,9 +22,9 @@ from .preprocessing_dataclass import (
     Shells,
     Restraints,
     NodalLoads,
-    ConcentratedElementLoads,
-    DistributedElementLoads,
-    ShellToElementLoads,
+    ConcentratedElementalLoads,
+    DistributedElementalLoads,
+    ShellToElementalLoads,
 )
 from sadpropy.utility import TagManager
 from sadpropy.utility.helperfunc import get_parent_node
@@ -46,9 +46,9 @@ class ModelDataStorer:
         shells = self._generate_shells(nodes=nodes)
         restraints = self._generate_restraints(nodes=nodes)
         nodal_loads = self._generate_nodal_loads()
-        concentrated_element_loads = self._generate_concentrated_element_loads(elements=elements)
-        distributed_element_loads = self._generate_distributed_element_loads(elements=elements)
-        shell_to_element_loads = self._generate_shell_to_element_loads(elements=elements)
+        concentrated_elemental_loads = self._generate_concentrated_elemental_loads(elements=elements)
+        distributed_elemental_loads = self._generate_distributed_elemental_loads(elements=elements)
+        shell_to_elemental_loads = self._generate_shell_to_elemental_loads(elements=elements)
         print()
         return ModelData(
             filepath_information = self._translator_data["Filepath Information"],
@@ -65,9 +65,9 @@ class ModelDataStorer:
             shells = shells,
             restraints = restraints,
             nodal_loads = nodal_loads,
-            concentrated_element_loads = concentrated_element_loads,
-            distributed_element_loads = distributed_element_loads,
-            shell_to_element_loads = shell_to_element_loads,
+            concentrated_elemental_loads = concentrated_elemental_loads,
+            distributed_elemental_loads = distributed_elemental_loads,
+            shell_to_elemental_loads = shell_to_elemental_loads,
         )
     
     # SUPPORTING METHODS
@@ -262,12 +262,12 @@ class ModelDataStorer:
         ) # Store nodal loads data to dataclass
         return nodal_loads
 
-    def _generate_concentrated_element_loads(self, elements):
+    def _generate_concentrated_elemental_loads(self, elements):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
         concentrated_line_loads = self._translator_data["Concentrated Line Loads"] # Retrieve concentrated line loads data
         if len(concentrated_line_loads) == 0:
-            concentrated_element_loads = ConcentratedElementLoads.empty()
-            return concentrated_element_loads
+            concentrated_elemental_loads = ConcentratedElementalLoads.empty()
+            return concentrated_elemental_loads
         line_name = concentrated_line_loads["Line Name"]
         element_tag = self._tagmanager.get_tag(category="Element", names=line_name) # Retrieve element tag
         loadcase_type = concentrated_line_loads["Load Case"] # Retrieve load case
@@ -283,20 +283,20 @@ class ModelDataStorer:
             location=location,
             load=load,
         )
-        concentrated_element_loads = ConcentratedElementLoads(
+        concentrated_elemental_loads = ConcentratedElementalLoads(
             element_tag = result_element_tag,
             loadcase = result_loadcase_type,
             location = result_location,
             loads = transformed_loads,
-        ) # Store concentrated element loads data to dataclass
-        return concentrated_element_loads
+        ) # Store concentrated elemental loads data to dataclass
+        return concentrated_elemental_loads
 
-    def _generate_distributed_element_loads(self, elements):
+    def _generate_distributed_elemental_loads(self, elements):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
         distributed_line_loads = self._translator_data["Distributed Line Loads"] # Retrieve distributed line loads data
         if len(distributed_line_loads) == 0:
-            distributed_element_loads = DistributedElementLoads.empty()
-            return distributed_element_loads
+            distributed_elemental_loads = DistributedElementalLoads.empty()
+            return distributed_elemental_loads
         line_name = distributed_line_loads["Line Name"]
         element_tag = self._tagmanager.get_tag(category="Element", names=line_name) # Retrieve element tag
         loadcase_type = distributed_line_loads["Load Case"] # Retrieve load case
@@ -312,20 +312,20 @@ class ModelDataStorer:
             location=location,
             load=load,
         )
-        distributed_element_loads = DistributedElementLoads(
+        distributed_elemental_loads = DistributedElementalLoads(
             element_tag = result_element_tag,
             loadcase = result_loadcase_type,
             location = result_location,
             loads = transformed_loads,
-        ) # Store distributed element loads data to dataclass
-        return distributed_element_loads
+        ) # Store distributed elemental loads data to dataclass
+        return distributed_elemental_loads
 
-    def _generate_shell_to_element_loads(self, elements):
+    def _generate_shell_to_elemental_loads(self, elements):
         ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
         surface_to_edge_loads = self._translator_data["Surface to Edge Loads"] # Retrieve surface to edge loads data
         if len(surface_to_edge_loads) == 0:
-            shell_to_element_loads = ShellToElementLoads.empty()
-            return shell_to_element_loads
+            shell_to_elemental_loads = ShellToElementalLoads.empty()
+            return shell_to_elemental_loads
         surface_name = surface_to_edge_loads["Surface Name"]
         edge_name = surface_to_edge_loads["Edge Name"]
         element_tag = self._tagmanager.get_tag(category="Element", names=edge_name) # Retrieve element tag
@@ -342,11 +342,11 @@ class ModelDataStorer:
             location=location,
             load=load,
         )
-        shell_to_element_loads = ShellToElementLoads(
+        shell_to_elemental_loads = ShellToElementalLoads(
             element_tag = result_element_tag,
             loadcase = result_loadcase_type,
             location = result_location,
             loads = transformed_loads,
-        ) # Store shell to element loads data to dataclass
-        return shell_to_element_loads
+        ) # Store shell to elemental loads data to dataclass
+        return shell_to_elemental_loads
 

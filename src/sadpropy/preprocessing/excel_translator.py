@@ -209,19 +209,25 @@ class ExcelTranslator:
             raise ValidationError(f"Duplicate {col_name}(s): {', '.join(duplicates)}")
     
     def _generate_storeys(self, storey_elevations):
-        storeys = {} # Predefined storeys dictionary
+        storey_name = [] # Predefined storeys list
+        height = [] # Predefined storeys height
+        elevation = [] # Predefined storeys elevation
         for idx, elev in reversed(list(enumerate(storey_elevations))): # Loop over storey elevations
             if idx == 0: # Set condition if index == 0
-                storey_name = "Base" # If True define storey name as "Base" and height = 0.0
-                height = np.float64(0.0) 
+                storey_name.append("Base")# If True define storey name as "Base" and height = 0.0
+                height.append(np.float64(0.0))
             else:
-                storey_name = f"Storey{idx}" # If False define storey name as "Storey{index}" and storey height
-                height = elev - storey_elevations[idx - 1]
-            storeys[storey_name] = Storeys(
-                name=storey_name,
-                height=height,
-                elevation=elev,
-            ) # Store storeys data as dataclass
+                storey_name.append(f"Storey{idx}") # If False define storey name as "Storey{index}" and storey height
+                height.append(elev - storey_elevations[idx - 1])
+            elevation.append(elev)
+        storey_name = np.asarray(storey_name, dtype="U15")
+        height = np.asarray(height, dtype=np.float64)
+        elevation = np.asarray(elevation, dtype=np.float64)
+        storeys = Storeys(
+            name=storey_name,
+            height=height,
+            elevation=elevation,
+        ) # Store storeys data as dataclass
         return storeys
 
     def _modify_empty_values(self, values, converter=None, dtype=object, filled_values=np.nan):

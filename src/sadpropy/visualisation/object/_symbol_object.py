@@ -19,8 +19,9 @@ def _draw_symbol(ax, symbol, node_coords, rotation_matrix, size, colour, linewid
             zorder=10,
         )
     ax.add_collection3d(Poly3DCollection(
-            [vertices],
-            facecolor=colour,
-            edgecolor="none",
-            alpha=alpha,
-        ))
+        [vertices],
+        facecolor=colour,
+        edgecolor="none",
+        alpha=alpha,
+        zorder=10,
+    ))

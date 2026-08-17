@@ -11,18 +11,43 @@ class FilePathInformation:
     inputfile_path: str
     logfile_path: str
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            parent_path = "",
+            output_path = "",
+            inputfile_path = "",
+            logfile_path = "",
+        )
+    
 @dataclass(slots=True, frozen=True)
 class ProjectInformation:
     name: str
     desc: str
     ndim: int
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            name = "",
+            desc = "",
+            ndim = 0,
+        )
+    
 @dataclass(slots=True, frozen=True)
 class AnalysisPreferences:
     is_nonlinear_analysis: bool
     is_pdelta: bool
     liveload_mass_factor: float
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            is_nonlinear_analysis = None,
+            is_pdelta = None,
+            liveload_mass_factor = 0.0,
+        )
+    
 # PROPERTIES: MATERIALS
 @dataclass(slots=True, frozen=True)
 class Materials:
@@ -62,6 +87,18 @@ class Materials:
                 raise ValidationError(f"Node '{name}' does not exist") from None
         return result
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            mat_name = np.empty(0, dtype="U32"),
+            mat_tag = np.empty(0, dtype=np.int32),
+            mat_type = np.empty(0, dtype=np.int8),            
+            mat_model = np.empty(0, dtype=np.int8),
+            mat_def = np.empty(0, dtype=object),
+            properties = np.empty((0, 1), dtype=np.float64),
+        )
+    
 # PROPERTIES: FRAME SECTIONS
 @dataclass(slots=True, frozen=True)
 class FrameSections:
@@ -106,6 +143,24 @@ class FrameSections:
             except KeyError:
                 raise ValidationError(f"Node '{name}' does not exist") from None
         return result
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            sec_name = np.empty(0, dtype="U32"),
+            sec_tag = np.empty(0, dtype=np.int32),
+            sec_shape = np.empty(0, dtype=np.int8),            
+            sec_model = np.empty(0, dtype=np.int8),
+            sec_def = np.empty(0, dtype=object),
+            mats_idx = np.empty((0, 6), dtype=np.int32),
+            mat_type = np.empty(0, dtype=np.int8),
+            integration_type = np.empty(0, dtype=np.int8),
+            integration_tag = np.empty(0, dtype=np.int32),
+            aggregated_sec_idx = np.empty(0, dtype=np.int32),
+            dimensions = np.empty((0, 1), dtype=np.float64),
+            properties = np.empty((0, 12), dtype=np.float64),
+        )
     
 # PROPERTIES: SLAB SECTIONS
 @dataclass(slots=True, frozen=True)
@@ -157,10 +212,18 @@ class SlabSections:
 # STRUCTURE DATA
 @dataclass(slots=True, frozen=True)
 class Storeys:
-    name: str
-    height: float
-    elevation: float
+    name: np.ndarray                    # str, shape (N,)
+    height: np.ndarray                  # float64, shape (N,)
+    elevation: np.ndarray               # float64, shpae(N,)
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            name = np.empty(0, dtype="U15"),
+            height = np.empty(0, dtype=np.float64),
+            elevation = np.empty(0, dtype=np.float64),
+        )
+    
 # STRUCTURAL OBJECTS
 @dataclass(slots=True, frozen=True)
 class Nodes:
@@ -241,6 +304,17 @@ class Nodes:
                 raise ValidationError(f"Node tag '{tag}' does not exist") from None
         return result
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            unique_name = np.empty(0, dtype="U32"),
+            node_tag = np.empty(0, dtype=np.int32),
+            coords = np.empty((0, 3), dtype=np.float64),            
+            generated_source = np.empty(0, dtype=np.int32),
+            generated_from = np.empty(0, dtype="U32"),
+        )
+    
 @dataclass(slots=True, frozen=True)
 class Elements:
     index: np.ndarray                   # int32, shape (N,)
@@ -331,6 +405,28 @@ class Elements:
                 raise ValidationError(f"Element tag '{tag}' does not exist") from None
         return result
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            unique_name = np.empty(0, dtype="U32"),
+            element_tag = np.empty(0, dtype=np.int32),
+            end_nodes_idx = np.empty((0, 2), dtype=np.int32),
+            element_type = np.empty(0, dtype=np.int8),   
+            sec_idx = np.empty(0, dtype=np.int32),
+            centroids = np.empty((0, 3), dtype=np.float64),
+            length = np.empty(0, dtype=np.float64),
+            rotation_matrices = np.empty((0, 3, 3), dtype=np.int32),
+            transformation_tag = np.empty(0, dtype=np.int32),
+            elements_connectivity = np.empty((0, 1), dtype=np.int32),
+            shared_connected_nodes = np.empty((0, 1), dtype=np.int32),
+            current_elements_end = np.empty((0, 1), dtype=np.int32),
+            neighbour_elements_end = np.empty((0, 1), dtype=np.int32),
+            rigid_zone_factor = np.empty(0, dtype=np.float64),
+            offsets_length = np.empty((0, 2), dtype=np.float64),
+            end_offsets = np.empty((0, 6), dtype=np.float64),
+        )
+    
 @dataclass(slots=True, frozen=True)
 class ZeroLengthElements:
     index: np.ndarray                   # int32, shape (N,)
@@ -458,6 +554,17 @@ class Shells:
                 raise ValidationError(f"Element '{name}' does not exist") from None
         return result
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            unique_name = np.empty(0, dtype="U32"),
+            elements_idx = np.empty((0, 4), dtype=np.int32),
+            nodes_idx = np.empty((0, 4), dtype=np.int32),
+            element_type = np.empty(0, dtype=np.int8),            
+            sec_idx = np.empty(0, dtype=np.int32),
+        )
+    
 # PROPERTIES: RESTRAINTS
 @dataclass(slots=True, frozen=True)
 class Restraints:
@@ -466,6 +573,15 @@ class Restraints:
     node_tag: np.ndarray                # int32, shape (N,)
     dofs: np.ndarray                    # int32, shape (N,6)
 
+    @classmethod
+    def empty(cls):
+        return cls(
+            node_idx = np.empty(0, dtype=np.int32),
+            node_name = np.empty(0, dtype="U32"),
+            node_tag = np.empty(0, dtype=np.int32),
+            dofs = np.empty((0, 6), dtype=np.float64),
+        )
+    
 # LOADS: NODAL LOADS
 @dataclass(slots=True, frozen=True)
 class NodalLoads:
@@ -476,14 +592,14 @@ class NodalLoads:
     @classmethod
     def empty(cls):
         return cls(
-            node_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int8),
-            loads=np.empty((0, 6), dtype=np.float64),
+            node_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            loads = np.empty((0, 6), dtype=np.float64),
         )
 
-# LOADS: CONCENTRATED ELEMENT LOADS
+# LOADS: CONCENTRATED ELEMENTAL LOADS
 @dataclass(slots=True, frozen=True)
-class ConcentratedElementLoads:
+class ConcentratedElementalLoads:
     element_tag: np.ndarray             # int32, shape (N,)
     loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
@@ -492,15 +608,15 @@ class ConcentratedElementLoads:
     @classmethod
     def empty(cls):
         return cls(
-            element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int8),
-            location=np.empty(0, dtype=np.float64),
-            loads=np.empty((0, 3), dtype=np.float64),
+            element_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            location = np.empty(0, dtype=np.float64),
+            loads = np.empty((0, 3), dtype=np.float64),
         )
 
-# LOADS: DISTRIBUTED ELEMENT LOADS
+# LOADS: DISTRIBUTED ELEMENTAL LOADS
 @dataclass(slots=True, frozen=True)
-class DistributedElementLoads:
+class DistributedElementalLoads:
     element_tag: np.ndarray             # int32, shape (N,)
     loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
@@ -509,15 +625,15 @@ class DistributedElementLoads:
     @classmethod
     def empty(cls):
         return cls(
-            element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int8),
-            location=np.empty((0, 2), dtype=np.float64),
-            loads=np.empty((0, 2, 3), dtype=np.float64),
+            element_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            location = np.empty((0, 2), dtype=np.float64),
+            loads = np.empty((0, 2, 3), dtype=np.float64),
         )
 
-# LOADS: SHELL TO ELEMENT LOADS
+# LOADS: SHELL TO ELEMENTAL LOADS
 @dataclass(slots=True, frozen=True)
-class ShellToElementLoads:
+class ShellToElementalLoads:
     element_tag: np.ndarray             # int32, shape (N,)
     loadcase: np.ndarray                # int8, shape (N,)
     location: np.ndarray                # float64, shape (N,)
@@ -526,10 +642,10 @@ class ShellToElementLoads:
     @classmethod
     def empty(cls):
         return cls(
-            element_tag=np.empty(0, dtype=np.int32),
-            loadcase=np.empty(0, dtype=np.int8),
-            location=np.empty((0, 2), dtype=np.float64),
-            loads=np.empty((0, 2, 3), dtype=np.float64),
+            element_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            location = np.empty((0, 2), dtype=np.float64),
+            loads = np.empty((0, 2, 3), dtype=np.float64),
         )
 
 # MODEL DATA
@@ -549,28 +665,35 @@ class ModelData:
     shells: Shells
     restraints: Restraints
     nodal_loads: NodalLoads
-    concentrated_element_loads: ConcentratedElementLoads
-    distributed_element_loads: DistributedElementLoads
-    shell_to_element_loads: ShellToElementLoads
+    concentrated_elemental_loads: ConcentratedElementalLoads
+    distributed_elemental_loads: DistributedElementalLoads
+    shell_to_elemental_loads: ShellToElementalLoads
 
     @classmethod
     def empty(cls):
         return cls(
-            filepath_information = None,
-            project_information = None,
-            userdefined_units = None,
-            analysis_preferences = None,
-            materials = None,
-            frame_sections = None,
-            slab_sections = None,
-            storeys = None,
-            nodes = None,
-            elements = None,
-            zerolength_elements = None,
-            shells = None,
-            restraints = None,
-            nodal_loads = None,
-            concentrated_element_loads = None,
-            distributed_element_loads = None,
-            shell_to_element_loads = None,
+            filepath_information = FilePathInformation.empty(),
+            project_information = ProjectInformation.empty(),
+            userdefined_units = UserDefinedUnits(
+                force="kN",
+                length="m",
+                mass="kg",
+                stress="MPa",
+                time="s",
+                angle="rad"
+            ),
+            analysis_preferences = AnalysisPreferences.empty(),
+            materials = Materials.empty(),
+            frame_sections = FrameSections.empty(),
+            slab_sections = SlabSections.empty(),
+            storeys = Storeys.empty(),
+            nodes = Nodes.empty(),
+            elements = Elements.empty(),
+            zerolength_elements = ZeroLengthElements.empty(),
+            shells = Shells.empty(),
+            restraints = Restraints.empty(),
+            nodal_loads = NodalLoads.empty(),
+            concentrated_elemental_loads = ConcentratedElementalLoads.empty(),
+            distributed_elemental_loads = DistributedElementalLoads.empty(),
+            shell_to_elemental_loads = ShellToElementalLoads.empty(),
         )
