@@ -8,7 +8,7 @@ inputfile = r"D:\Projects\SadProPy\src\sadpropy\model_inputfile.xlsx"
 #inputfile = r"/Users/jwiciardo/Projects/SadProPy/src/sadpropy/model_inputfile.xlsx"
 #session.new()
 session.open(inputfile_path=inputfile)
-#print(session.model._modeldata.distributed_element_loads)
+print(session.model._modeldata.distributed_elemental_loads)
 
 # %%
 session.model.plot.undeformed_shape(view="Isometric", colour_by="Section", show_grids=True,
