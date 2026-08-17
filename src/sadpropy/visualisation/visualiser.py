@@ -8,6 +8,7 @@ from .object._shell_object import _plot_shells
 from .object._zerolengthelement_object import _plot_zerolength_elements
 from .object._restraint_object import _plot_restraints
 from .object._elementalload_object import _plot_elemental_loads
+from ..utility.units import ConverterFromInternalUnits
 
 class Visualisation:
     def __init__(self, modeldata):
@@ -15,6 +16,8 @@ class Visualisation:
 
         # General Data
         self._ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
+        self._units = self._modeldata.userdefined_units # Retrieve userdefined units
+        self._from_internalunits = ConverterFromInternalUnits(units=self._units)
         self._storeys = self._modeldata.storeys # Retrieve storeys data
         self._materials = self._modeldata.materials # Retrieve materials data
         self._sections = self._modeldata.frame_sections # Retrieve frame sections data
@@ -92,6 +95,7 @@ class Visualisation:
             show_elemental_loads=True,
             show_node_labels=True,
             show_element_labels=True,
+            show_zerolengthelement_labels=False,
             show_shell_labels=True,
             show_nodal_load_labels=False,
             show_elemental_load_labels=False,
@@ -134,7 +138,7 @@ class Visualisation:
                 coords=self._coords,
                 zerolength_elements=self._zerolength_elements,
                 rotation_matrices=self._zerolength_elements.rotation_matrices,
-                show_labels=show_element_labels,
+                show_labels=show_zerolengthelement_labels,
                 show_hinges=show_spring_hinges,
             ) # Plot zero length elements if show_elements is True
         if show_shells: # Set condition if show_shells is True or False
@@ -154,6 +158,7 @@ class Visualisation:
         if show_elemental_loads: # Set condition if show_elemental_loads is True or False
             _plot_elemental_loads(
                 ax=ax,
+                units=self._from_internalunits,
                 coords=self._coords,
                 elements=self._elements,
                 distributed_loads=self._distributed_elemental_loads,

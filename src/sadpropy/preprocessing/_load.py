@@ -168,6 +168,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
     global_mask = np.isin(result_direction, list(global_map))
     local_mask = np.isin(result_direction, list(local_map))
     transformed_loads = np.empty((m, ndim), dtype=np.float64)
+
     if np.any(global_mask):
         load_vectors = (direction_vectors[global_mask] * result_load[global_mask, None])
         transformed_loads[global_mask] = transform_to_local_axes(values=load_vectors, rotation_matrices=rotation_matrices[global_mask])
