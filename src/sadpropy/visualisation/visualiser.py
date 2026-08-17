@@ -91,6 +91,7 @@ class Visualisation:
             show_elements=True,
             show_shells=True,
             show_restraints=True,
+            loadcase="Dead",
             show_nodal_loads=True,
             show_elemental_loads=True,
             show_node_labels=True,
@@ -137,7 +138,6 @@ class Visualisation:
                 ax=ax,
                 coords=self._coords,
                 zerolength_elements=self._zerolength_elements,
-                rotation_matrices=self._zerolength_elements.rotation_matrices,
                 show_labels=show_zerolengthelement_labels,
                 show_hinges=show_spring_hinges,
             ) # Plot zero length elements if show_elements is True
@@ -163,7 +163,7 @@ class Visualisation:
                 elements=self._elements,
                 distributed_loads=self._distributed_elemental_loads,
                 concentrated_loads=self._concentrated_elemental_loads,
-                rotation_matrices=self._elements.rotation_matrices,
+                loadcase=loadcase,
                 show_labels=show_elemental_load_labels,
                 scale=1.0,
             ) # Plot loads if show_elemental_loads is True

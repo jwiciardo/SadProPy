@@ -2,27 +2,28 @@ import numpy as np
 from matplotlib.lines import Line2D
 from ...utility._exception import ValidationError
 
+# Colour List
+colour_cycle = [
+    "blue",
+    "green",
+    "red",
+    "cyan",
+    "yellow",
+    "magenta",
+    "tab:blue",
+    "tab:green",
+    "tab:red",
+    "tab:orange",
+    "tab:purple",
+    "tab:brown",
+    "tab:pink",
+    "tab:gray",
+    "tab:olive",
+    "tab:cyan",
+]
+
 def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_labels, show_rigid_end_offsets, linewidth=1.2):
-    # Colour List
-    colour_cycle = [
-        "blue",
-        "green",
-        "red",
-        "cyan",
-        "yellow",
-        "magenta",
-        "tab:blue",
-        "tab:green",
-        "tab:red",
-        "tab:orange",
-        "tab:purple",
-        "tab:brown",
-        "tab:pink",
-        "tab:gray",
-        "tab:olive",
-        "tab:cyan",
-    ]
-    def get_element_colour(elements):
+    def get_element_colour():
         if elements is None: # Return nothing if there are no elements
             return
         
@@ -43,7 +44,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                     mats_idx = sections.mats_idx[elements.sec_idx[i]]
                     categories[i] = materials.mat_name[mats_idx[np.argmax(mats_idx != -1)]]
                 else:
-                    raise ValidationError(f"Unknown colour_by='{colour_by}'"
+                    raise ValidationError(f"Unknown colour_by: '{colour_by}'. "
                         "Choose None or between 'Section', 'Material', or 'Element Type'")
                 
         # Generate colour map
@@ -59,7 +60,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
     
     end_offsets = elements.end_offsets # Retrieve elements end offsets
     rigid_zone_factor = elements.rigid_zone_factor # Retrieve elements rigid zone factor
-    colours, _, category_colours = get_element_colour(elements=elements) # Get element colour
+    colours, _, category_colours = get_element_colour() # Get element colour
     model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
     offset = 0.005 * model_size # Set label offset
     for i in elements.index: # Loop for each element index
