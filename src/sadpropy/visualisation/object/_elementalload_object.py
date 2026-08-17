@@ -25,9 +25,9 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         rotation_matrices = elements.rotation_matrices[element_idx]
         loads = concentrated_loads.loads[loadcase_mask] # Retrieve loads
         n = len(loads) # Define number of loads
+        location = concentrated_loads.location[loadcase_mask] * element_length # Compute absolute load location
 
         # Determine load arrow coordinates
-        location = concentrated_loads.location[loadcase_mask] * element_length # Compute absolute load location
         vector_x = np.tile(np.array([1, 0, 0], dtype=np.int32), (n, 1)) # Define unit vector x-axis in local axes (direction of load distribution)
         global_vector_x = transform_to_global_axes(values=vector_x, rotation_matrices=rotation_matrices) # Determine unit vector x-axis in global axes
         vec_location = global_vector_x * location[:, None] # Determine vector of load location in global axes
@@ -105,43 +105,39 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         rotation_matrices = elements.rotation_matrices[element_idx]
         loads = distributed_loads.loads[loadcase_mask] # Retrieve loads
         n = len(loads) # Define number of loads
+        location = distributed_loads.location[loadcase_mask] * element_length[:, None] # Compute absolute load location
 
-        n_arrows = 8 # Number of load arrow segment
-        t = np.linspace(0.0, 1.0, n_arrows)
-
-        arrow_spacing = (element_length / n_arrows).max()
-        arrow_distance = (np.arange(0, n_arrows + 1)[None, :] * arrow_spacing)
-        arrow_distance = np.broadcast_to(arrow_distance, (n, n_arrows))
-        valid = arrow_distance <= element_length[:, None]
-        t = np.where(
-            valid,
-            arrow_distance / element_length[:, None],
-            0.0,
-        )
-        interpolated_loads = (
-            loads[:, 0, None, :] * (1.0 - t[:, :, None])
-            + loads[:, 1, None, :] * t[:, :, None]
-        )
-
-        print(t)
-        print(interpolated_loads)
-
-
+        # Determine interpolated loads and location
+        n_arrows = 8 # Define number of load arrow segment
+        arrow_spacing = (element_length / n_arrows).max() # Determine load arrow spacing
+        arrow_location = (np.arange(0, n_arrows + 1)[None, :] * arrow_spacing) # Determine load arrow location within the longest element
+        load_distance = np.diff(location, axis=1).ravel() # Compute load distance within the element
+        valid_distance_mask = arrow_location <= load_distance[:, None] # Mask arrow location is within load distance
+        normalised_arrow_location = np.where(valid_distance_mask, arrow_location / load_distance[:, None], 0.0) # Determine normalised arrow location
+        interpolated_loads = (loads[:, 0, None, :] + normalised_arrow_location[:, :, None] * (loads[:, 1, None, :] - loads[:, 0, None, :]))
+        interpolated_loads = np.where(valid_distance_mask[:, :, None], interpolated_loads, np.nan) # Determine distribution load arrow magnitude
+        interpolated_location = (location[:, 0, None] + normalised_arrow_location * load_distance[:, None])
+        interpolated_location = np.where(valid_distance_mask, interpolated_location, np.nan) # Determine distribution load arrow location
 
         # Determine load arrow coordinates
-        location = distributed_loads.location[loadcase_mask] * element_length[:, None] # Compute absolute load location
-        vector_x = np.tile(np.array([1, 0, 0], dtype=np.int32), (n, 2, 1)) # Define unit vector x-axis in local axes (direction of load distribution)
+        vector_x = np.tile(np.array([1, 0, 0], dtype=np.int32), (n, 9, 1)) # Define unit vector x-axis in local axes (direction of load distribution)
         global_vector_x = transform_to_global_axes(values=vector_x, rotation_matrices=rotation_matrices) # Determine unit vector x-axis in global axes
-        vec_location = global_vector_x * location[:, :, None] # Determine vector of load location in global axes
+        vec_location = global_vector_x * interpolated_location[:, :, None] # Determine vector of load location in global axes
         arrow_coords = ni[:, None, :] + vec_location # Determine start of arrow coordinates
 
         # Determine load arrow length and vector
-        vector_loads = np.divide(loads, np.linalg.norm(loads, axis=2, keepdims=True), out=np.zeros_like(loads), where=np.linalg.norm(loads, axis=2, keepdims=True) > 0.0) # Determine unit vector of loads in local axes
+        vector_loads = np.divide(interpolated_loads, np.linalg.norm(interpolated_loads, axis=2, keepdims=True), out=np.zeros_like(interpolated_loads), where=np.linalg.norm(interpolated_loads, axis=2, keepdims=True) > 0.0) # Determine unit vector of loads in local axes
+
         global_vector_loads = transform_to_global_axes(values=vector_loads, rotation_matrices=rotation_matrices) # Determine unit vector of loads in global axes
-        flatten_load_magnitude = np.linalg.norm(loads, axis=2) # Determine flatten load magnitude
+        flatten_load_magnitude = np.linalg.norm(interpolated_loads, axis=2) # Determine flatten load magnitude
         normalised_load_magnitude = flatten_load_magnitude / np.max(flatten_load_magnitude) # Determine normalised flatten load magnitude
         arrow_length = 0.1 * scale * element_length[:, None] * normalised_load_magnitude # Determine scalable arrow length
         global_vector_arrow = global_vector_loads * arrow_length[:, :, None] # Determine vector of arrow in global axes
+
+        print(flatten_load_magnitude)
+        print(normalised_load_magnitude)
+        print(arrow_length)
+        print(global_vector_arrow)
 
         # Plot load arrow
         negative = np.any(global_vector_loads < 0, axis=2) # Determine negative load direction
