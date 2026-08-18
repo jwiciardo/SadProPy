@@ -15,6 +15,31 @@ loadcase_type = {
 }
 
 def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concentrated_loads, loadcase, show_labels, scale=1.0, colour="red", linewidth=1.0):
+    def compute_maximum_load():
+        # Distributed loads
+        dist_loadcase_mask = distributed_loads.loadcase == np.int8(loadcase_type[loadcase.strip().title()])
+        dist_element_idx = elements.tag_to_idx(distributed_loads.element_tag[dist_loadcase_mask])
+        dist_element_length = elements.length[dist_element_idx]
+        dist_location = distributed_loads.location[dist_loadcase_mask] * dist_element_length[:, None]
+        dist_location = dist_location[:, 1, None] - dist_location[:, 0, None]
+        dist_loads = distributed_loads.loads[dist_loadcase_mask]
+        dist_load = (dist_loads[:, 0, None, :] + dist_loads[:, 1, None, :]) / 2.0 * dist_location[:, None]
+        dist_load_magnitude = np.linalg.norm(dist_load, axis=2)
+        max_dist_load_magnitude = np.nanmax(dist_load_magnitude)
+
+        # Concentrated loads
+        conc_loadcase_mask = concentrated_loads.loadcase == np.int8(loadcase_type[loadcase.strip().title()])
+        conc_loads = concentrated_loads.loads[conc_loadcase_mask]
+        conc_load_magnitude = np.linalg.norm(conc_loads, axis=1, keepdims=True)
+        max_conc_load_magnitude = np.nanmax(conc_load_magnitude)
+
+        # Maximum load
+        max_load_magnitude = np.maximum(max_dist_load_magnitude, max_conc_load_magnitude)
+        max_load_mask = dist_load_magnitude == max_load_magnitude
+        max_dist_loads = dist_loads[max_load_mask[:, 0]]
+        max_dist_load_magnitude = np.nanmax(np.linalg.norm(max_dist_loads, axis=2))
+        return max_load_magnitude, max_dist_load_magnitude
+
     def plot_concentrated_loads():
         loadcase_mask = concentrated_loads.loadcase == np.int8(loadcase_type[loadcase.strip().title()]) # Define loadcase masking
         element_idx = elements.tag_to_idx(concentrated_loads.element_tag[loadcase_mask]) # Retrieve element index
@@ -34,15 +59,16 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         arrow_coords = ni + vec_location # Determine start of arrow coordinates
 
         # Determine load arrow length and vector
-        vector_loads = np.divide(loads, np.linalg.norm(loads, axis=1, keepdims=True), out=np.zeros_like(loads), where=np.linalg.norm(loads, axis=1, keepdims=True) > 0.0) # Determine unit vector of loads in local axes
+        load_magnitude = np.linalg.norm(loads, axis=1, keepdims=True)
+        vector_loads = np.divide(loads, load_magnitude, out=np.zeros_like(loads), where=load_magnitude > 0.0) # Determine unit vector of loads in local axes
         global_vector_loads = transform_to_global_axes(values=vector_loads, rotation_matrices=rotation_matrices) # Determine unit vector of loads in global axes
-        flatten_load_magnitude = np.linalg.norm(loads, axis=1) # Determine flatten load magnitude
-        normalised_load_magnitude = flatten_load_magnitude / np.max(flatten_load_magnitude) # Determine normalised flatten load magnitude
+        max_load_magnitude, _ = compute_maximum_load()
+        normalised_load_magnitude = (np.divide(load_magnitude, max_load_magnitude, out=np.zeros_like(load_magnitude), where=max_load_magnitude > 0.0)).ravel() # Determine normalised load magnitude
         arrow_length = 0.2 * scale * element_length * normalised_load_magnitude # Determine scalable arrow length
         global_vector_arrow = global_vector_loads * arrow_length[:, None] # Determine vector of arrow in global axes
 
         # Plot load arrow
-        negative = np.any(global_vector_loads < 0, axis=1) # Determine negative load direction
+        negative = np.any(global_vector_loads < 0.0, axis=1) # Determine negative load direction
         idx_neg = np.where(negative)[0] # Determine negative load direction index
         ax.quiver(
             arrow_coords[idx_neg, 0], arrow_coords[idx_neg, 1], arrow_coords[idx_neg, 2],
@@ -52,7 +78,7 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
             pivot="tip",
             zorder=3,
         ) # Plot arrow for negative load direction
-        positive = np.any(global_vector_loads > 0, axis=1) # Determine positive load direction
+        positive = np.any(global_vector_loads > 0.0, axis=1) # Determine positive load direction
         idx_pos = np.where(positive)[0] # Determine positive load direction index
         ax.quiver(
             arrow_coords[idx_pos, 0], arrow_coords[idx_pos, 1], arrow_coords[idx_pos, 2],
@@ -64,7 +90,7 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         ) # Plot arrow for positive load direction
 
         # Plot load magnitude value
-        visualised_load_magnitude = units.concentrated_lineload(flatten_load_magnitude) # Convert load units
+        visualised_load_magnitude = units.concentrated_lineload(load_magnitude.ravel()) # Convert load units
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
         offset = 0.005 * model_size # Set label offset
         coords_pos = arrow_coords + global_vector_arrow + offset
@@ -99,9 +125,7 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         end_nodes_idx = elements.end_nodes_idx[element_idx] # Retrieve element end nodes index
         element_length = elements.length[element_idx] # Retrieve element length
         inode = end_nodes_idx[:, 0] # Retrieve element I-end node index
-        jnode = end_nodes_idx[:, 1] # Retrieve element J-end node index
         ni = coords[inode] # Retreive I-node coordinates
-        nj = coords[jnode] # Retreive J-node coordinates
         rotation_matrices = elements.rotation_matrices[element_idx]
         loads = distributed_loads.loads[loadcase_mask] # Retrieve loads
         n = len(loads) # Define number of loads
@@ -126,21 +150,16 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
         arrow_coords = ni[:, None, :] + vec_location # Determine start of arrow coordinates
 
         # Determine load arrow length and vector
-        vector_loads = np.divide(interpolated_loads, np.linalg.norm(interpolated_loads, axis=2, keepdims=True), out=np.zeros_like(interpolated_loads), where=np.linalg.norm(interpolated_loads, axis=2, keepdims=True) > 0.0) # Determine unit vector of loads in local axes
-
+        load_magnitude = np.linalg.norm(interpolated_loads, axis=2) # Determine load magnitude
+        vector_loads = np.divide(interpolated_loads, load_magnitude[:, :, None], out=np.zeros_like(interpolated_loads), where=load_magnitude[:, :, None] > 0.0) # Determine unit vector of loads in local axes
         global_vector_loads = transform_to_global_axes(values=vector_loads, rotation_matrices=rotation_matrices) # Determine unit vector of loads in global axes
-        flatten_load_magnitude = np.linalg.norm(interpolated_loads, axis=2) # Determine flatten load magnitude
-        normalised_load_magnitude = flatten_load_magnitude / np.max(flatten_load_magnitude) # Determine normalised flatten load magnitude
-        arrow_length = 0.1 * scale * element_length[:, None] * normalised_load_magnitude # Determine scalable arrow length
+        _, max_load_magnitude = compute_maximum_load()
+        normalised_load_magnitude = np.divide(load_magnitude, max_load_magnitude, out=np.zeros_like(load_magnitude), where=max_load_magnitude > 0.0) # Determine normalised load magnitude
+        arrow_length = 0.2 * scale * element_length[:, None] * normalised_load_magnitude # Determine scalable arrow length
         global_vector_arrow = global_vector_loads * arrow_length[:, :, None] # Determine vector of arrow in global axes
 
-        print(flatten_load_magnitude)
-        print(normalised_load_magnitude)
-        print(arrow_length)
-        print(global_vector_arrow)
-
         # Plot load arrow
-        negative = np.any(global_vector_loads < 0, axis=2) # Determine negative load direction
+        negative = (np.any(global_vector_loads < 0.0, axis=2) & valid_distance_mask) # Determine negative load direction
         idx_neg, end_neg = np.where(negative) # Determine negative load direction index
         ax.quiver(
             arrow_coords[idx_neg, end_neg, 0], arrow_coords[idx_neg, end_neg, 1], arrow_coords[idx_neg, end_neg, 2],
@@ -150,8 +169,7 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
             pivot="tip",
             zorder=3,
         ) # Plot arrow for negative load direction
-        # Plot load arrow
-        positive = np.any(global_vector_loads > 0, axis=2) # Determine positive load direction
+        positive = (np.any(global_vector_loads > 0, axis=2) & valid_distance_mask) # Determine positive load direction
         idx_pos, end_pos = np.where(positive) # Determine positive load direction index
         ax.quiver(
             arrow_coords[idx_pos, end_pos, 0], arrow_coords[idx_pos, end_pos, 1], arrow_coords[idx_pos, end_pos, 2],
