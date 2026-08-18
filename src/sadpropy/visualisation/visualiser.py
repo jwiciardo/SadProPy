@@ -8,7 +8,9 @@ from .object._shell_object import _plot_shells
 from .object._zerolengthelement_object import _plot_zerolength_elements
 from .object._restraint_object import _plot_restraints
 from .object._elementalload_object import _plot_elemental_loads
+from .object._shelltoelementalload_object import _plot_shell_to_elemental_loads
 from ..utility.units import ConverterFromInternalUnits
+from ..utility._exception import ValidationError
 
 class Visualisation:
     def __init__(self, modeldata):
@@ -39,6 +41,7 @@ class Visualisation:
         self._concentrated_elemental_loads = self._modeldata.concentrated_elemental_loads # Retrieve concentrated elemental loads
         self._distributed_elemental_loads = self._modeldata.distributed_elemental_loads # Retrieve distributed elemental loads
         self._shell_to_elemental_loads = self._modeldata.shell_to_elemental_loads # Retrieve shell to elemental loads
+        print(self._shell_to_elemental_loads)
 
         # Colour List
         self._colour_cycle = [
@@ -92,14 +95,12 @@ class Visualisation:
             show_shells=True,
             show_restraints=True,
             loadcase="Dead",
-            show_nodal_loads=True,
-            show_elemental_loads=True,
+            show_loads=None,
             show_node_labels=True,
             show_element_labels=True,
             show_zerolengthelement_labels=False,
             show_shell_labels=True,
-            show_nodal_load_labels=False,
-            show_elemental_load_labels=False,
+            show_load_labels=False,
             show_spring_hinges=False,
             show_end_releases=False,
             show_rigid_end_offsets=False,
@@ -155,7 +156,10 @@ class Visualisation:
                 rotation_matrix=np.eye(3), # Define rotation matrix as identity matrix
                 restraints=self._restraints,
             ) # Plot nodes if show_restraints is True
-        if show_elemental_loads: # Set condition if show_elemental_loads is True or False
+        if show_loads not in {None, "All", "Nodal", "Elemental", "Shell to Elemental"}:
+            raise ValidationError(f"Unknown show loads: '{show_loads}'. "
+                "Choose None or between 'All', 'Nodal', 'Elemental', or 'Shell to Elemental'")
+        if show_loads == "All" or show_loads == "Elemental": # Set condition if show_loads is "All" or "Elemental"
             _plot_elemental_loads(
                 ax=ax,
                 units=self._from_internalunits,
@@ -164,9 +168,20 @@ class Visualisation:
                 distributed_loads=self._distributed_elemental_loads,
                 concentrated_loads=self._concentrated_elemental_loads,
                 loadcase=loadcase,
-                show_labels=show_elemental_load_labels,
+                show_labels=show_load_labels,
                 scale=1.0,
             ) # Plot loads if show_elemental_loads is True
+        if show_loads == "All" or show_loads == "Shell to Elemental": # Set condition if show_loads is "All" or "Shell to Elemental"
+            _plot_elemental_loads(
+                ax=ax,
+                units=self._from_internalunits,
+                coords=self._coords,
+                elements=self._elements,
+                shell_to_elemental_loads=self._shell_to_elemental_loads,
+                loadcase=loadcase,
+                show_labels=show_load_labels,
+                scale=1.0,
+            ) # Plot loads if show_shell_to_elemental_loads is True
 
         
         plt.tight_layout()
