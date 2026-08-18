@@ -9,7 +9,7 @@ from .object._zerolengthelement_object import _plot_zerolength_elements
 from .object._restraint_object import _plot_restraints
 from .object._elementalload_object import _plot_elemental_loads
 from .object._shelltoelementalload_object import _plot_shell_to_elemental_loads
-from ..utility.units import ConverterFromInternalUnits
+from ..preprocessing.preprocessing_class_index import LoadCaseType
 from ..utility._exception import ValidationError
 
 class Visualisation:
@@ -19,7 +19,6 @@ class Visualisation:
         # General Data
         self._ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         self._units = self._modeldata.userdefined_units # Retrieve userdefined units
-        self._from_internalunits = ConverterFromInternalUnits(units=self._units)
         self._storeys = self._modeldata.storeys # Retrieve storeys data
         self._materials = self._modeldata.materials # Retrieve materials data
         self._sections = self._modeldata.frame_sections # Retrieve frame sections data
@@ -41,9 +40,8 @@ class Visualisation:
         self._concentrated_elemental_loads = self._modeldata.concentrated_elemental_loads # Retrieve concentrated elemental loads
         self._distributed_elemental_loads = self._modeldata.distributed_elemental_loads # Retrieve distributed elemental loads
         self._shell_to_elemental_loads = self._modeldata.shell_to_elemental_loads # Retrieve shell to elemental loads
-        print(self._shell_to_elemental_loads)
 
-        # Colour List
+        # Helper Dictionary and List
         self._colour_cycle = [
             "blue",
             "green",
@@ -62,8 +60,6 @@ class Visualisation:
             "tab:olive",
             "tab:cyan",
         ]
-
-        # View Dictionary
         self._views = {
             "Isometric": (35, -120),
             "Front": (0, -90),
@@ -73,8 +69,6 @@ class Visualisation:
             "Top": (90, -90),
             "Bottom": (-90, -90),
         }
-
-        # DOFs Symbol Dictionary
         self._dof_style = {
             "UX": {"offset": (-1, 0, 0), "marker": ">"},
             "UY": {"offset": (0, 1, 0), "marker": ">"},
@@ -83,6 +77,17 @@ class Visualisation:
             "RY": {"offset": (0, -1, 0), "marker": "_"},
             "RZ": {"offset": (0, 0, -1), "marker": "|"},
         }
+        self._loadcase_type = {
+            "Selfweight": LoadCaseType.SW,
+            "Dead": LoadCaseType.D,
+            "Live": LoadCaseType.L,
+            "Live Roof": LoadCaseType.Lr,
+            "Earthquake-X": LoadCaseType.Ex,
+            "Earthquake-Y": LoadCaseType.Ey,
+            "Wind-X": LoadCaseType.Wx,
+            "Wind-Y": LoadCaseType.Wy,
+        }
+        self._load = {None, "All", "Nodal", "Elemental", "Shell to Elemental"}
 
     # MAIN METHOD
     def undeformed_shape(
@@ -95,6 +100,7 @@ class Visualisation:
             show_shells=True,
             show_restraints=True,
             loadcase="Dead",
+            load_scale=1.0,
             show_loads=None,
             show_node_labels=True,
             show_element_labels=True,
@@ -156,31 +162,37 @@ class Visualisation:
                 rotation_matrix=np.eye(3), # Define rotation matrix as identity matrix
                 restraints=self._restraints,
             ) # Plot nodes if show_restraints is True
-        if show_loads not in {None, "All", "Nodal", "Elemental", "Shell to Elemental"}:
+        if loadcase not in self._loadcase_type:
+            raise ValidationError(f"Unknown loadcase: '{loadcase}'. "
+                "Choose between 'Selfweight', 'Dead', 'Live', 'Live Roof',"
+                "'Earthquake-X', 'Earthquake-Y', 'Wind-X', or 'Wind-Y'")
+        if show_loads not in self._load:
             raise ValidationError(f"Unknown show loads: '{show_loads}'. "
                 "Choose None or between 'All', 'Nodal', 'Elemental', or 'Shell to Elemental'")
         if show_loads == "All" or show_loads == "Elemental": # Set condition if show_loads is "All" or "Elemental"
             _plot_elemental_loads(
                 ax=ax,
-                units=self._from_internalunits,
+                units=self._units,
                 coords=self._coords,
                 elements=self._elements,
                 distributed_loads=self._distributed_elemental_loads,
                 concentrated_loads=self._concentrated_elemental_loads,
                 loadcase=loadcase,
+                loadcase_type=self._loadcase_type,
                 show_labels=show_load_labels,
-                scale=1.0,
+                scale=load_scale,
             ) # Plot loads if show_elemental_loads is True
         if show_loads == "All" or show_loads == "Shell to Elemental": # Set condition if show_loads is "All" or "Shell to Elemental"
-            _plot_elemental_loads(
+            _plot_shell_to_elemental_loads(
                 ax=ax,
-                units=self._from_internalunits,
+                units=self._units,
                 coords=self._coords,
                 elements=self._elements,
                 shell_to_elemental_loads=self._shell_to_elemental_loads,
                 loadcase=loadcase,
+                loadcase_type=self._loadcase_type,
                 show_labels=show_load_labels,
-                scale=1.0,
+                scale=load_scale,
             ) # Plot loads if show_shell_to_elemental_loads is True
 
         
