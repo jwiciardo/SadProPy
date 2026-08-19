@@ -38,22 +38,22 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
             arrow_tip_coords = arrow_coords + np.abs(global_vector_arrow)
 
             # Plot load arrow
-            negative = np.any(global_vector_loads < 0.0, axis=1) # Determine negative load direction
+            negative = np.any(global_vector_loads < 0.0, axis=1) # Mask negative load direction
             idx_neg = np.where(negative)[0] # Determine negative load direction index
             ax.quiver(
                 arrow_coords[idx_neg, 0], arrow_coords[idx_neg, 1], arrow_coords[idx_neg, 2],
                 global_vector_arrow[idx_neg, 0], global_vector_arrow[idx_neg, 1], global_vector_arrow[idx_neg, 2],
-                color="blue",
+                color="tab:red",
                 linewidth=linewidth,
                 pivot="tip",
                 zorder=4,
             ) # Plot arrow for negative load direction
-            positive = np.any(global_vector_loads > 0.0, axis=1) # Determine positive load direction
+            positive = np.any(global_vector_loads > 0.0, axis=1) # Mask positive load direction
             idx_pos = np.where(positive)[0] # Determine positive load direction index
             ax.quiver(
                 arrow_coords[idx_pos, 0], arrow_coords[idx_pos, 1], arrow_coords[idx_pos, 2],
                 global_vector_arrow[idx_pos, 0], global_vector_arrow[idx_pos, 1], global_vector_arrow[idx_pos, 2],
-                color="blue",
+                color="tab:red",
                 linewidth=linewidth,
                 pivot="tail",
                 zorder=4,
@@ -121,7 +121,6 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
 
             # Determine load arrow polygon
             arrow_tip_coords = arrow_coords + np.abs(global_vector_arrow)
-
             row_idx = np.arange(n)
             last_idx = valid_distance_mask.sum(axis=1) - 1
             polygon_base_start = arrow_coords[row_idx, 0, :]
@@ -136,30 +135,30 @@ def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concen
             ), axis=1)
             ax.add_collection3d(Poly3DCollection(
                 polygon_vertices,
-                facecolor="None" if is_arrow else "tab:red",
-                edgecolor="tab:red",
+                facecolor="None" if is_arrow else "tab:cyan",
+                edgecolor="tab:cyan",
                 alpha=0.20,
                 linewidths=linewidth,
                 zorder=3,
             ))
 
             # Plot load arrow
-            negative = (np.any(global_vector_loads < 0.0, axis=2) & valid_distance_mask) # Determine negative load direction
+            negative = (np.any(global_vector_loads < 0.0, axis=2) & valid_distance_mask) # Mask negative load direction
             idx_neg, end_neg = np.where(negative) # Determine negative load direction index
             ax.quiver(
                 arrow_coords[idx_neg, end_neg, 0], arrow_coords[idx_neg, end_neg, 1], arrow_coords[idx_neg, end_neg, 2],
                 global_vector_arrow[idx_neg, end_neg, 0], global_vector_arrow[idx_neg, end_neg, 1], global_vector_arrow[idx_neg, end_neg, 2],
-                color="tab:red",
+                color="tab:cyan",
                 linewidth=linewidth,
                 pivot="tip",
                 zorder=3,
             ) # Plot arrow for negative load direction
-            positive = (np.any(global_vector_loads > 0, axis=2) & valid_distance_mask) # Determine positive load direction
+            positive = (np.any(global_vector_loads > 0, axis=2) & valid_distance_mask) # Mask positive load direction
             idx_pos, end_pos = np.where(positive) # Determine positive load direction index
             ax.quiver(
                 arrow_coords[idx_pos, end_pos, 0], arrow_coords[idx_pos, end_pos, 1], arrow_coords[idx_pos, end_pos, 2],
                 global_vector_arrow[idx_pos, end_pos, 0], global_vector_arrow[idx_pos, end_pos, 1], global_vector_arrow[idx_pos, end_pos, 2],
-                color="tab:red",
+                color="tab:cyan",
                 linewidth=linewidth,
                 pivot="tail",
                 zorder=3,

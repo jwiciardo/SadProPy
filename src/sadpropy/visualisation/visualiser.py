@@ -7,6 +7,7 @@ from .object._element_object import _plot_elements
 from .object._shell_object import _plot_shells
 from .object._zerolengthelement_object import _plot_zerolength_elements
 from .object._restraint_object import _plot_restraints
+from .object._nodalload_object import _plot_nodal_loads
 from .object._elementalload_object import _plot_elemental_loads
 from .object._shelltoelementalload_object import _plot_shell_to_elemental_loads
 from ..preprocessing.preprocessing_class_index import LoadCaseType
@@ -169,6 +170,18 @@ class Visualisation:
         if show_loads not in self._load:
             raise ValidationError(f"Unknown show loads: '{show_loads}'. "
                 "Choose None or between 'All', 'Nodal', 'Elemental', or 'Shell to Elemental'")
+        if show_loads == "All" or show_loads == "Nodal": # Set condition if show_loads is "All" or "Nodal"
+            _plot_nodal_loads(
+                ax=ax,
+                units=self._units,
+                nodes=self._nodes,
+                coords=self._coords,
+                nodal_loads=self._nodal_loads,
+                loadcase=loadcase,
+                loadcase_type=self._loadcase_type,
+                scale=load_scale,
+                show_labels=show_load_labels,
+            ) # Plot loads if show_elemental_loads is True
         if show_loads == "All" or show_loads == "Elemental": # Set condition if show_loads is "All" or "Elemental"
             _plot_elemental_loads(
                 ax=ax,
@@ -179,8 +192,9 @@ class Visualisation:
                 concentrated_loads=self._concentrated_elemental_loads,
                 loadcase=loadcase,
                 loadcase_type=self._loadcase_type,
-                show_labels=show_load_labels,
                 scale=load_scale,
+                show_labels=show_load_labels,
+                is_arrow=True,
             ) # Plot loads if show_elemental_loads is True
         if show_loads == "All" or show_loads == "Shell to Elemental": # Set condition if show_loads is "All" or "Shell to Elemental"
             _plot_shell_to_elemental_loads(
@@ -191,8 +205,9 @@ class Visualisation:
                 shell_to_elemental_loads=self._shell_to_elemental_loads,
                 loadcase=loadcase,
                 loadcase_type=self._loadcase_type,
-                show_labels=show_load_labels,
                 scale=load_scale,
+                show_labels=show_load_labels,
+                is_arrow=True,
             ) # Plot loads if show_shell_to_elemental_loads is True
 
         

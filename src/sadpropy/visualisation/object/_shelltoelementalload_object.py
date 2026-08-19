@@ -72,7 +72,7 @@ def _plot_shell_to_elemental_loads(ax, units, coords, elements, shell_to_element
         ))
 
         # Plot load arrow
-        negative = (np.any(global_vector_loads < 0.0, axis=2) & valid_distance_mask) # Determine negative load direction
+        negative = (np.any(global_vector_loads < 0.0, axis=2) & valid_distance_mask) # Mask negative load direction
         idx_neg, end_neg = np.where(negative) # Determine negative load direction index
         ax.quiver(
             arrow_coords[idx_neg, end_neg, 0], arrow_coords[idx_neg, end_neg, 1], arrow_coords[idx_neg, end_neg, 2],
@@ -82,7 +82,7 @@ def _plot_shell_to_elemental_loads(ax, units, coords, elements, shell_to_element
             pivot="tip",
             zorder=3,
         ) # Plot arrow for negative load direction
-        positive = (np.any(global_vector_loads > 0, axis=2) & valid_distance_mask) # Determine positive load direction
+        positive = (np.any(global_vector_loads > 0, axis=2) & valid_distance_mask) # Mask positive load direction
         idx_pos, end_pos = np.where(positive) # Determine positive load direction index
         ax.quiver(
             arrow_coords[idx_pos, end_pos, 0], arrow_coords[idx_pos, end_pos, 1], arrow_coords[idx_pos, end_pos, 2],
