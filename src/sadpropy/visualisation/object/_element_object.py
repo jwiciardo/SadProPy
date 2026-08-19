@@ -78,7 +78,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 [ni[2], noi[2]],
                 color=colours[i],
                 linewidth=3.0,
-                zorder=2,
+                zorder=3,
             ) # Plot I-end offset
             ax.plot(
                 [noi[0], noj[0]],
@@ -86,7 +86,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 [noi[2], noj[2]],
                 color=colours[i],
                 linewidth=linewidth,
-                zorder=2,
+                zorder=3,
             ) # Plot elements
             ax.plot(
                 [noj[0], nj[0]],
@@ -94,7 +94,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 [noj[2], nj[2]],
                 color=colours[i],
                 linewidth=3.0,
-                zorder=2,
+                zorder=3,
             ) # Plot J-end offset
         else:
             ax.plot(
@@ -103,7 +103,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 [ni[2], nj[2]],
                 color=colours[i],
                 linewidth=linewidth,
-                zorder=2,
+                zorder=3,
             ) # Plot elements
 
         if show_labels: # Set condition if show_labels is True or False
@@ -115,7 +115,7 @@ def _plot_elements(ax, materials, sections, coords, elements, colour_by, show_la
                 elements.unique_name[i],
                 fontsize=8,
                 color="black",
-                zorder=2,
+                zorder=3,
             ) # Plot elements labels
         
         # Generate legends

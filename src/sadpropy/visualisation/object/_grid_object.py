@@ -53,7 +53,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         color=colour,
                         linestyle=linestyle,
                         linewidth=linewidth,
-                        zorder=0,
+                        zorder=1,
                     )
                 ax.text(
                     x,
@@ -71,7 +71,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         edgecolor=colour,
                         linewidth=linewidth,
                     ),
-                    zorder=0,
+                    zorder=1,
                 )
             else:
                 ax.plot(
@@ -80,7 +80,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                     color=colour,
                     linestyle=linestyle,
                     linewidth=linewidth,
-                    zorder=0,
+                    zorder=1,
                 )
                 ax.text(
                     x,
@@ -97,7 +97,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         edgecolor=colour,
                         linewidth=linewidth,
                     ),
-                    zorder=0,
+                    zorder=1,
                 )
         
         for y, label in zip(yticks, ylabels):
@@ -110,7 +110,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         color=colour,
                         linestyle=linestyle,
                         linewidth=linewidth,
-                        zorder=0,
+                        zorder=1,
                     )
                 ax.text(
                     xmin - padding,
@@ -128,7 +128,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         edgecolor=colour,
                         linewidth=linewidth,
                     ),
-                    zorder=0,
+                    zorder=1,
                 )
 
                 for x in xticks: # Loop over xticks
@@ -139,7 +139,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         color=colour,
                         linestyle=linestyle,
                         linewidth=linewidth,
-                        zorder=0,
+                        zorder=1,
                     ) # Plot grid for Z-axis
             else:
                 ax.plot(
@@ -148,7 +148,7 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                     color=colour,
                     linestyle=linestyle,
                     linewidth=linewidth,
-                    zorder=0,
+                    zorder=1,
                 )
                 ax.text(
                     xmin - padding,
@@ -165,5 +165,5 @@ def _draw_grid(ax, ndim, storeys, coords, show_grids, colour="lightgray", linewi
                         edgecolor=colour,
                         linewidth=linewidth,
                     ),
-                    zorder=0,
+                    zorder=1,
                 )

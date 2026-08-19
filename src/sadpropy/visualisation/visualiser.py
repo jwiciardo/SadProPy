@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from ._visualisation_definition import _view_definitions
 from .object._axes_object import _set_axes, _draw_global_axes, _draw_local_axes
 from .object._grid_object import _draw_grid
 from .object._node_object import _plot_nodes
@@ -16,6 +17,8 @@ from ..utility._exception import ValidationError
 class Visualisation:
     def __init__(self, modeldata):
         self._modeldata = modeldata
+        self._plots = {}
+        self._selected_planes = {"XY": None, "XZ": None, "YZ": None}
 
         # General Data
         self._ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
@@ -43,42 +46,8 @@ class Visualisation:
         self._shell_to_elemental_loads = self._modeldata.shell_to_elemental_loads # Retrieve shell to elemental loads
 
         # Helper Dictionary and List
-        self._colour_cycle = [
-            "blue",
-            "green",
-            "red",
-            "cyan",
-            "yellow",
-            "magenta",
-            "tab:blue",
-            "tab:green",
-            "tab:red",
-            "tab:orange",
-            "tab:purple",
-            "tab:brown",
-            "tab:pink",
-            "tab:gray",
-            "tab:olive",
-            "tab:cyan",
-        ]
-        self._views = {
-            "Isometric": (35, -120),
-            "Front": (0, -90),
-            "Back": (0, 90),
-            "Left": (0, 180),
-            "Right": (0, 0),
-            "Top": (90, -90),
-            "Bottom": (-90, -90),
-        }
-        self._dof_style = {
-            "UX": {"offset": (-1, 0, 0), "marker": ">"},
-            "UY": {"offset": (0, 1, 0), "marker": ">"},
-            "UZ": {"offset": (0, 0, 1), "marker": "^"},
-            "RX": {"offset": (1, 0, 0), "marker": "_"},
-            "RY": {"offset": (0, -1, 0), "marker": "_"},
-            "RZ": {"offset": (0, 0, -1), "marker": "|"},
-        }
         self._loadcase_type = {
+            # Fullname
             "Selfweight": LoadCaseType.SW,
             "Dead": LoadCaseType.D,
             "Live": LoadCaseType.L,
@@ -87,13 +56,121 @@ class Visualisation:
             "Earthquake-Y": LoadCaseType.Ey,
             "Wind-X": LoadCaseType.Wx,
             "Wind-Y": LoadCaseType.Wy,
+
+            # Shortname
+            "Sw": LoadCaseType.SW,
+            "D": LoadCaseType.D,
+            "L": LoadCaseType.L,
+            "Lr Roof": LoadCaseType.Lr,
+            "Ex": LoadCaseType.Ex,
+            "Ey": LoadCaseType.Ey,
+            "Wx": LoadCaseType.Wx,
+            "Wy": LoadCaseType.Wy,
         }
-        self._load = {None, "All", "Nodal", "Elemental", "Shell to Elemental"}
+        self._load = {None, "all", "nodal", "elemental", "shell to elemental", "n", "e", "ste"}
+
+    # HELPER METHOD
+    def _create_figure(self, view_info):
+        fig = plt.figure(figsize=(12, 8)) # Start plotting figure
+        if view_info["projection"] == "3d":
+            ax = fig.add_subplot(111, projection="3d")
+            ax.view_init(elev=view_info["elev"], azim=view_info["azim"])
+        else:
+            ax = fig.add_subplot(111)
+        return fig, ax
+    
+    def _plot_model(self, ax, view_info, show_nodes, show_node_labels):
+        if view_info["projection"] == "3d":
+            selected_plane = None
+        else:
+            selected_plane = self._selected_planes[view_info["plane"]]
+        if show_nodes: # Set condition if show_nodes is True or False
+            _plot_nodes(
+                ax=ax,
+                view_info=view_info,
+                nodes=self._nodes,
+                coords=self._coords,
+                plane=selected_plane,
+                show_labels=show_node_labels,
+            ) # Plot nodes if show_nodes is True
+
+    def _get_available_planes(self, view_info):
+        if view_info["projection"] == "3d":
+            return None
+        perpendicular_idx = view_info["perpendicular"]
+        planes = np.unique(self._coords[:, perpendicular_idx])
+        return planes
+
+    def _redraw_view(self, view):
+        plot = self._plots[view]
+        fig = plot["fig"]
+        ax = plot["ax"]
+        ax.clear() # Clear existing drawing
+        view_info = _view_definitions[view] # Retrieve view definition
+        self._plot_model(
+            ax=ax,
+            view_info=view_info,
+            show_nodes=plot["show_nodes"],
+            show_node_labels=plot["show_node_labels"],
+        ) # Redraw model
+        fig.canvas.draw_idle() # Refresh canvas
 
     # MAIN METHOD
     def undeformed_shape(
             self,
-            view="Isometric",
+            views="3D",
+            show_nodes=True,
+            show_node_labels=True,
+        ):
+        if isinstance(views, str):
+            views = [views]
+
+        # Validation
+        if len(views) > 4:
+            raise ValidationError(f"Reach maximum number of active viewports. "
+                                  f"Viewports: {len(views)} (> 4)")
+        for view in views:
+            if view not in _view_definitions:
+                raise ValidationError(f"Unknwon view type: '{view}'. "
+                                      f"Available views: {list(_view_definitions)}")
+        self._plots.clear()
+        for view in views:
+            view_info = _view_definitions[view]
+            fig, ax = self._create_figure(view_info) # Initialise figure
+            self._plots[view] = {
+                "fig": fig,
+                "ax": ax,
+                "show_nodes": show_nodes,
+                "show_node_labels": show_node_labels,
+            }
+            self._plot_model(ax=ax, view_info=view_info, show_nodes=show_nodes, show_node_labels=show_node_labels)
+        plt.tight_layout()
+        return self
+
+    def select_plane(self, view, plane=1):
+        view_info = _view_definitions[view]
+        if view_info["projection"] == "3d":
+            raise ValidationError("Plane selection is only available for "
+                                  "2D views: XY, XZ, and YZ")
+        if view not in self._plots:
+            raise ValidationError(f"View '{view}' is not currently active "
+                                  f"Initialise viewport using undeformed_shape()")
+        planes = self._get_available_planes(view_info=view_info)
+        if not isinstance(plane, (int, np.integer)):
+            raise ValidationError("Plane number must be an integer")
+        if plane < 1 or plane > len(planes):
+            raise ValidationError(f"Invalid plane number: {plane}. "
+                                  f"Available planes: 1-{len(planes)}")
+        self._selected_planes[view] = plane
+        self._redraw_view(view)
+        return self
+
+    def show(self):
+        plt.show()
+
+    def deformed_shape(
+            self,
+            view="3D",
             colour_by=None,
             show_grids=True,
             show_nodes=True,
@@ -117,9 +194,8 @@ class Visualisation:
             show_fiber_section=False,
         ):
         fig = plt.figure(figsize=(12, 8)) # Start plotting figure
-        ax = fig.add_subplot(111, projection="3d") # Add axis in 3D
+        ax = fig.add_subplot(111, projection="3d")
         title = "Undeformed Shape"
-        
         _set_axes(ax=ax, title=title, view=view, coords=self._coords) # Set axes
         _draw_global_axes(ax=ax, ndim=self._ndim, coords=self._coords, show_axes=show_global_axes) # Set global axes arrows
         _draw_local_axes(ax=ax, elements=self._elements, show_axes=show_local_axes) # Set local axes arrows
@@ -165,12 +241,12 @@ class Visualisation:
             ) # Plot nodes if show_restraints is True
         if loadcase not in self._loadcase_type:
             raise ValidationError(f"Unknown loadcase: '{loadcase}'. "
-                "Choose between 'Selfweight', 'Dead', 'Live', 'Live Roof',"
-                "'Earthquake-X', 'Earthquake-Y', 'Wind-X', or 'Wind-Y'")
+                "Choose between 'Selfweight' or 'Sw', 'Dead' or 'D', 'Live' or 'L', 'Live Roof' or 'Lr',"
+                "'Earthquake-X' or 'Ex', 'Earthquake-Y' or 'Ey', 'Wind-X' or 'Wx', or 'Wind-Y' or 'Wy'")
         if show_loads not in self._load:
             raise ValidationError(f"Unknown show loads: '{show_loads}'. "
-                "Choose None or between 'All', 'Nodal', 'Elemental', or 'Shell to Elemental'")
-        if show_loads == "All" or show_loads == "Nodal": # Set condition if show_loads is "All" or "Nodal"
+                "Choose None or between 'all' for all loads, 'n' for nodal load, 'e' for elemental load, or 'ste' for shell-t0-elemental load")
+        if show_loads == "all" or show_loads == "n": # Set condition if show_loads is "all" or "n"
             _plot_nodal_loads(
                 ax=ax,
                 units=self._units,
@@ -182,7 +258,7 @@ class Visualisation:
                 scale=load_scale,
                 show_labels=show_load_labels,
             ) # Plot loads if show_elemental_loads is True
-        if show_loads == "All" or show_loads == "Elemental": # Set condition if show_loads is "All" or "Elemental"
+        if show_loads == "all" or show_loads == "e": # Set condition if show_loads is "all" or "e"
             _plot_elemental_loads(
                 ax=ax,
                 units=self._units,
@@ -196,7 +272,7 @@ class Visualisation:
                 show_labels=show_load_labels,
                 is_arrow=True,
             ) # Plot loads if show_elemental_loads is True
-        if show_loads == "All" or show_loads == "Shell to Elemental": # Set condition if show_loads is "All" or "Shell to Elemental"
+        if show_loads == "all" or show_loads == "ste": # Set condition if show_loads is "all" or "ste"
             _plot_shell_to_elemental_loads(
                 ax=ax,
                 units=self._units,
@@ -209,7 +285,5 @@ class Visualisation:
                 show_labels=show_load_labels,
                 is_arrow=True,
             ) # Plot loads if show_shell_to_elemental_loads is True
-
-        
         plt.tight_layout()
-        plt.show()
+        return self

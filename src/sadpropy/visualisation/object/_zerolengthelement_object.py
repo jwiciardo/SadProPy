@@ -30,5 +30,5 @@ def _plot_zerolength_elements(ax, coords, zerolength_elements, show_labels, show
                 zerolength_elements.unique_name[i],
                 fontsize=8,
                 color="black",
-                zorder=2,
+                zorder=3,
             ) # Plot nodes labels        

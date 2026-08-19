@@ -12,7 +12,7 @@ def _plot_shells(ax, coords, shells, show_labels, colour="gray", alpha=0.3):
             edgecolor=colour,
             linewidth=1.0,
             alpha=alpha,
-            zorder=2,
+            zorder=3,
         ))
         if show_labels:
             c = vertices.mean(axis=0)
@@ -23,5 +23,5 @@ def _plot_shells(ax, coords, shells, show_labels, colour="gray", alpha=0.3):
                 shells.unique_name[i],
                 fontsize=8,
                 color="black",
-                zorder=2,
+                zorder=3,
             ) # Plot shells labels

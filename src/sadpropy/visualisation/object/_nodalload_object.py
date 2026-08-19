@@ -22,8 +22,7 @@ def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_
         normalised_force_magnitude = np.divide(force_magnitude, default_force_magnitude, out=np.zeros_like(force_magnitude), where=default_force_magnitude > 0.0) # Determine normalised force magnitude
         arrow_length = scale * normalised_force_magnitude # Determine scalable arrow length
         vector_arrow = vector_forces * arrow_length # Determine vector of arrow
-        arrow_tip_coords = node_coords + vector_arrow
-        print(arrow_tip_coords)
+        arrow_tip_coords = node_coords - vector_arrow
 
         # Plot load arrow
         X_mask = vector_forces[:, 0] != 0.0 # Mask X-axis force direction
@@ -34,7 +33,7 @@ def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_
             color="red",
             linewidth=linewidth,
             pivot="tip",
-            zorder=4,
+            zorder=5,
         ) # Plot arrow for X-axis load direction
         Y_mask = vector_forces[:, 1] != 0.0 # Mask Y-axis force direction
         Y_idx = np.where(Y_mask)[0] # Determine Y-axis force direction index
@@ -44,7 +43,7 @@ def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_
             color="red",
             linewidth=linewidth,
             pivot="tip",
-            zorder=4,
+            zorder=5,
         ) # Plot arrow for Y-axis load direction
         Z_mask = vector_forces[:, 2] != 0.0 # Mask Z-axis force direction
         Z_idx = np.where(Z_mask)[0] # Determine Z-axis force direction index
@@ -54,7 +53,7 @@ def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_
             color="red",
             linewidth=linewidth,
             pivot="tip",
-            zorder=4,
+            zorder=5,
         ) # Plot arrow for Z-axis load direction
 
         # Plot load magnitude value
@@ -62,36 +61,38 @@ def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_
         model_size = np.max(coords.max(axis=0) - coords.min(axis=0))
         offset = 0.005 * model_size # Set label offset
         if show_labels: # Set condition if show_labels is True or False
-            for i in range(n):
+            for i in X_idx:
                 ax.text(
-                    arrow_tip_coords[i, 0] + offset,
-                    arrow_tip_coords[i, 1],
-                    arrow_tip_coords[i, 2],
+                    node_coords[i, 0] - vector_arrow[i, 0] - offset,
+                    node_coords[i, 1],
+                    node_coords[i, 2] + offset,
                     f"{visualised_force_magnitude[i, 0]:.2f}",
                     fontsize=8,
                     color="black",
                     ha="center",
-                    zorder=3,
+                    zorder=5,
                 )
+            for i in Y_idx:
                 ax.text(
-                    arrow_tip_coords[i, 0],
-                    arrow_tip_coords[i, 1] + offset,
-                    arrow_tip_coords[i, 2],
+                    node_coords[i, 0],
+                    node_coords[i, 1] - vector_arrow[i, 1] - offset,
+                    node_coords[i, 2] + offset,
                     f"{visualised_force_magnitude[i, 1]:.2f}",
                     fontsize=8,
                     color="black",
                     ha="center",
-                    zorder=3,
+                    zorder=5,
                 )
+            for i in Z_idx:
                 ax.text(
-                    arrow_tip_coords[i, 0],
-                    arrow_tip_coords[i, 1],
-                    arrow_tip_coords[i, 2] + offset,
+                    node_coords[i, 0],
+                    node_coords[i, 1],
+                    node_coords[i, 2] - vector_arrow[i, 2] - offset,
                     f"{visualised_force_magnitude[i, 2]:.2f}",
                     fontsize=8,
                     color="black",
                     ha="center",
-                    zorder=3,
+                    zorder=5,
                 )
 
 
