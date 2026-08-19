@@ -1,5 +1,5 @@
 import numpy as np
-from ..preprocessing_class_index import SteelElasticProperties, Steel02Properties, Steel02MinMaxProperties
+from .preprocessing_class_index import SteelElasticProperties, Steel02Properties, Steel02MinMaxProperties
 
 class SteelElastic:
     properties = SteelElasticProperties

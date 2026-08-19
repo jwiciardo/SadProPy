@@ -10,10 +10,10 @@ from .preprocessing_class_index import (
     ElementType,
     LoadCaseType,
 )
-from .material.concrete_class_index import ConcreteElastic, Concrete04, Concrete04MinMax
-from .material.steel_class_index import SteelElastic, Steel02, Steel02MinMax
-from .material.spring_class_index import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
-from .section.rectangular_class_index import RectangularElastic, RectangularConcreteFiber
+from .concrete_class_index import ConcreteElastic, Concrete04, Concrete04MinMax
+from .steel_class_index import SteelElastic, Steel02, Steel02MinMax
+from .spring_class_index import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
+from .rectangular_class_index import RectangularElastic, RectangularConcreteFiber
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
@@ -23,9 +23,9 @@ from .preprocessing_dataclass import (
     SlabSections,
     Storeys,
 )
-from ._surface import generate_surface_connectivity
+from ._shell import generate_shell_connectivity
 from ._section import compute_section_properties, trace_aggregated_sections
-from ._load import get_concentrated_line_loads, get_distributed_line_loads, get_surface_to_edge_loads
+from ._load import get_concentrated_elemental_loads, get_distributed_elemental_loads, get_shell_to_elemental_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
 from ..utility._exception import ValidationError
@@ -167,14 +167,14 @@ class ExcelTranslator:
         materials = self._translate_materials()
         frame_sections = self._translate_frame_sections(materials=materials)
         slab_sections = self._translate_slab_sections(materials=materials)
-        point_objects, storeys = self._translate_point_objects(project_information=project_information)
-        line_objects = self._translate_line_objects(point_objects=point_objects, sections=frame_sections)
-        surface_objects = self._translate_surface_objects(line_objects=line_objects, slab_sections=slab_sections)
-        restraints = self._translate_restraints(point_objects=point_objects)
-        point_loads = self._translate_point_loads()
-        concentrated_line_loads = self._translate_concentrated_line_loads()
-        distributed_line_loads = self._translate_distributed_line_loads(line_objects=line_objects)
-        surface_to_edge_loads = self._translate_surface_loads(line_objects=line_objects, surface_objects=surface_objects)
+        node_objects, storeys = self._translate_node_objects(project_information=project_information)
+        element_objects = self._translate_element_objects(node_objects=node_objects, sections=frame_sections)
+        shell_objects = self._translate_shell_objects(element_objects=element_objects, slab_sections=slab_sections)
+        restraints = self._translate_restraints(node_objects=node_objects)
+        nodal_loads = self._translate_nodal_loads()
+        concentrated_elemental_loads = self._translate_concentrated_elemental_loads()
+        distributed_elemental_loads = self._translate_distributed_elemental_loads(element_objects=element_objects)
+        shell_to_elemental_loads = self._translate_shell_to_elemental_loads(element_objects=element_objects, shell_objects=shell_objects)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -184,14 +184,14 @@ class ExcelTranslator:
             "Frame Sections": frame_sections,
             "Slab Sections": slab_sections,
             "Storeys": storeys,
-            "Point Objects": point_objects,
-            "Line Objects": line_objects,
-            "Surface Objects": surface_objects,
+            "Node Objects": node_objects,
+            "Element Objects": element_objects,
+            "Shell Objects": shell_objects,
             "Restraints": restraints,
-            "Point Loads": point_loads,
-            "Concentrated Line Loads": concentrated_line_loads,
-            "Distributed Line Loads": distributed_line_loads,
-            "Surface to Edge Loads": surface_to_edge_loads,
+            "Nodal Loads": nodal_loads,
+            "Concentrated Elemental Loads": concentrated_elemental_loads,
+            "Distributed Elemental Loads": distributed_elemental_loads,
+            "Shell to Elemental Loads": shell_to_elemental_loads,
         }
 
     # HELPER METHOD
@@ -487,53 +487,53 @@ class ExcelTranslator:
         ) # Storing slab sections data to dataclass
         return slab_sections
     
-    def _translate_point_objects(self, project_information):
-        sheet_name = "Point Objects"
+    def _translate_node_objects(self, project_information):
+        sheet_name = "Node Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=7,
-        ) # Reading Sheet "Point Objects" in the Input file
+        ) # Reading Sheet "Node Objects" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
-        self._validate_duplicate_value(col_data=unique_name, col_name="Point object")
+        self._validate_duplicate_value(col_data=unique_name, col_name="Unique Name")
         coord_columns = [data["X"], data["Y"], data["Z"]]
         coords = self._group_typical_columns(columns=coord_columns, converter=self._to_internalunits.length, dtype=np.float64)
         name_to_idx = dict(zip(unique_name, index))
-        point_objects = {
+        node_objects = {
             "Index": index,
             "Unique Name": unique_name,
             "Coordinates": coords,
             "Name to Index": name_to_idx,
-        } # Storing point object data to dictionary
+        } # Storing node object data to dictionary
         ndim = project_information.ndim # Retrieve number of dimensional space
         storey_elevations = np.unique(coords[:, 2]) if ndim == 3 else np.unique(coords[:, 1]) # Determine storey elevations
         storeys = self._generate_storeys(storey_elevations=storey_elevations) # Generating Storey data from storey elevations
-        return point_objects, storeys
+        return node_objects, storeys
 
-    def _translate_line_objects(self, point_objects, sections):
-        sheet_name = "Line Objects"
+    def _translate_element_objects(self, node_objects, sections):
+        sheet_name = "Element Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=15,
-        ) # Reading Sheet "Line Objects" in the Input file
+        ) # Reading Sheet "Element Objects" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
-        self._validate_duplicate_value(col_data=unique_name, col_name="Line object")
-        iend_point = np.asarray(data["I-End"], dtype="U15")
-        jend_point = np.asarray(data["J-End"], dtype="U15")
-        point_name_to_idx = point_objects["Name to Index"]
-        end_points_idx = np.column_stack((
-            np.fromiter((point_name_to_idx[name] for name in iend_point), dtype=np.int32, count=n),
-            np.fromiter((point_name_to_idx[name] for name in jend_point), dtype=np.int32, count=n),
+        self._validate_duplicate_value(col_data=unique_name, col_name="Unique Name")
+        iend_node = np.asarray(data["I-End"], dtype="U15")
+        jend_node = np.asarray(data["J-End"], dtype="U15")
+        node_name_to_idx = node_objects["Name to Index"]
+        end_nodes_idx = np.column_stack((
+            np.fromiter((node_name_to_idx[name] for name in iend_node), dtype=np.int32, count=n),
+            np.fromiter((node_name_to_idx[name] for name in jend_node), dtype=np.int32, count=n),
         ))
         element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = sections.name_to_idx(names=data["Section"])
-        iend_coords = point_objects["Coordinates"][end_points_idx[:, 0]]
-        jend_coords = point_objects["Coordinates"][end_points_idx[:, 1]]
+        iend_coords = node_objects["Coordinates"][end_nodes_idx[:, 0]]
+        jend_coords = node_objects["Coordinates"][end_nodes_idx[:, 1]]
         length = np.linalg.norm(jend_coords - iend_coords, axis=1)
         is_auto_end_offsets = np.fromiter((
             str(x).strip().lower() == "auto from connectivity"
@@ -553,10 +553,10 @@ class ExcelTranslator:
             count=n,
         )
         name_to_idx = dict(zip(unique_name, index))
-        line_objects = {
+        element_objects = {
             "Index": index,
             "Unique Name": unique_name,
-            "End Points Index": end_points_idx,
+            "End Nodes Index": end_nodes_idx,
             "Element Type": element_type,
             "Section Index": sec_idx,
             "Length": length,
@@ -565,34 +565,34 @@ class ExcelTranslator:
             "Offsets Length": offsets_length,
             "Is Zero Length Element": is_zero_length_element,
             "Name to Index": name_to_idx,
-        } # Storing line objects data to dictionary
-        return line_objects
+        } # Storing element objects data to dictionary
+        return element_objects
 
-    def _translate_surface_objects(self, line_objects, slab_sections):
-        sheet_name = "Surface Objects"
+    def _translate_shell_objects(self, element_objects, slab_sections):
+        sheet_name = "Shell Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=10,
-        ) # Reading Sheet "Surface Objects" in the Input file
+        ) # Reading Sheet "Shell Objects" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
         index = np.arange(n, dtype=np.int32)
         unique_name = np.asarray(data["Unique Name"], dtype="U15")
-        self._validate_duplicate_value(col_data=unique_name, col_name="Surface object")
+        self._validate_duplicate_value(col_data=unique_name, col_name="Unique Name")
         edge_columns = [data["Edge 1"], data["Edge 2"], data["Edge 3"], data["Edge 4"]]
         edges_name = self._group_typical_columns(columns=edge_columns, dtype="U15")
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
         for i in range(n):
-            edges_idx[i], vertices_idx[i] = generate_surface_connectivity(
+            edges_idx[i], vertices_idx[i] = generate_shell_connectivity(
                 edges_name=edges_name[i],
-                line_objects=line_objects,
-                surface_name=unique_name[i],
+                element_objects=element_objects,
+                shell_name=unique_name[i],
             )
         element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = slab_sections.name_to_idx(names=data["Section"])
         name_to_idx = dict(zip(unique_name, index))
-        surface_objects = {
+        shell_objects = {
             "Index": index,
             "Unique Name": unique_name,
             "Edges Index": edges_idx,
@@ -600,10 +600,10 @@ class ExcelTranslator:
             "Element Type": element_type,
             "Section Index": sec_idx,
             "Name to Index": name_to_idx,
-        } # Storing surface objects data to dictionary
-        return surface_objects
+        } # Storing shell objects data to dictionary
+        return shell_objects
     
-    def _translate_restraints(self, point_objects):
+    def _translate_restraints(self, node_objects):
         sheet_name="Restraints"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -611,147 +611,147 @@ class ExcelTranslator:
             start_row=10,
         ) # Reading Sheet "Restraints" in the Input file
         self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=True)
-        point_name_to_idx = point_objects["Name to Index"]
-        point_name = np.asarray(data["Point"], dtype="U15")
-        point_idx = np.fromiter((point_name_to_idx[name] for name in point_name), dtype=np.int32, count=n)
+        node_name_to_idx = node_objects["Name to Index"]
+        node_name = np.asarray(data["Node"], dtype="U15")
+        node_idx = np.fromiter((node_name_to_idx[name] for name in node_name), dtype=np.int32, count=n)
         dof_columns = [data["UX"], data["UY"], data["UZ"], data["RX"], data["RY"], data["RZ"]]
         dofs = self._group_typical_columns(columns=dof_columns, dtype=np.int32)
         restraints = {
-            "Point Index": point_idx,
+            "Node Index": node_idx,
             "DOFs": dofs,
         } # Storing restraints data to dictionary
         return restraints
 
-    def _translate_point_loads(self):
-        sheet_name="Point Loads"
+    def _translate_nodal_loads(self):
+        sheet_name="Nodal Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=11,
-        ) # Reading Sheet "Point Loads" in the Input file
+        ) # Reading Sheet "Nodal Loads" in the Input file
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            point_loads = []
-            return point_loads
-        point_name = np.asarray(data["Point"], dtype="U15")
+            nodal_loads = []
+            return nodal_loads
+        node_name = np.asarray(data["Node"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         force_columns = ["FX", "FY", "FZ"]
         moment_columns = ["MX", "MY", "MZ"]
         loads = np.column_stack(
-            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.force_pointload, dtype=np.float64, filled_values=0.0) for column in force_columns] +
-            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.moment_pointload, dtype=np.float64, filled_values=0.0) for column in moment_columns]
+            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.force_nodal_load, dtype=np.float64, filled_values=0.0) for column in force_columns] +
+            [self._modify_empty_values(values=data[column], converter=self._to_internalunits.moment_nodal_load, dtype=np.float64, filled_values=0.0) for column in moment_columns]
         )
-        point_loads = {
-            "Point Name": point_name,
+        nodal_loads = {
+            "Node Name": node_name,
             "Load Case": loadcase_type,
             "Loads": loads,
-        } # Storing Point Loads data to dictionary
-        return point_loads
+        } # Storing Nodal Loads data to dictionary
+        return nodal_loads
 
-    def _translate_concentrated_line_loads(self):
-        sheet_name="Concentrated Line Loads"
+    def _translate_concentrated_elemental_loads(self):
+        sheet_name="Concentrated Elemental Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=14,
-        ) # Reading Sheet "Concentrated Line Loads" in the Input file
+        ) # Reading Sheet "Concentrated Elemental Loads" in the Input file
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            concentrated_line_loads = []
-            return concentrated_line_loads
-        line_name = np.asarray(data["Line"], dtype="U15")
+            concentrated_elemental_loads = []
+            return concentrated_elemental_loads
+        element_name = np.asarray(data["Element"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
         loads = np.column_stack([
-            self._modify_empty_values(values=data[column], converter=self._to_internalunits.concentrated_lineload, dtype=np.float64, filled_values=np.nan) for column in load_columns
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.concentrated_elemental_load, dtype=np.float64, filled_values=np.nan) for column in load_columns
         ])
         location_columns = ["Location 1", "Location 2", "Location 3", "Location 4"]
         locations = np.column_stack([
             self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
         ])
-        modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_concentrated_line_loads(
-            line_name=line_name,
+        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_concentrated_elemental_loads(
+            element_name=element_name,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
             locations=locations,
             loads=loads,
         )
-        concentrated_line_loads = {
-            "Line Name": modified_line_name,
+        concentrated_element_loads = {
+            "Element Name": modified_element_name,
             "Load Case": modified_loadcase_type,
             "Direction": modified_load_direction,
             "Location": modified_location,
             "Load": modified_load,
-        } # Storing Concentrated Line Loads data to dictionary
-        return concentrated_line_loads
+        } # Storing Concentrated Element Loads data to dictionary
+        return concentrated_element_loads
 
-    def _translate_distributed_line_loads(self, line_objects):
-        sheet_name="Distributed Line Loads"
+    def _translate_distributed_elemental_loads(self, element_objects):
+        sheet_name="Distributed Elemental Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=15,
-        ) # Reading Sheet "Distributed Line Loads" in the Input file
+        ) # Reading Sheet "Distributed Elemental Loads" in the Input file
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            distributed_line_loads = []
-            return distributed_line_loads
-        line_name = np.asarray(data["Line"], dtype="U15")
+            distributed_elemental_loads = []
+            return distributed_elemental_loads
+        element_name = np.asarray(data["Element"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
-        uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_lineload, dtype=np.float64, filled_values=np.nan)
+        uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_elemental_load, dtype=np.float64, filled_values=np.nan)
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
         loads = np.column_stack([
-            self._modify_empty_values(values=data[column], converter=self._to_internalunits.distributed_lineload, dtype=np.float64, filled_values=np.nan) for column in load_columns
+            self._modify_empty_values(values=data[column], converter=self._to_internalunits.distributed_elemental_load, dtype=np.float64, filled_values=np.nan) for column in load_columns
         ])
         location_columns = ["Location 1", "Location 2", "Location 3", "Location 4"]
         locations = np.column_stack([
             self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
         ])
-        modified_line_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_distributed_line_loads(
-            line_name=line_name,
-            line_objects=line_objects,
+        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_distributed_elemental_loads(
+            element_name=element_name,
+            element_objects=element_objects,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
             locations=locations,
             uniform_load=uniform_load,
             loads=loads,
         )
-        distributed_line_loads = {
-            "Line Name": modified_line_name,
+        distributed_elemental_loads = {
+            "Element Name": modified_element_name,
             "Load Case": modified_loadcase_type,
             "Direction": modified_load_direction,
             "Location": modified_location,
             "Load": modified_load,
-        } # Storing Distributed Line Loads data to dictionary
-        return distributed_line_loads
+        } # Storing Distributed Element Loads data to dictionary
+        return distributed_elemental_loads
 
-    def _translate_surface_loads(self, line_objects, surface_objects):
-        sheet_name="Surface to Line Loads"
+    def _translate_shell_to_elemental_loads(self, element_objects, shell_objects):
+        sheet_name="Shell to Elemental Loads"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
             orientation="columns", 
             start_row=7,
-        ) # Reading Sheet "Surface Loads" in the Input file
+        ) # Reading Sheet "Shell to Elemental Loads" in the Input file
         if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            surface_loads = []
-            return surface_loads
-        surface_name = np.asarray(data["Surface"], dtype="U15")
+            shell_to_elemental_loads = []
+            return shell_to_elemental_loads
+        shell_name = np.asarray(data["Shell"], dtype="U15")
         loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
-        load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.surfaceload, dtype=np.float64, filled_values=np.nan)
-        modified_surface_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_surface_to_edge_loads(
-            surface_name=surface_name,
-            line_objects=line_objects,
-            surface_objects=surface_objects,
+        load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.shell_load, dtype=np.float64, filled_values=np.nan)
+        modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_shell_to_elemental_loads(
+            shell_name=shell_name,
+            element_objects=element_objects,
+            shell_objects=shell_objects,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
             load=load,
         )
-        surface_to_edge_loads = {
-            "Surface Name": modified_surface_name,
+        shell_to_elemental_loads = {
+            "Shell Name": modified_shell_name,
             "Edge Name": modified_edge_name,
             "Load Case": modified_loadcase_type,
             "Direction": modified_load_direction,
             "Location": modified_location,
             "Load": modified_load,
-        } # Storing Surface Loads data to dictionary
-        return surface_to_edge_loads
+        } # Storing Shell to Elemental Loads data to dictionary
+        return shell_to_elemental_loads

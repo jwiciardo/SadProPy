@@ -1,5 +1,5 @@
 import numpy as np
-from ..preprocessing_class_index import SpringIMKBilinearProperties, SpringIMKPeakOrientedProperties, SpringIMKPinchingProperties
+from .preprocessing_class_index import SpringIMKBilinearProperties, SpringIMKPeakOrientedProperties, SpringIMKPinchingProperties
 
 class SpringIMKBilinear:
     properties = SpringIMKBilinearProperties

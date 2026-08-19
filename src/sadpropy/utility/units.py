@@ -1,13 +1,13 @@
 import numpy as np
 from dataclasses import dataclass
-from .constantvalues import GRAVITATIONAL_ACCELERATION
+from .constant import GRAVITATIONAL_ACCELERATION
 from ._exception import ValidationError
 
 g = GRAVITATIONAL_ACCELERATION
 
 class UnitRegistry:
     UNITS = {
-        # Concentrated Line Load = Force Point Load = Force
+        # Concentrated Elemental Load = Force Nodal Load = Force
         "N":    1.0,
         "kN":   1e3,
         "MN":   1e6,
@@ -75,7 +75,7 @@ class UnitRegistry:
         "ksi": 4.44822e3 / 0.0254**2,
         "ksf": 4.44822e3 / 0.3048**2,
 
-        # Moment = Moment Point Load = Force × Length
+        # Moment = Moment Nodal Load = Force × Length
         "N-m":     1.0 * 1.0,
         "kN-m":    1e3 * 1.0,
         "kN-mm":   1e3 * 1e-3,
@@ -98,7 +98,7 @@ class UnitRegistry:
         "kipf/in3": 4.44822e3 / 0.0254**3,
         "kipf/ft3": 4.44822e3 / 0.3048**3,
             
-        # Surface load = Force / Area
+        # Shell load = Force / Area
         "N/m2":     1.0 / 1.0**2,
         "N/mm2":    1.0 / 1e3**2,
         "kN/m2":    1e3 / 1.0**2,
@@ -108,7 +108,7 @@ class UnitRegistry:
         "kipf/in2": 4.44822e3 / 0.0254**2,
         "kipf/ft2": 4.44822e3 / 0.3048**2,
             
-        # Distributed Line load = Translational Stiffness = Force / Length
+        # Distributed Elemental load = Translational Stiffness = Force / Length
         "N/m":     1.0 / 1.0,
         "N/mm":    1.0 / 1e3,
         "kN/m":    1e3 / 1.0,
@@ -204,20 +204,20 @@ class ConverterToInternalUnits:
     def unitweight(self, values):
         return self._convert_to_internalunits(values=values, unit=self._units.unitweight())
     
-    def surfaceload(self, values):
-        return self._convert_to_internalunits(values=values, unit=self._units.surface_load())
+    def shell_load(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.shell_load())
     
-    def distributed_lineload(self, values):
-        return self._convert_to_internalunits(values=values, unit=self._units.distributed_line_load())
+    def distributed_elemental_load(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.distributed_elemental_load())
     
-    def concentrated_lineload(self, values):
-        return self._convert_to_internalunits(values=values, unit=self._units.concentrated_line_load())
+    def concentrated_elemental_load(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.concentrated_elemental_load())
     
-    def force_pointload(self, values):
-        return self._convert_to_internalunits(values=values, unit=self._units.force_point_load())
+    def force_nodal_load(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.force_nodal_load())
     
-    def moment_pointload(self, values):
-        return self._convert_to_internalunits(values=values, unit=self._units.moment_point_load())
+    def moment_nodal_load(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.moment_nodal_load())
     
     def translational_stiffness(self, values):
         return self._convert_to_internalunits(values=values, unit=self._units.translational_stiffness())
@@ -273,20 +273,20 @@ class ConverterFromInternalUnits:
     def unitweight(self, values):
         return self._convert_from_internalunits(values=values, unit=self._units.unitweight())
     
-    def surfaceload(self, values):
-        return self._convert_from_internalunits(values=values, unit=self._units.surface_load())
+    def shell_load(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.shell_load())
     
-    def distributed_lineload(self, values):
-        return self._convert_from_internalunits(values=values, unit=self._units.distributed_line_load())
+    def distributed_elemental_load(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.distributed_elemental_load())
     
-    def concentrated_lineload(self, values):
-        return self._convert_from_internalunits(values=values, unit=self._units.concentrated_line_load())
+    def concentrated_elemental_load(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.concentrated_elemental_load())
     
-    def force_pointload(self, values):
-        return self._convert_from_internalunits(values=values, unit=self._units.force_point_load())
+    def force_nodal_load(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.force_nodal_load())
     
-    def moment_pointload(self, values):
-        return self._convert_from_internalunits(values=values, unit=self._units.moment_point_load())
+    def moment_nodal_load(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.moment_nodal_load())
     
     def translational_stiffness(self, values):
         return self._convert_from_internalunits(values=values, unit=self._units.translational_stiffness())
@@ -324,19 +324,19 @@ class UserDefinedUnits:
     def unitweight(self):
         return f'{self.force}/{self.length}3'
     
-    def surface_load(self):
+    def shell_load(self):
         return f'{self.force}/{self.length}2'
     
-    def distributed_line_load(self):
+    def distributed_elemental_load(self):
         return f'{self.force}/{self.length}'
     
-    def concentrated_line_load(self):
+    def concentrated_elemental_load(self):
         return f'{self.force}'
     
-    def force_point_load(self):
+    def force_nodal_load(self):
         return f'{self.force}'
     
-    def moment_point_load(self):
+    def moment_nodal_load(self):
         return f'{self.force}-{self.length}'
     
     def translational_stiffness(self):

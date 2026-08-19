@@ -43,8 +43,8 @@ def generate_element_local_axes(nodes, end_nodes_index, ndim):
 def _map_node_to_element(iend_nodes_idx, jend_nodes_idx):
     node_to_beamcolumn_element = defaultdict(list) # Predefined node to element dictionary
     for ele_idx, (iend_node_idx, jend_node_idx) in enumerate(zip(iend_nodes_idx, jend_nodes_idx)): # Loop over end nodes index
-        node_to_beamcolumn_element[int(iend_node_idx)].append(ele_idx) # Append line index into key: I-end point index
-        node_to_beamcolumn_element[int(jend_node_idx)].append(ele_idx) # Append line index into key: J-end point index
+        node_to_beamcolumn_element[int(iend_node_idx)].append(ele_idx) # Append element index into key: I-end node index
+        node_to_beamcolumn_element[int(jend_node_idx)].append(ele_idx) # Append element index into key: J-end node index
     return node_to_beamcolumn_element
 
 def generate_element_connectivity(nodes, end_nodes_index):
