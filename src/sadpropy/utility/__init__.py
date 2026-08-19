@@ -3,7 +3,7 @@ from .units import ConverterToInternalUnits, ConverterFromInternalUnits, UserDef
 from .gmreader import GroundMotionReader
 from .constant import *
 from .helper import *
-from .operatorfunc import *
+from .operator_function import *
 from .tag_manager import TagManager
 
 __all__ = [
@@ -12,4 +12,4 @@ __all__ = [
     ]
 __all__ += constant.__all__
 __all__ += helper.__all__
-__all__ += operatorfunc.__all__
+__all__ += operator_function.__all__
