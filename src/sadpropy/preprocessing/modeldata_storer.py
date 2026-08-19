@@ -1,18 +1,18 @@
 import numpy as np
-from ._node import autogenerate_nodes
-from ._element import (
+from .preprocessing_object._node import autogenerate_nodes
+from .preprocessing_object._element import (
     generate_element_local_axes,
     generate_element_connectivity,
     autogenerate_offsets_length,
     generate_end_offsets,
     generate_geometric_transformation,
 )
-from ._load import (
+from .preprocessing_object._load import (
     generate_group_nodal_loads,
     generate_group_concentrated_element_loads,
     generate_group_distributed_element_loads,
 )
-from ._zero_length_element import generate_zerolength_element_local_axes
+from .preprocessing_object._zero_length_element import generate_zerolength_element_local_axes
 from .preprocessing_class_index import ElementType, NodeSource
 from .preprocessing_dataclass import (
     ModelData,
@@ -27,7 +27,7 @@ from .preprocessing_dataclass import (
     ShellToElementalLoads,
 )
 from sadpropy.utility import TagManager
-from sadpropy.utility.helperfunc import get_parent_node
+from sadpropy.utility.helper import get_parent_node
 
 __all__ = ["ModelDataStorer"]
 

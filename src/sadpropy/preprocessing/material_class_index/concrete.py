@@ -1,5 +1,5 @@
 import numpy as np
-from .preprocessing_class_index import ConcreteElasticProperties, Concrete04Properties, Concrete04MinMaxProperties
+from ..preprocessing_class_index import ConcreteElasticProperties, Concrete04Properties, Concrete04MinMaxProperties
 
 class ConcreteElastic:
     properties = ConcreteElasticProperties

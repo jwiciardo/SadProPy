@@ -1,6 +1,6 @@
 import numpy as np
-from .preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
-from ._section import _rectangular_elastic_props, _rectangular_concrete_fiber_props
+from ..preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
+from ..preprocessing_object._section import _rectangular_elastic_props, _rectangular_concrete_fiber_props
 
 class RectangularElastic:
     dimensions = RectangularElasticDimensions

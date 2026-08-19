@@ -1,6 +1,6 @@
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from ...utility.helperfunc import transform_to_global_axes
+from ...utility.helper import transform_to_global_axes
 from ...utility.units import ConverterFromInternalUnits, ConverterToInternalUnits
 from ...utility._exception import warningtext
 

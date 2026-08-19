@@ -1,6 +1,6 @@
 import numpy as np
-from .preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
-from ..utility._exception import ValidationError
+from ..preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
+from ...utility._exception import ValidationError
 
 # COMPUTE REINFORCEMENT AREA
 def rebar_area(dia):

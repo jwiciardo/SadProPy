@@ -1,5 +1,5 @@
 import numpy as np
-from ..utility._exception import ValidationError
+from ...utility._exception import ValidationError
 
 # GENERATE SHELL CONNECTIVITY
 # Need to be vectorised for faster performance

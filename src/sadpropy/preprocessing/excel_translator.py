@@ -1,19 +1,18 @@
 import warnings
 import numpy as np
 from openpyxl import load_workbook
-from .preprocessing_class_index import (
-    MaterialType,
-    MaterialModel,
-    SectionShape,
-    SectionModel,
-    IntegrationType,
-    ElementType,
-    LoadCaseType,
+from ._preprocessing_definition import (
+    _material_type,
+    _material_model,
+    _material_definition,
+    _section_shape,
+    _section_model,
+    _section_definition,
+    _integration_type,
+    _element_type,
+    _loadcase_type,
 )
-from .concrete_class_index import ConcreteElastic, Concrete04, Concrete04MinMax
-from .steel_class_index import SteelElastic, Steel02, Steel02MinMax
-from .spring_class_index import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
-from .rectangular_class_index import RectangularElastic, RectangularConcreteFiber
+from .preprocessing_class_index import SectionModel
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
@@ -23,9 +22,9 @@ from .preprocessing_dataclass import (
     SlabSections,
     Storeys,
 )
-from ._shell import generate_shell_connectivity
-from ._section import compute_section_properties, trace_aggregated_sections
-from ._load import get_concentrated_elemental_loads, get_distributed_elemental_loads, get_shell_to_elemental_loads
+from .preprocessing_object._shell import generate_shell_connectivity
+from .preprocessing_object._section import compute_section_properties, trace_aggregated_sections
+from .preprocessing_object._load import get_concentrated_elemental_loads, get_distributed_elemental_loads, get_shell_to_elemental_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
 from ..utility._exception import ValidationError
@@ -91,74 +90,6 @@ class ExcelTranslator:
         self._to_internalunits = ConverterToInternalUnits(units=self._units)
         self._tagmanager = TagManager()
         
-        # DICTIONARY
-        self._material_type = {
-            "Concrete": MaterialType.Concrete,
-            "Rebar": MaterialType.Steel,
-            "Steel": MaterialType.Steel,
-            "Spring": MaterialType.Spring,
-        }
-        self._material_model = {
-            "Elastic": MaterialModel.Elastic,
-            "Concrete04": MaterialModel.Concrete04,
-            "Concrete04+MinMax": MaterialModel.Concrete04MinMax,
-            "Steel02": MaterialModel.Steel02,
-            "Steel02+MinMax": MaterialModel.Steel02MinMax,
-            "IMKBilinear": MaterialModel.IMKBilinear,
-            "IMKPeakOriented": MaterialModel.IMKPeakOriented,
-            "IMKPinching": MaterialModel.IMKPinching,
-        }
-        self._material_definition = {
-            (MaterialType.Concrete, MaterialModel.Elastic): ConcreteElastic,
-            (MaterialType.Concrete, MaterialModel.Concrete04): Concrete04,
-            (MaterialType.Concrete, MaterialModel.Concrete04MinMax): Concrete04MinMax,
-            (MaterialType.Steel, MaterialModel.Elastic): SteelElastic,
-            (MaterialType.Steel, MaterialModel.Steel02): Steel02,
-            (MaterialType.Steel, MaterialModel.Steel02MinMax): Steel02MinMax,
-            (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinear,
-            (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOriented,
-            (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinching,
-        }
-        self._section_shape = {
-            "Rectangular": SectionShape.Rectangular,
-            "Circular": SectionShape.Circular,
-            "Wide Flange": SectionShape.WideFlange,
-            "Channel": SectionShape.Channel,
-            "Rectangular Hollow": SectionShape.RectangularHollow,
-            "Circular Hollow": SectionShape.CircularHollow,
-        }
-        self._section_model = {
-            "Elastic": SectionModel.Elastic,
-            "Fiber": SectionModel.Fiber,
-            "Aggregator": SectionModel.Aggregator,
-        }
-        self._section_definition = {
-            (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
-            (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
-            (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): RectangularConcreteFiber,
-        }
-        self._integration_type = {
-            "Lobatto": IntegrationType.Lobatto,
-            "Hinge Radau": IntegrationType.HingeRadau,
-        }
-        self._element_type = {
-            "Column": ElementType.Column,
-            "Beam": ElementType.Beam,
-            "Slab": ElementType.Slab,
-            "Brace": ElementType.Brace,
-            "Zero Length": ElementType.ZeroLength,
-        }
-        self._loadcase_type = {
-            "Selfweight": LoadCaseType.SW,
-            "Dead": LoadCaseType.D,
-            "Live": LoadCaseType.L,
-            "Live Roof": LoadCaseType.Lr,
-            "Earthquake-X": LoadCaseType.Ex,
-            "Earthquake-Y": LoadCaseType.Ey,
-            "Wind-X": LoadCaseType.Wx,
-            "Wind-Y": LoadCaseType.Wy,
-        }
-
     # MAIN METHOD: EXCEL TRANSLATOR
     def translate(self):
         filepath_information = self._translate_filepath_information()
@@ -320,11 +251,11 @@ class ExcelTranslator:
         mat_name = np.asarray(data["Material Name"], dtype="U32")
         self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
         mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        mat_type = np.asarray([self._material_type[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
-        mat_model = np.asarray([self._material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
+        mat_type = np.asarray([_material_type[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
+        mat_model = np.asarray([_material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
 
         # Translate material properties
-        mat_def = [self._material_definition[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
+        mat_def = [_material_definition[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
         max_columns = max(definition.properties.Count for definition in mat_def)
         properties = np.full((n, max_columns), np.nan, dtype=np.float64)
         unique_definitions = list(dict.fromkeys(mat_def))
@@ -356,8 +287,8 @@ class ExcelTranslator:
         sec_name = np.asarray(data["Section Name"], dtype="U32")
         self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
         sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        sec_shape = np.asarray([self._section_shape[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
-        sec_model = np.asarray([self._section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
+        sec_shape = np.asarray([_section_shape[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
+        sec_model = np.asarray([_section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
         mat_columns = ["Material", "Material2", "Material3", "Material4", "Material5", "Material6"]
         mats_idx = np.column_stack([
             materials.name_to_idx(names=data[column]) for column in mat_columns
@@ -366,7 +297,7 @@ class ExcelTranslator:
         for i in range(n):
             mat_type[i] = materials.mat_type[mats_idx[i][np.argmax(mats_idx[i] != -1)]]
         integration_type = np.asarray([
-            self._integration_type[value.strip().title()]
+            _integration_type[value.strip().title()]
             if value is not None and value.strip() else -1
             for value in data["Integration Type"]],
             dtype=np.int8
@@ -393,7 +324,7 @@ class ExcelTranslator:
         sec_def = np.empty(n, dtype=object)
         normal_sec_idx = np.flatnonzero(normal_sec_mask)
         for i in normal_sec_idx:
-            sec_def[i] = self._section_definition[
+            sec_def[i] = _section_definition[
                 (mat_type[i], sec_shape[i], sec_model[i])
             ]
         sec_def[aggregator_sec_mask] = sec_def[resolved_sec_idx[aggregator_sec_mask]]
@@ -530,7 +461,7 @@ class ExcelTranslator:
             np.fromiter((node_name_to_idx[name] for name in iend_node), dtype=np.int32, count=n),
             np.fromiter((node_name_to_idx[name] for name in jend_node), dtype=np.int32, count=n),
         ))
-        element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        element_type = np.asarray([_element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = sections.name_to_idx(names=data["Section"])
         iend_coords = node_objects["Coordinates"][end_nodes_idx[:, 0]]
         jend_coords = node_objects["Coordinates"][end_nodes_idx[:, 1]]
@@ -589,7 +520,7 @@ class ExcelTranslator:
                 element_objects=element_objects,
                 shell_name=unique_name[i],
             )
-        element_type = np.asarray([self._element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        element_type = np.asarray([_element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = slab_sections.name_to_idx(names=data["Section"])
         name_to_idx = dict(zip(unique_name, index))
         shell_objects = {
@@ -633,7 +564,7 @@ class ExcelTranslator:
             nodal_loads = []
             return nodal_loads
         node_name = np.asarray(data["Node"], dtype="U15")
-        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         force_columns = ["FX", "FY", "FZ"]
         moment_columns = ["MX", "MY", "MZ"]
         loads = np.column_stack(
@@ -658,7 +589,7 @@ class ExcelTranslator:
             concentrated_elemental_loads = []
             return concentrated_elemental_loads
         element_name = np.asarray(data["Element"], dtype="U15")
-        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
         loads = np.column_stack([
@@ -695,7 +626,7 @@ class ExcelTranslator:
             distributed_elemental_loads = []
             return distributed_elemental_loads
         element_name = np.asarray(data["Element"], dtype="U15")
-        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_elemental_load, dtype=np.float64, filled_values=np.nan)
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
@@ -735,7 +666,7 @@ class ExcelTranslator:
             shell_to_elemental_loads = []
             return shell_to_elemental_loads
         shell_name = np.asarray(data["Shell"], dtype="U15")
-        loadcase_type = np.asarray([self._loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.shell_load, dtype=np.float64, filled_values=np.nan)
         modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_shell_to_elemental_loads(

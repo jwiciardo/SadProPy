@@ -1,6 +1,6 @@
 import numpy as np
-from .preprocessing_class import LoadDirection
-from ..utility.helperfunc import transform_to_local_axes
+from ..preprocessing_class import LoadDirection
+from ...utility.helper import transform_to_local_axes
 
 def get_concentrated_elemental_loads(element_name, loadcase_type, load_direction, locations, loads):
     # Determine element name, loadcase type, load direction, location, and load for each segment
