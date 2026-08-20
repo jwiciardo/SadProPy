@@ -1,5 +1,5 @@
 import numpy as np
-from ._exception import ValidationError
+from .exception import ValidationError
 
 __all__ = ["retrieve_output_from_input", "transform_to_global_axes", "transform_to_local_axes", "get_parent_node"]
 

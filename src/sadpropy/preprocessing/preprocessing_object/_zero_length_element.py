@@ -1,7 +1,7 @@
 import numpy as np
 from ..preprocessing_class_index import ConnectionEnd
 
-def generate_zerolength_element_local_axes(ndim, elements, child_nodes):
+def _generate_zerolength_element_local_axes(ndim, elements, child_nodes):
     n = len(child_nodes)
     rotation_matrices = np.zeros((n, ndim, ndim), dtype=np.float64)
     for node_idx, child_node in enumerate(child_nodes):

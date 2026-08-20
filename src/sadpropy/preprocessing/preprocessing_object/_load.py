@@ -2,7 +2,7 @@ import numpy as np
 from ..preprocessing_class import LoadDirection
 from ...utility.helper import transform_to_local_axes
 
-def get_concentrated_elemental_loads(element_name, loadcase_type, load_direction, locations, loads):
+def _get_concentrated_elemental_loads(element_name, loadcase_type, load_direction, locations, loads):
     # Determine element name, loadcase type, load direction, location, and load for each segment
     segment_loads_mask = ~np.isnan(loads) # Loads for each segment masking
     element_idx, load_idx = np.nonzero(segment_loads_mask) # Determine element index and load index of valid loads for each segment
@@ -20,7 +20,7 @@ def get_concentrated_elemental_loads(element_name, loadcase_type, load_direction
     modified_load = np.asarray(segment_load, dtype=np.float64)
     return modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
-def get_distributed_elemental_loads(element_name, element_objects, loadcase_type, load_direction, locations, uniform_load, loads):
+def _get_distributed_elemental_loads(element_name, element_objects, loadcase_type, load_direction, locations, uniform_load, loads):
     element_idx = np.asarray([element_objects["Name to Index"][name] for name in element_name], dtype=np.int32)
     element_length = element_objects["Length"][element_idx]
 
@@ -66,7 +66,7 @@ def get_distributed_elemental_loads(element_name, element_objects, loadcase_type
     modified_load = np.vstack((segment_uniform_load, segment_nonuniform_load)).astype(dtype=np.float64)
     return modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
-def get_shell_to_elemental_loads(shell_name, element_objects, shell_objects, loadcase_type, load_direction, load):
+def _get_shell_to_elemental_loads(shell_name, element_objects, shell_objects, loadcase_type, load_direction, load):
     shell_idx = np.asarray([shell_objects["Name to Index"][name] for name in shell_name], dtype=np.int32)
     edges_idx = shell_objects["Edges Index"][shell_idx]
     edges_name = element_objects["Unique Name"][edges_idx]
@@ -105,7 +105,7 @@ def get_shell_to_elemental_loads(shell_name, element_objects, shell_objects, loa
     return modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
 # Need to be vectorised for faster performance
-def generate_group_nodal_loads(node_tag, loadcase_type, loads):
+def _generate_group_nodal_loads(node_tag, loadcase_type, loads):
     grouping_keys = np.empty(
         len(node_tag),
         dtype=[
@@ -126,7 +126,7 @@ def generate_group_nodal_loads(node_tag, loadcase_type, loads):
     return result_node_tag, result_loadcase_type, result_loads
 
 # Need to be vectorised for faster performance
-def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
+def _generate_group_concentrated_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
     element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in element_tag), dtype=np.int32, count=n)
@@ -177,7 +177,7 @@ def generate_group_concentrated_element_loads(ndim, elements, element_tag, loadc
     return result_element_tag, result_loadcase_type, result_location, transformed_loads
 
 # Need to be vectorised for faster performance
-def generate_group_distributed_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
+def _generate_group_distributed_element_loads(ndim, elements, element_tag, loadcase_type, direction, location, load):
     n = len(element_tag)
     element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in element_tag), dtype=np.int32, count=n)

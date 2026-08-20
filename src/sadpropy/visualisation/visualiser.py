@@ -12,7 +12,7 @@ from .object._nodal_load_object import _plot_nodal_loads
 from .object._elemental_load_object import _plot_elemental_loads
 from .object._shell_to_elemental_load_object import _plot_shell_to_elemental_loads
 from ..preprocessing.preprocessing_class_index import LoadCaseType
-from ..utility._exception import ValidationError
+from ..utility.exception import ValidationError
 
 class Visualisation:
     def __init__(self, modeldata):

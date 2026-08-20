@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from .constant import GRAVITATIONAL_ACCELERATION
-from ._exception import ValidationError
+from .exception import ValidationError
 
 g = GRAVITATIONAL_ACCELERATION
 

@@ -4,11 +4,14 @@ import sadpropy as sa
 session = sa.start_session()
 
 # %%
-inputfile = r"D:\Projects\SadProPy\src\sadpropy\model_inputfile.xlsx"
-#inputfile = r"/Users/jwiciardo/Projects/SadProPy/src/sadpropy/model_inputfile.xlsx"
+#inputfile = r"D:\Projects\SadProPy\src\sadpropy\model_inputfile.xlsx"
+inputfile = r"/Users/jwiciardo/Projects/SadProPy/src/sadpropy/model_inputfile.xlsx"
 #session.new()
 session.open(inputfile_path=inputfile)
 #print(session.model._modeldata.shell_to_elemental_loads)
+
+# %%
+session.model.analysis_model.generate()
 
 # %%
 session.model.plot.undeformed_shape(views=["3D", "XY", "XZ", "YZ"], show_grids=True,

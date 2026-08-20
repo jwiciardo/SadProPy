@@ -1,6 +1,6 @@
 import numpy as np
 from ..preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
-from ...utility._exception import ValidationError
+from ...utility.exception import ValidationError
 
 # COMPUTE REINFORCEMENT AREA
 def rebar_area(dia):
@@ -95,7 +95,7 @@ def _rectangular_concrete_fiber_props(dimensions):
      Iy = Iyc + Iybar # Second moment of area of section about local y axis
      return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, Abar_hoop, Abar_top, Abar_bot, Abar_int)
 
-def compute_section_properties(section_definitions, dimensions):
+def _compute_section_properties(section_definitions, dimensions):
      n = len(section_definitions)
      A = np.full(n, np.nan)
      Avy = np.full(n, np.nan)
@@ -130,7 +130,7 @@ def compute_section_properties(section_definitions, dimensions):
      return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, Abar_hoop, Abar_top, Abar_bot, Abar_int)
 
 # GET SECTION DATA
-def get_section_dimensions(sections, sec_idx, dims_name):
+def _get_section_dimensions(sections, sec_idx, dims_name):
      sec_idx = np.asarray(sec_idx, dtype=np.int32)
      result = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
      mask = sec_idx != -1
@@ -148,7 +148,7 @@ def get_section_dimensions(sections, sec_idx, dims_name):
      return result
 
 # TRACE AGGREGATED SECTION CHAIN OF SECTION AGGREGATION
-def trace_aggregated_sections(aggregated_sec_idx, aggregator_mask, sec_name):
+def _trace_aggregated_sections(aggregated_sec_idx, aggregator_mask, sec_name):
      n = len(aggregated_sec_idx)
      invalid_aggregator = (aggregator_mask & (aggregated_sec_idx < 0))
      if np.any(invalid_aggregator):

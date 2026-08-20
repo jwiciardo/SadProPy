@@ -1,9 +1,9 @@
 import numpy as np
-from ...utility._exception import ValidationError
+from ...utility.exception import ValidationError
 
 # GENERATE SHELL CONNECTIVITY
 # Need to be vectorised for faster performance
-def generate_shell_connectivity(edges_name, element_objects, shell_name):
+def _generate_shell_connectivity(edges_name, element_objects, shell_name):
     # Get edge indices
     edges_idx = np.full(4, -1, dtype=np.int32)
     for i, edge_name in enumerate(edges_name):

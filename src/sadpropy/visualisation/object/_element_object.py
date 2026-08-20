@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib.lines import Line2D
-from ...utility._exception import ValidationError
+from ...utility.exception import ValidationError
 
 # Colour List
 colour_cycle = [

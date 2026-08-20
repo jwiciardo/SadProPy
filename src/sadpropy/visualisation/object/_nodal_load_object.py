@@ -1,7 +1,7 @@
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from ...utility.units import ConverterFromInternalUnits, ConverterToInternalUnits
-from ...utility._exception import warningtext
+from ...utility.exception import warningtext
 
 def _plot_nodal_loads(ax, units, nodes, coords, nodal_loads, loadcase, loadcase_type, scale, show_labels, linewidth=0.8):
     from_internalunits = ConverterFromInternalUnits(units=units)

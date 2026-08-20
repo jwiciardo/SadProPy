@@ -1,9 +1,9 @@
 import numpy as np
 from ..preprocessing_class_index import NodeSource, ConnectionEnd
-from ...utility._exception import ValidationError
+from ...utility.exception import ValidationError
 
 # AUTOGENERATE NODES
-def autogenerate_nodes(usr_nodes, element_objects):
+def _autogenerate_nodes(usr_nodes, element_objects):
     usr_unique_name = usr_nodes["Unique Name"] # Recall node unique name
     usr_coords = usr_nodes["Coordinates"] # Recall node coordinates
     elements_index = element_objects["Index"] # Recall element objects index

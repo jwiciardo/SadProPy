@@ -2,7 +2,7 @@ import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from ...utility.helper import transform_to_global_axes
 from ...utility.units import ConverterFromInternalUnits, ConverterToInternalUnits
-from ...utility._exception import warningtext
+from ...utility.exception import warningtext
 
 def _plot_elemental_loads(ax, units, coords, elements, distributed_loads, concentrated_loads, loadcase, loadcase_type, scale, show_labels, is_arrow=True, linewidth=0.8):
     from_internalunits = ConverterFromInternalUnits(units=units)

@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from ..preprocessing_class_index import ElementType, ConnectionEnd
-from ._section import get_section_dimensions
+from ._section import _get_section_dimensions
 from ...utility.helper import transform_to_global_axes, transform_to_local_axes, get_parent_node
 from ...utility.tolerance import Tolerance
 
@@ -9,7 +9,7 @@ from ...utility.tolerance import Tolerance
 def _compute_element_centroids(inode_coords, jnode_coords):
     return (inode_coords + jnode_coords) / 2.0
 
-def generate_element_local_axes(nodes, end_nodes_index, ndim):
+def _generate_element_local_axes(nodes, end_nodes_index, ndim):
     coords = nodes.coords # Retrieve nodes coordinates
     inode_coords = coords[end_nodes_index[:, ConnectionEnd.I_End]] # Retrieve I-end node coordinates from node coordinates
     jnode_coords = coords[end_nodes_index[:, ConnectionEnd.J_End]] # Retrieve J-end node coordinates from node coordinates
@@ -47,7 +47,7 @@ def _map_node_to_element(iend_nodes_idx, jend_nodes_idx):
         node_to_beamcolumn_element[int(jend_node_idx)].append(ele_idx) # Append element index into key: J-end node index
     return node_to_beamcolumn_element
 
-def generate_element_connectivity(nodes, end_nodes_index):
+def _generate_element_connectivity(nodes, end_nodes_index):
     n = len(end_nodes_index) # Determine number of rows in end nodes index
     iend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,0]) # Get parent node of I-end node
     jend_nodes_idx = get_parent_node(nodes=nodes, child_node=end_nodes_index[:,1]) # Get parent node of J-end node
@@ -152,7 +152,7 @@ def _compute_offsets_length(
         offsets_length[ele_idx] = (iend_offset_length, jend_offset_length) # Store I-end and J-end offsets length into offsets length array
     return offsets_length
 
-def autogenerate_offsets_length(sections, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrices, tol=Tolerance.LENGTH):
+def _autogenerate_offsets_length(sections, sec_idx, element_type, elements_connectivity, current_elements_end, centroids, rotation_matrices, tol=Tolerance.LENGTH):
     filtered_elements_connectivity = [] # Predefined filtered elements connectivity list
     filtered_current_elements_end = [] # Predefined filtered current elements end list
     for ele_idx, connected_elements in enumerate(elements_connectivity): # Loop over elements connectivity
@@ -191,7 +191,7 @@ def autogenerate_offsets_length(sections, sec_idx, element_type, elements_connec
             filtered_ends_xz = element_end[xz_mask] # Retrieve filtered result of current element end in local xz plane
             filtered_elements_connectivity.append(np.concatenate((filtered_elements_xy, filtered_elements_xz))) # Append filtered result to filtered elements connectivity
             filtered_current_elements_end.append(np.concatenate((filtered_end_xy, filtered_ends_xz))) # Append filtered result to filtered current elements end
-    sec_dim = get_section_dimensions(
+    sec_dim = _get_section_dimensions(
         sections=sections,
         sec_idx=sec_idx,
         dims_name=["h", "b"],
@@ -206,7 +206,7 @@ def autogenerate_offsets_length(sections, sec_idx, element_type, elements_connec
     ) # Retrieve offsets length
     return offsets_length
 
-def generate_end_offsets(offsets_length, rotation_matrices):
+def _generate_end_offsets(offsets_length, rotation_matrices):
     n = len(offsets_length)
     end_offsets = np.zeros((n, 6), dtype=np.float64) # Predefined end offsets array
     for ele_idx in range(n):
@@ -243,7 +243,7 @@ def _map_vectorz_to_name(element_type, vec_z):
     }
     return vectorz_to_name
 
-def generate_geometric_transformation(element_type, vec_z):
+def _generate_geometric_transformation(element_type, vec_z):
     geometric_transf = np.unique(vec_z, axis=0)
     vectorz_to_name = _map_vectorz_to_name(element_type=element_type, vec_z=vec_z)
     geometric_transf_name = []

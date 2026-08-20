@@ -22,13 +22,13 @@ from .preprocessing_dataclass import (
     SlabSections,
     Storeys,
 )
-from .preprocessing_object._shell import generate_shell_connectivity
-from .preprocessing_object._section import compute_section_properties, trace_aggregated_sections
-from .preprocessing_object._load import get_concentrated_elemental_loads, get_distributed_elemental_loads, get_shell_to_elemental_loads
+from .preprocessing_object._shell import _generate_shell_connectivity
+from .preprocessing_object._section import _compute_section_properties, _trace_aggregated_sections
+from .preprocessing_object._load import _get_concentrated_elemental_loads, _get_distributed_elemental_loads, _get_shell_to_elemental_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
-from ..utility._exception import ValidationError
-from ..utility._filepath import get_filepath
+from ..utility.exception import ValidationError
+from ..utility.filepath import get_filepath
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -316,7 +316,7 @@ class ExcelTranslator:
         # Translate section dimensions
         aggregator_sec_mask = sec_model == SectionModel.Aggregator # Aggregator section masking
         normal_sec_mask = ~aggregator_sec_mask # Normal section masking
-        resolved_sec_idx = trace_aggregated_sections(
+        resolved_sec_idx = _trace_aggregated_sections(
             aggregated_sec_idx=aggregated_sec_idx,
             aggregator_mask=aggregator_sec_mask,
             sec_name=sec_name,
@@ -351,7 +351,7 @@ class ExcelTranslator:
         IzMod = np.asarray(data["IzMod"], dtype=np.float64)
         IyMod = np.asarray(data["IyMod"], dtype=np.float64)
         JxxMod = np.asarray(data["JxxMod"], dtype=np.float64)
-        normal_sec_props = compute_section_properties(
+        normal_sec_props = _compute_section_properties(
             section_definitions=sec_def[normal_sec_mask],
             dimensions=dimensions[normal_sec_mask],
         )
@@ -515,7 +515,7 @@ class ExcelTranslator:
         edges_idx = np.empty((n, 4), dtype=np.int32)
         vertices_idx = np.empty((n, 4), dtype=np.int32)
         for i in range(n):
-            edges_idx[i], vertices_idx[i] = generate_shell_connectivity(
+            edges_idx[i], vertices_idx[i] = _generate_shell_connectivity(
                 edges_name=edges_name[i],
                 element_objects=element_objects,
                 shell_name=unique_name[i],
@@ -599,7 +599,7 @@ class ExcelTranslator:
         locations = np.column_stack([
             self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
         ])
-        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_concentrated_elemental_loads(
+        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = _get_concentrated_elemental_loads(
             element_name=element_name,
             loadcase_type=loadcase_type,
             load_direction=load_direction,
@@ -637,7 +637,7 @@ class ExcelTranslator:
         locations = np.column_stack([
             self._modify_empty_values(values=data[column], converter=self._to_internalunits.length, dtype=np.float64, filled_values=np.nan) for column in location_columns
         ])
-        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_distributed_elemental_loads(
+        modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = _get_distributed_elemental_loads(
             element_name=element_name,
             element_objects=element_objects,
             loadcase_type=loadcase_type,
@@ -669,7 +669,7 @@ class ExcelTranslator:
         loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.shell_load, dtype=np.float64, filled_values=np.nan)
-        modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = get_shell_to_elemental_loads(
+        modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = _get_shell_to_elemental_loads(
             shell_name=shell_name,
             element_objects=element_objects,
             shell_objects=shell_objects,
