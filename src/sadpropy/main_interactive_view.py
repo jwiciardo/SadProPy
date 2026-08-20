@@ -11,9 +11,10 @@ session.open(inputfile_path=inputfile)
 #print(session.model._modeldata.shell_to_elemental_loads)
 
 # %%
-session.model.plot.undeformed_shape(views=["3D", "XY", "XZ", "YZ"],
+session.model.plot.undeformed_shape(views=["3D", "XY", "XZ", "YZ"], show_grids=True,
     show_nodes=True,
-    show_node_labels=True,)
+    show_node_labels=True,
+    show_global_axes=True, show_local_axes=False)
 session.model.plot.show()
 
 #session.model.plot.undeformed_shape(view="Isometric", colour_by="Section", show_grids=True,

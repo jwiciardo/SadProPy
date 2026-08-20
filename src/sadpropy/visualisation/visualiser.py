@@ -1,16 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ._visualisation_definition import _view_definitions
+from ._visualisation_definition import _view_definitions, _loadcase_type, _load
 from .object._axes_object import _set_axes, _draw_global_axes, _draw_local_axes
 from .object._grid_object import _draw_grid
 from .object._node_object import _plot_nodes
 from .object._element_object import _plot_elements
 from .object._shell_object import _plot_shells
-from .object._zerolengthelement_object import _plot_zerolength_elements
+from .object._zero_length_element_object import _plot_zerolength_elements
 from .object._restraint_object import _plot_restraints
-from .object._nodalload_object import _plot_nodal_loads
-from .object._elementalload_object import _plot_elemental_loads
-from .object._shelltoelementalload_object import _plot_shell_to_elemental_loads
+from .object._nodal_load_object import _plot_nodal_loads
+from .object._elemental_load_object import _plot_elemental_loads
+from .object._shell_to_elemental_load_object import _plot_shell_to_elemental_loads
 from ..preprocessing.preprocessing_class_index import LoadCaseType
 from ..utility._exception import ValidationError
 
@@ -45,51 +45,52 @@ class Visualisation:
         self._distributed_elemental_loads = self._modeldata.distributed_elemental_loads # Retrieve distributed elemental loads
         self._shell_to_elemental_loads = self._modeldata.shell_to_elemental_loads # Retrieve shell to elemental loads
 
-        # Helper Dictionary and List
-        self._loadcase_type = {
-            # Fullname
-            "Selfweight": LoadCaseType.SW,
-            "Dead": LoadCaseType.D,
-            "Live": LoadCaseType.L,
-            "Live Roof": LoadCaseType.Lr,
-            "Earthquake-X": LoadCaseType.Ex,
-            "Earthquake-Y": LoadCaseType.Ey,
-            "Wind-X": LoadCaseType.Wx,
-            "Wind-Y": LoadCaseType.Wy,
-
-            # Shortname
-            "Sw": LoadCaseType.SW,
-            "D": LoadCaseType.D,
-            "L": LoadCaseType.L,
-            "Lr Roof": LoadCaseType.Lr,
-            "Ex": LoadCaseType.Ex,
-            "Ey": LoadCaseType.Ey,
-            "Wx": LoadCaseType.Wx,
-            "Wy": LoadCaseType.Wy,
-        }
-        self._load = {None, "all", "nodal", "elemental", "shell to elemental", "n", "e", "ste"}
-
     # HELPER METHOD
+    def _project_coords(self, coords, view_info):
+        if view_info["projection"] == "3d":
+            return coords
+        axes = view_info["axes"]
+        return coords[:, axes]
+
     def _create_figure(self, view_info):
         fig = plt.figure(figsize=(12, 8)) # Start plotting figure
         if view_info["projection"] == "3d":
             ax = fig.add_subplot(111, projection="3d")
-            ax.view_init(elev=view_info["elev"], azim=view_info["azim"])
+            ax.view_init(elev=view_info["elev"], azim=view_info["azim"]) # Set viewing angle
         else:
             ax = fig.add_subplot(111)
         return fig, ax
     
-    def _plot_model(self, ax, view_info, show_nodes, show_node_labels):
+    def _plot_model(
+            self,
+            ax,
+            view,
+            show_grids,
+            show_nodes,
+            show_node_labels,
+            show_global_axes,
+            show_local_axes,
+        ):
+        view_info = _view_definitions[view]
+        projection_coords = self._project_coords(coords=self._coords, view_info=view_info)
         if view_info["projection"] == "3d":
             selected_plane = None
         else:
             selected_plane = self._selected_planes[view_info["plane"]]
+        _set_axes(ax=ax, view_info=view_info, coords=self._coords) # Set axes
+        if show_global_axes: # Set condition if show_global_axes is True or False
+            _draw_global_axes(ax=ax, view_info=view_info, coords=projection_coords) # Set global axes arrows
+        if show_local_axes: # Set condition if show_local_axes is True or False
+            _draw_local_axes(ax=ax, view_info=view_info, elements=self._elements, show_axes=show_local_axes) # Set local axes arrows
+        if show_grids:
+            _draw_grid(ax=ax, view_info=view_info, storeys=self._storeys, coords=projection_coords) # Set gridlines
         if show_nodes: # Set condition if show_nodes is True or False
             _plot_nodes(
                 ax=ax,
                 view_info=view_info,
                 nodes=self._nodes,
                 coords=self._coords,
+                projection_coords=projection_coords,
                 plane=selected_plane,
                 show_labels=show_node_labels,
             ) # Plot nodes if show_nodes is True
@@ -101,7 +102,7 @@ class Visualisation:
         planes = np.unique(self._coords[:, perpendicular_idx])
         return planes
 
-    def _redraw_view(self, view):
+    def _refresh_view(self, view):
         plot = self._plots[view]
         fig = plot["fig"]
         ax = plot["ax"]
@@ -110,17 +111,23 @@ class Visualisation:
         self._plot_model(
             ax=ax,
             view_info=view_info,
+            show_grids=plot["show_grids"],
             show_nodes=plot["show_nodes"],
             show_node_labels=plot["show_node_labels"],
-        ) # Redraw model
+            show_global_axes= plot["show_global_axes"],
+            show_local_axes=plot["show_local_axes"],
+        ) # Replot model
         fig.canvas.draw_idle() # Refresh canvas
 
     # MAIN METHOD
     def undeformed_shape(
             self,
             views="3D",
+            show_grids=True,
             show_nodes=True,
             show_node_labels=True,
+            show_global_axes=False,
+            show_local_axes=False,
         ):
         if isinstance(views, str):
             views = [views]
@@ -135,15 +142,27 @@ class Visualisation:
                                       f"Available views: {list(_view_definitions)}")
         self._plots.clear()
         for view in views:
+            title = f"Undeformed Shape - {view} View"
             view_info = _view_definitions[view]
             fig, ax = self._create_figure(view_info) # Initialise figure
+            ax.set_title(title, fontsize=14, y=1.0) # Set title for a plot
             self._plots[view] = {
                 "fig": fig,
                 "ax": ax,
+                "show_grids": show_grids,
                 "show_nodes": show_nodes,
                 "show_node_labels": show_node_labels,
+                "show_global_axes": show_global_axes,
             }
-            self._plot_model(ax=ax, view_info=view_info, show_nodes=show_nodes, show_node_labels=show_node_labels)
+            self._plot_model(
+                ax=ax,
+                view=view,
+                show_grids=show_grids,
+                show_nodes=show_nodes,
+                show_node_labels=show_node_labels,
+                show_global_axes=show_global_axes,
+                show_local_axes=show_local_axes,
+            )
         plt.tight_layout()
         return self
 
@@ -162,7 +181,7 @@ class Visualisation:
             raise ValidationError(f"Invalid plane number: {plane}. "
                                   f"Available planes: 1-{len(planes)}")
         self._selected_planes[view] = plane
-        self._redraw_view(view)
+        self._refresh_view(view)
         return self
 
     def show(self):

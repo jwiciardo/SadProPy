@@ -1,10 +1,8 @@
 import numpy as np
-from .._visualisation_helper import _project_coords
 from ...utility.tolerance import Tolerance
 
-def _plot_nodes(ax, view_info, nodes, coords, plane, show_labels, marker="o", markersize=10, colour="black"):
+def _plot_nodes(ax, view_info, nodes, coords, projection_coords, plane, show_labels, marker="o", markersize=10, colour="black"):
     if view_info["projection"] == "3d":
-        coords = _project_coords(coords=coords, view_info=view_info)
         ax.scatter(
             coords[:, 0],
             coords[:, 1],
@@ -44,10 +42,9 @@ def _plot_nodes(ax, view_info, nodes, coords, plane, show_labels, marker="o", ma
             atol=Tolerance.LENGTH,
             rtol=0.0,
         )
-        coords = coords[plane_mask]
+        coords = projection_coords[plane_mask]
         nodes_idx = nodes.index
         nodes_idx = nodes_idx[plane_mask]
-        coords = _project_coords(coords=coords, view_info=view_info)
         ax.scatter(
             coords[:, 0],
             coords[:, 1],
