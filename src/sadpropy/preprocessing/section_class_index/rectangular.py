@@ -1,6 +1,7 @@
 import numpy as np
 from ..preprocessing_class_index import RectangularElasticDimensions, RectangularConcreteFiberDimensions
 from ..preprocessing_object._section import _rectangular_elastic_props, _rectangular_concrete_fiber_props
+from ...core._ops_fiber_section import _rectangular_concrete_fiber_model
 
 class RectangularElastic:
     dimensions = RectangularElasticDimensions
@@ -17,6 +18,7 @@ class RectangularElastic:
 class RectangularConcreteFiber:
     dimensions = RectangularConcreteFiberDimensions
     compute = staticmethod(_rectangular_concrete_fiber_props)
+    generate_fiber_model = staticmethod(_rectangular_concrete_fiber_model)
     @staticmethod
     def translate(data, converter):
         h = converter.length(values=data["Dim1"])

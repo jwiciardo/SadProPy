@@ -1,6 +1,6 @@
 from ..preprocessing.preprocessing_class_index import LoadCaseType
 
-_view_definitions = {
+view_definition_dict = {
     "3D": {
         "projection": "3d",
         "elev": 35,
@@ -31,7 +31,7 @@ _view_definitions = {
         "ylabel": "Z",
     },
 }
-_loadcase_type = {
+loadcase_dict = {
     # Fullname
     "Selfweight": LoadCaseType.SW,
     "Dead": LoadCaseType.D,
@@ -52,4 +52,4 @@ _loadcase_type = {
     "Wx": LoadCaseType.Wx,
     "Wy": LoadCaseType.Wy,
 }
-_load = {None, "all", "nodal", "elemental", "shell to elemental", "n", "e", "ste"}
+load_dict = {None, "all", "nodal", "elemental", "shell to elemental", "n", "e", "ste"}

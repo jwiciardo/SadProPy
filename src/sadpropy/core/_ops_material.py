@@ -1,6 +1,5 @@
 import openseespy.opensees as ops
 from ..preprocessing.preprocessing_class_index import MaterialModel
-from ..preprocessing._preprocessing_definition import _material_definition
 
 def _define_materials(modeldata):
     materials = modeldata.materials # Retrieve materials data
@@ -120,7 +119,7 @@ def _define_materials(modeldata):
             )
         if mat_model[i] == MaterialModel.IMKPeakOriented:
             ops.uniaxialMaterial(
-                'ModIMKPeakOriented',
+                'IMKPeakOriented',
                 int(mat_tag[i]), # matTag
                 float(mat_props[i, mat_def[i].properties.K0]), # K0
                 float(mat_props[i, mat_def[i].properties.asPos]), # as_Plus
@@ -148,7 +147,7 @@ def _define_materials(modeldata):
             )
         if mat_model[i] == MaterialModel.IMKPinching:
             ops.uniaxialMaterial(
-                'ModIMKPinching',
+                'IMKPinching',
                 int(mat_tag[i]), # matTag
                 float(mat_props[i, mat_def[i].properties.K0]), # K0
                 float(mat_props[i, mat_def[i].properties.asPos]), # as_Plus

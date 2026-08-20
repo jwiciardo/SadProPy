@@ -11,15 +11,17 @@ from .preprocessing_class_index import (
 from .material_class_index.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
 from .material_class_index.steel import SteelElastic, Steel02, Steel02MinMax
 from .material_class_index.spring import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
+from .material_class_index.aggregator import AggregatorElastic
 from .section_class_index.rectangular import RectangularElastic, RectangularConcreteFiber
 
-_material_type = {
+material_type_dict = {
     "Concrete": MaterialType.Concrete,
     "Rebar": MaterialType.Steel,
     "Steel": MaterialType.Steel,
     "Spring": MaterialType.Spring,
+    "Aggregator": MaterialType.Aggregator,
 }
-_material_model = {
+material_model_dict = {
     "Elastic": MaterialModel.Elastic,
     "Concrete04": MaterialModel.Concrete04,
     "Concrete04+MinMax": MaterialModel.Concrete04MinMax,
@@ -29,7 +31,7 @@ _material_model = {
     "IMKPeakOriented": MaterialModel.IMKPeakOriented,
     "IMKPinching": MaterialModel.IMKPinching,
 }
-_material_definition = {
+material_definition_dict = {
     (MaterialType.Concrete, MaterialModel.Elastic): ConcreteElastic,
     (MaterialType.Concrete, MaterialModel.Concrete04): Concrete04,
     (MaterialType.Concrete, MaterialModel.Concrete04MinMax): Concrete04MinMax,
@@ -39,8 +41,9 @@ _material_definition = {
     (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinear,
     (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOriented,
     (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinching,
+    (MaterialType.Aggregator, MaterialModel.Elastic): AggregatorElastic,
 }
-_section_shape = {
+section_shape_dict = {
     "Rectangular": SectionShape.Rectangular,
     "Circular": SectionShape.Circular,
     "Wide Flange": SectionShape.WideFlange,
@@ -48,31 +51,31 @@ _section_shape = {
     "Rectangular Hollow": SectionShape.RectangularHollow,
     "Circular Hollow": SectionShape.CircularHollow,
 }
-_section_model = {
+section_model_dict = {
     "Elastic": SectionModel.Elastic,
     "Fiber": SectionModel.Fiber,
     "Aggregator": SectionModel.Aggregator,
 }
-_section_definition = {
+section_definition_dict = {
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): RectangularConcreteFiber,
 }
-_section_fiber = {
+section_fiber_dict = {
     RectangularConcreteFiber: RectangularConcreteFiberProperties,
 }
-_integration_type = {
+integration_type_dict = {
     "Lobatto": IntegrationType.Lobatto,
     "Hinge Radau": IntegrationType.HingeRadau,
 }
-_element_type = {
+element_type_dict = {
     "Column": ElementType.Column,
     "Beam": ElementType.Beam,
     "Slab": ElementType.Slab,
     "Brace": ElementType.Brace,
     "Zero Length": ElementType.ZeroLength,
 }
-_loadcase_type = {
+loadcase_type_dict = {
     "Selfweight": LoadCaseType.SW,
     "Dead": LoadCaseType.D,
     "Live": LoadCaseType.L,

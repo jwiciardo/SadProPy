@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ._visualisation_definition import _view_definitions, _loadcase_type, _load
+from .visualisation_dictionary import view_definition_dict, loadcase_dict, load_dict
 from .object._axes_object import _set_axes, _draw_global_axes, _draw_local_axes
 from .object._grid_object import _draw_grid
 from .object._node_object import _plot_nodes
@@ -71,7 +71,7 @@ class Visualisation:
             show_global_axes,
             show_local_axes,
         ):
-        view_info = _view_definitions[view]
+        view_info = view_definition_dict[view]
         projection_coords = self._project_coords(coords=self._coords, view_info=view_info)
         if view_info["projection"] == "3d":
             selected_plane = None
@@ -81,7 +81,7 @@ class Visualisation:
         if show_global_axes: # Set condition if show_global_axes is True or False
             _draw_global_axes(ax=ax, view_info=view_info, coords=projection_coords) # Set global axes arrows
         if show_local_axes: # Set condition if show_local_axes is True or False
-            _draw_local_axes(ax=ax, view_info=view_info, elements=self._elements, show_axes=show_local_axes) # Set local axes arrows
+            _draw_local_axes(ax=ax, view_info=view_info, delements=self._elements, show_axes=show_local_axes) # Set local axes arrows
         if show_grids:
             _draw_grid(ax=ax, view_info=view_info, storeys=self._storeys, coords=projection_coords) # Set gridlines
         if show_nodes: # Set condition if show_nodes is True or False
@@ -107,7 +107,7 @@ class Visualisation:
         fig = plot["fig"]
         ax = plot["ax"]
         ax.clear() # Clear existing drawing
-        view_info = _view_definitions[view] # Retrieve view definition
+        view_info = view_definition_dict[view] # Retrieve view definition
         self._plot_model(
             ax=ax,
             view_info=view_info,
@@ -137,13 +137,13 @@ class Visualisation:
             raise ValidationError(f"Reach maximum number of active viewports. "
                                   f"Viewports: {len(views)} (> 4)")
         for view in views:
-            if view not in _view_definitions:
+            if view not in view_definition_dict:
                 raise ValidationError(f"Unknwon view type: '{view}'. "
-                                      f"Available views: {list(_view_definitions)}")
+                                      f"Available views: {list(view_definition_dict)}")
         self._plots.clear()
         for view in views:
             title = f"Undeformed Shape - {view} View"
-            view_info = _view_definitions[view]
+            view_info = view_definition_dict[view]
             fig, ax = self._create_figure(view_info) # Initialise figure
             ax.set_title(title, fontsize=14, y=1.0) # Set title for a plot
             self._plots[view] = {
@@ -167,7 +167,7 @@ class Visualisation:
         return self
 
     def select_plane(self, view, plane=1):
-        view_info = _view_definitions[view]
+        view_info = view_definition_dict[view]
         if view_info["projection"] == "3d":
             raise ValidationError("Plane selection is only available for "
                                   "2D views: XY, XZ, and YZ")

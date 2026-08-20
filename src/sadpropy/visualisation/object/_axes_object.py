@@ -1,5 +1,4 @@
 import numpy as np
-from .._visualisation_definition import _view_definitions
 
 def _set_axes(ax, view_info, coords):
     ax.axis('off')

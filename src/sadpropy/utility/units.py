@@ -7,7 +7,7 @@ g = GRAVITATIONAL_ACCELERATION
 
 class UnitRegistry:
     UNITS = {
-        # Concentrated Elemental Load = Force Nodal Load = Force
+        # Axial Rigidity = Shear Rigidity = Concentrated Elemental Load = Force Nodal Load = Force
         "N":    1.0,
         "kN":   1e3,
         "MN":   1e6,
@@ -87,6 +87,19 @@ class UnitRegistry:
         "lbf-ft":  4.44822 * 0.3048,
         "kipf-in": 4.44822e3 * 0.0254,
         "kipf-ft": 4.44822e3 * 0.3048,
+
+        # Flexuaral Rigidity = Torsional Rigidity = Force × Length^2
+        "N-m2":     1.0 * 1.0**2,
+        "kN-m2":    1e3 * 1.0**2,
+        "kN-mm2":   1e3 * 1e-3**2,
+        "kgf-m2":   1.0 * g * 1.0**2,
+        "kgf-mm2":  1.0 * g * 1e-3**2,
+        "tonf-m2":  1e3 * g * 1.0**2,
+        "tonf-mm2": 1e3 * g * 1e-3**2,
+        "lbf-in2":  4.44822 * 0.0254**2,
+        "lbf-ft2":  4.44822 * 0.3048**2,
+        "kipf-in2": 4.44822e3 * 0.0254**2,
+        "kipf-ft2": 4.44822e3 * 0.3048**2,
 
         # Unitweight or Density = Force / Volume
         "N/m3":     1.0 / 1.0**3,
@@ -224,6 +237,18 @@ class ConverterToInternalUnits:
     
     def rotational_stiffness(self, values):
         return self._convert_to_internalunits(values=values, unit=self._units.rotational_stiffness())
+    
+    def axial_rigidity(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.axial_rigidity())
+    
+    def flexural_rigidity(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.flexural_rigidity())
+    
+    def shear_rigidity(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.shear_rigidity())
+
+    def torsional_rigidity(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.torsional_rigidity())
 
 class ConverterFromInternalUnits:
     def __init__(self, units):
@@ -294,6 +319,18 @@ class ConverterFromInternalUnits:
     def rotational_stiffness(self, values):
         return self._convert_from_internalunits(values=values, unit=self._units.rotational_stiffness())
     
+    def axial_rigidity(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.axial_rigidity())
+    
+    def flexural_rigidity(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.flexural_rigidity())
+    
+    def shear_rigidity(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.shear_rigidity())
+
+    def torsional_rigidity(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.torsional_rigidity())
+    
 @dataclass(slots=True, frozen=True)   
 class UserDefinedUnits:
     force: str
@@ -344,3 +381,15 @@ class UserDefinedUnits:
     
     def rotational_stiffness(self):
         return f'{self.force}-{self.length}/{self.angle}'
+
+    def axial_rigidity(self):
+        return f'{self.force}'
+    
+    def flexural_rigidity(self):
+        return f'{self.force}-{self.length}2'
+
+    def shear_rigidity(self):
+        return f'{self.force}'
+
+    def torsional_rigidity(self):
+        return f'{self.force}-{self.length}2'

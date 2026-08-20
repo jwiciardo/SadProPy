@@ -1,16 +1,16 @@
 import warnings
 import numpy as np
 from openpyxl import load_workbook
-from ._preprocessing_definition import (
-    _material_type,
-    _material_model,
-    _material_definition,
-    _section_shape,
-    _section_model,
-    _section_definition,
-    _integration_type,
-    _element_type,
-    _loadcase_type,
+from .preprocessing_dictionary import (
+    material_type_dict,
+    material_model_dict,
+    material_definition_dict,
+    section_shape_dict,
+    section_model_dict,
+    section_definition_dict,
+    integration_type_dict,
+    element_type_dict,
+    loadcase_type_dict,
 )
 from .preprocessing_class_index import SectionModel
 from .preprocessing_dataclass import (
@@ -251,11 +251,11 @@ class ExcelTranslator:
         mat_name = np.asarray(data["Material Name"], dtype="U32")
         self._validate_duplicate_value(col_data=mat_name, col_name="Material Name")
         mat_tag = np.asarray(self._tagmanager.add(category="Material", n=n, names=mat_name), dtype=np.int32)
-        mat_type = np.asarray([_material_type[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
-        mat_model = np.asarray([_material_model[value.strip()] for value in data["Material Model"]], dtype=np.int8)
+        mat_type = np.asarray([material_type_dict[value.strip().title()] for value in data["Material Type"]], dtype=np.int8)
+        mat_model = np.asarray([material_model_dict[value.strip()] for value in data["Material Model"]], dtype=np.int8)
 
         # Translate material properties
-        mat_def = [_material_definition[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
+        mat_def = [material_definition_dict[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
         max_columns = max(definition.properties.Count for definition in mat_def)
         properties = np.full((n, max_columns), np.nan, dtype=np.float64)
         unique_definitions = list(dict.fromkeys(mat_def))
@@ -287,8 +287,8 @@ class ExcelTranslator:
         sec_name = np.asarray(data["Section Name"], dtype="U32")
         self._validate_duplicate_value(col_data=sec_name, col_name="Section Name")
         sec_tag = np.asarray(self._tagmanager.add(category="Section", n=n, names=sec_name), dtype=np.int32)
-        sec_shape = np.asarray([_section_shape[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
-        sec_model = np.asarray([_section_model[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
+        sec_shape = np.asarray([section_shape_dict[value.strip().title()] for value in data["Section Shape"]], dtype=np.int8)
+        sec_model = np.asarray([section_model_dict[value.strip().title()] for value in data["Section Model"]], dtype=np.int8)
         mat_columns = ["Material", "Material2", "Material3", "Material4", "Material5", "Material6"]
         mats_idx = np.column_stack([
             materials.name_to_idx(names=data[column]) for column in mat_columns
@@ -297,10 +297,15 @@ class ExcelTranslator:
         for i in range(n):
             mat_type[i] = materials.mat_type[mats_idx[i][np.argmax(mats_idx[i] != -1)]]
         integration_type = np.asarray([
-            _integration_type[value.strip().title()]
+            integration_type_dict[value.strip().title()]
             if value is not None and value.strip() else -1
             for value in data["Integration Type"]],
             dtype=np.int8
+        )
+        integration_points = np.asarray([
+            value if value is not None else -1
+            for value in data["Integration Points"]],
+            dtype=np.int32
         )
         integration_mask = integration_type != -1 # Integration masking
         integration_tag = np.full(n, -1, dtype=np.int32)
@@ -321,10 +326,11 @@ class ExcelTranslator:
             aggregator_mask=aggregator_sec_mask,
             sec_name=sec_name,
         )
+
         sec_def = np.empty(n, dtype=object)
         normal_sec_idx = np.flatnonzero(normal_sec_mask)
         for i in normal_sec_idx:
-            sec_def[i] = _section_definition[
+            sec_def[i] = section_definition_dict[
                 (mat_type[i], sec_shape[i], sec_model[i])
             ]
         sec_def[aggregator_sec_mask] = sec_def[resolved_sec_idx[aggregator_sec_mask]]
@@ -357,13 +363,13 @@ class ExcelTranslator:
         )
         properties = np.full((n, 12), np.nan, dtype=np.float64)
         properties[normal_sec_mask] = np.column_stack(normal_sec_props)
-        properties[aggregator_sec_mask] = properties[resolved_sec_idx[aggregator_sec_mask]]
         properties[:, 0] *= AMod
         properties[:, 1] *= AvyMod
         properties[:, 2] *= AvzMod
         properties[:, 3] *= IzMod
         properties[:, 4] *= IyMod
         properties[:, 5] *= JxxMod
+        properties[aggregator_sec_mask] = properties[resolved_sec_idx[aggregator_sec_mask]]
         frame_sections = FrameSections(
             index = index,
             sec_name = sec_name,
@@ -374,6 +380,7 @@ class ExcelTranslator:
             mats_idx = mats_idx,
             mat_type = mat_type,
             integration_type = integration_type,
+            integration_points = integration_points,
             integration_tag = integration_tag,
             aggregated_sec_idx=aggregated_sec_idx,
             dimensions=dimensions,
@@ -461,7 +468,7 @@ class ExcelTranslator:
             np.fromiter((node_name_to_idx[name] for name in iend_node), dtype=np.int32, count=n),
             np.fromiter((node_name_to_idx[name] for name in jend_node), dtype=np.int32, count=n),
         ))
-        element_type = np.asarray([_element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        element_type = np.asarray([element_type_dict[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = sections.name_to_idx(names=data["Section"])
         iend_coords = node_objects["Coordinates"][end_nodes_idx[:, 0]]
         jend_coords = node_objects["Coordinates"][end_nodes_idx[:, 1]]
@@ -520,7 +527,7 @@ class ExcelTranslator:
                 element_objects=element_objects,
                 shell_name=unique_name[i],
             )
-        element_type = np.asarray([_element_type[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
+        element_type = np.asarray([element_type_dict[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = slab_sections.name_to_idx(names=data["Section"])
         name_to_idx = dict(zip(unique_name, index))
         shell_objects = {
@@ -564,7 +571,7 @@ class ExcelTranslator:
             nodal_loads = []
             return nodal_loads
         node_name = np.asarray(data["Node"], dtype="U15")
-        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         force_columns = ["FX", "FY", "FZ"]
         moment_columns = ["MX", "MY", "MZ"]
         loads = np.column_stack(
@@ -589,7 +596,7 @@ class ExcelTranslator:
             concentrated_elemental_loads = []
             return concentrated_elemental_loads
         element_name = np.asarray(data["Element"], dtype="U15")
-        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
         loads = np.column_stack([
@@ -626,7 +633,7 @@ class ExcelTranslator:
             distributed_elemental_loads = []
             return distributed_elemental_loads
         element_name = np.asarray(data["Element"], dtype="U15")
-        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_elemental_load, dtype=np.float64, filled_values=np.nan)
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
@@ -666,7 +673,7 @@ class ExcelTranslator:
             shell_to_elemental_loads = []
             return shell_to_elemental_loads
         shell_name = np.asarray(data["Shell"], dtype="U15")
-        loadcase_type = np.asarray([_loadcase_type[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.shell_load, dtype=np.float64, filled_values=np.nan)
         modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = _get_shell_to_elemental_loads(

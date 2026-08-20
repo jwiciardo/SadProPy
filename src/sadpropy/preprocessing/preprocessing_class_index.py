@@ -5,6 +5,7 @@ class MaterialType(IntEnum):
     Concrete = 0
     Steel = 1
     Spring = 2
+    Aggregator = 3
 
 class MaterialModel(IntEnum):
     Elastic = 0
@@ -244,6 +245,19 @@ class SpringIMKPinchingProperties(IntEnum):
     FprNeg = 30
     Apinch = 31
     Count = 32 # Total number of properties
+
+class AggregatorElasticProperties(IntEnum):
+    Unitweight = 0
+    E = 1
+    nu = 2
+    G = 3
+    EA = 4
+    EIz = 5
+    GAvy = 6
+    EIy = 7
+    GAvz = 8
+    GJxx = 9
+    Count = 10 # Total number of properties
 
 # SECTION PROPERTIES
 class SectionProperties(IntEnum):
