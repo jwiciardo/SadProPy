@@ -18,7 +18,7 @@ session.model.plot.undeformed_shape(views=["3D", "XY", "XZ", "YZ"], show_grids=T
     show_nodes=True,
     show_node_labels=True,
     show_global_axes=True, show_local_axes=False)
-session.model.plot.show()
+#session.model.plot.show()
 
 #session.model.plot.undeformed_shape(view="Isometric", colour_by="Section", show_grids=True,
 #    show_nodes=True, show_elements=True, show_shells=False, show_restraints=True, loadcase="Ex", load_scale=1.0, show_loads="n",

@@ -6,6 +6,7 @@ from .preprocessing_class_index import (
     IntegrationType,
     ElementType,
     LoadCaseType,
+    RectangularConcreteFiberProperties,
 )
 from .material_class_index.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
 from .material_class_index.steel import SteelElastic, Steel02, Steel02MinMax
@@ -56,6 +57,9 @@ _section_definition = {
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): RectangularConcreteFiber,
+}
+_section_fiber = {
+    RectangularConcreteFiber: RectangularConcreteFiberProperties,
 }
 _integration_type = {
     "Lobatto": IntegrationType.Lobatto,

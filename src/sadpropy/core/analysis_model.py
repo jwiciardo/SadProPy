@@ -1,6 +1,6 @@
 import openseespy.opensees as ops
-from ._ops_material import _define_material
-
+from ._ops_material import _define_materials
+from ._ops_section import _define_sections
 
 class AnalysisModel:
     def __init__(self, modeldata):
@@ -21,5 +21,6 @@ class AnalysisModel:
     def generate(self):
         ndim = self._modeldata.project_information.ndim # Retrieve number of dimensional space
         self._initialise_model(ndim=ndim) # Initialise model
-        _define_material(modeldata=self._modeldata) # Define material properties
+        _define_materials(modeldata=self._modeldata) # Define materials
+        _define_sections(ndim=ndim, modeldata=self._modeldata) # Define sections
         

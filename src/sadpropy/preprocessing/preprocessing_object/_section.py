@@ -27,14 +27,14 @@ def _rectangular_concrete_fiber_props(dimensions):
      h = dimensions[:, RectangularConcreteFiberDimensions.h]
      b = dimensions[:, RectangularConcreteFiberDimensions.b]
      cover = dimensions[:, RectangularConcreteFiberDimensions.cover]
-     barDia_hoop = dimensions[:, RectangularConcreteFiberDimensions.barDiaHoop]
-     barDia_top = dimensions[:, RectangularConcreteFiberDimensions.barDiaTop]
-     barDia_bot = dimensions[:, RectangularConcreteFiberDimensions.barDiaBot]
-     barDia_int = dimensions[:, RectangularConcreteFiberDimensions.barDiaInt]
-     nBars_top = (dimensions[:, RectangularConcreteFiberDimensions.nBarsTop].astype(np.int8))
-     nBars_bot = (dimensions[:, RectangularConcreteFiberDimensions.nBarsBot].astype(np.int8))
-     nBars_int = (dimensions[:, RectangularConcreteFiberDimensions.nBarsInt].astype(np.int8))     
-     Abar_hoop, Abar_top, Abar_bot, Abar_int = rebar_area(barDia_hoop), rebar_area(barDia_top), rebar_area(barDia_bot), rebar_area(barDia_int)
+     barDiaHoop = dimensions[:, RectangularConcreteFiberDimensions.barDiaHoop]
+     barDiaTop = dimensions[:, RectangularConcreteFiberDimensions.barDiaTop]
+     barDiaBot = dimensions[:, RectangularConcreteFiberDimensions.barDiaBot]
+     barDiaInt = dimensions[:, RectangularConcreteFiberDimensions.barDiaInt]
+     nBarsTop = (dimensions[:, RectangularConcreteFiberDimensions.nBarsTop].astype(np.int8))
+     nBarsBot = (dimensions[:, RectangularConcreteFiberDimensions.nBarsBot].astype(np.int8))
+     nBarsInt = (dimensions[:, RectangularConcreteFiberDimensions.nBarsInt].astype(np.int8))     
+     AbarHoop, AbarTop, AbarBot, AbarInt = rebar_area(barDiaHoop), rebar_area(barDiaTop), rebar_area(barDiaBot), rebar_area(barDiaInt)
      
      # General Section Properties
      alphaY = np.full(len(h), 5.0 / 6.0) # Shear shape factor
@@ -45,55 +45,55 @@ def _rectangular_concrete_fiber_props(dimensions):
      Jxx = h * b**3 * ((16.0/3.0) - 3.36 * (b / h) * (1.0 - b**4 / (12.0 * h**4))) / 16.0 # Torsional constant
 
      # Concrete Section
-     Ac = A - (nBars_top * Abar_top + nBars_bot * Abar_bot + nBars_int * Abar_int) # Area of concrete section
-     d_prime = cover + barDia_hoop + barDia_top / 2.0
-     yCentroid, zCentroid = 0.0, 0.0 # Local axis coordinate of section centroid
-     yCover, zCover = yCentroid + h / 2.0, yCentroid + b / 2.0 # Local axis coordinate of cover edge from centroid
-     yCore, zCore = yCentroid + yCover - d_prime, zCentroid + zCover - d_prime # Local axis coordinate of core edge from centroid
-     ycCentroid, zcCentroid = (h / 2.0) - yCover, (b / 2.0) - zCover # Local axis coordinate of concrete section centroid
-     dzc = zcCentroid - zCentroid # distance of concrete section centroid to section centriod about local z axis
+     Ac = A - (nBarsTop * AbarTop + nBarsBot * AbarBot + nBarsInt * AbarInt) # Area of concrete section
+     d_prime = cover + barDiaHoop + barDiaTop / 2.0
+     yCentroid, zCentroid = 0.0, 0.0 # Coordinate of section centroid in local axes
+     yCover, zCover = yCentroid + h / 2.0, zCentroid + b / 2.0 # Coordinate of cover edge from centroid in local axes
+     yCore, zCore = yCentroid + yCover - d_prime, zCentroid + zCover - d_prime # Coordinate of core edge from centroid in local axes
+     ycCentroid, zcCentroid = (h / 2.0) - yCover, (b / 2.0) - zCover # Coordinate of concrete section centroid in local axes
+     dzc = zcCentroid - zCentroid # Distance of concrete section centroid to section centriod about local z axis
      Izc = (b * h**3 / 12) + (Ac * dzc**2) # Second moment of area of concrete section about local z axis
-     dyc = ycCentroid - yCentroid # distance of concrete section centroid to section centriod about local y axis
+     dyc = ycCentroid - yCentroid # Distance of concrete section centroid to section centriod about local y axis
      Iyc = (h * b**3 / 12) + (Ac * dyc**2) # Second moment of area of concrete section about local y axis
 
      # Rebar Section
-     nBars_side = nBars_int // 2
+     nBarsSide = nBarsInt // 2
      Izbar = np.zeros(len(h))
      Iybar = np.zeros(len(h))
-     Ibar_top = np.pi * barDia_top**4 / 64.0 # Second moment of area of top rebar section
-     Ibar_bot = np.pi * barDia_bot**4 / 64.0 # Second moment of area of bottom rebar section
-     Ibar_int = np.pi * barDia_int**4 / 64.0 # Second moment of area of intermediate rebar section
-     barCoords_top = [] # Local axis coordinate of top bars centroid
-     barCoords_bot = [] # Local axis coordinate of bottom bars centroid
-     barCoords_int = [] # Local axis coordinate of intermediate bars centroid
+     IbarTop = np.pi * barDiaTop**4 / 64.0 # Second moment of area of top rebar section
+     IbarBot = np.pi * barDiaBot**4 / 64.0 # Second moment of area of bottom rebar section
+     IbarInt = np.pi * barDiaInt**4 / 64.0 # Second moment of area of intermediate rebar section
+     barCoordsTop = [] # Coordinates of top bars centroid in local axes
+     barCoordsBot = [] # Coordinates of bottom bars centroid in local axes
+     barCoordsInt = [] # Coordinates of intermediate bars centroid in local axes
      for idx in range(len(h)):
           # Top bar
-          zTop = np.linspace(-zCore[idx], zCore[idx], nBars_top[idx])
-          yTop = np.full(nBars_top[idx], yCore[idx])
+          zTop = np.linspace(-zCore[idx], zCore[idx], nBarsTop[idx])
+          yTop = np.full(nBarsTop[idx], yCore[idx])
           top = np.column_stack((yTop, zTop))
-          barCoords_top.append(top)
-          Izbar[idx] += np.sum(Ibar_top[idx] + Abar_top[idx] * top[:,1]**2)
-          Iybar[idx] += np.sum(Ibar_top[idx] + Abar_top[idx] * top[:,0]**2)
+          barCoordsTop.append(top)
+          Izbar[idx] += np.sum(IbarTop[idx] + AbarTop[idx] * top[:,1]**2)
+          Iybar[idx] += np.sum(IbarTop[idx] + AbarTop[idx] * top[:,0]**2)
           
           # Bottom bar
-          zBot = np.linspace(-zCore[idx], zCore[idx], nBars_bot[idx])
-          yBot = np.full(nBars_bot[idx], -yCore[idx])
+          zBot = np.linspace(-zCore[idx], zCore[idx], nBarsBot[idx])
+          yBot = np.full(nBarsBot[idx], -yCore[idx])
           bot = np.column_stack((yBot, zBot))
-          barCoords_bot.append(bot)
-          Izbar[idx] += np.sum(Ibar_bot[idx] + Abar_bot[idx] * bot[:,1]**2)
-          Iybar[idx] += np.sum(Ibar_bot[idx] + Abar_bot[idx] * bot[:,0]**2)
+          barCoordsBot.append(bot)
+          Izbar[idx] += np.sum(IbarBot[idx] + AbarBot[idx] * bot[:,1]**2)
+          Iybar[idx] += np.sum(IbarBot[idx] + AbarBot[idx] * bot[:,0]**2)
 
           # Intermediate bar
-          ySide = np.linspace(yCore[idx], -yCore[idx], nBars_side[idx] + 2,)[1:-1]
-          left = np.column_stack((ySide, np.full_like(ySide, -zCore[idx]),))
-          right = np.column_stack((ySide, np.full_like(ySide, zCore[idx]),))
+          ySide = np.linspace(yCore[idx], -yCore[idx], nBarsSide[idx] + 2)[1:-1]
+          left = np.column_stack((ySide, np.full_like(ySide, -zCore[idx])))
+          right = np.column_stack((ySide, np.full_like(ySide, zCore[idx])))
           intermediate = np.vstack((left, right))
-          barCoords_int.append(intermediate)
-          Izbar[idx] += np.sum(Ibar_int[idx] + Abar_int[idx] * intermediate[:,1]**2)
-          Iybar[idx] += np.sum(Ibar_int[idx] + Abar_int[idx] * intermediate[:,0]**2)
+          barCoordsInt.append(intermediate)
+          Izbar[idx] += np.sum(IbarInt[idx] + AbarInt[idx] * intermediate[:,1]**2)
+          Iybar[idx] += np.sum(IbarInt[idx] + AbarInt[idx] * intermediate[:,0]**2)
      Iz = Izc + Izbar # Second moment of area of section about local z axis
      Iy = Iyc + Iybar # Second moment of area of section about local y axis
-     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, Abar_hoop, Abar_top, Abar_bot, Abar_int)
+     return (A, Avy, Avz, Iz, Iy, Jxx, alphaY, alphaZ, AbarHoop, AbarTop, AbarBot, AbarInt)
 
 def _compute_section_properties(section_definitions, dimensions):
      n = len(section_definitions)
@@ -132,7 +132,7 @@ def _compute_section_properties(section_definitions, dimensions):
 # GET SECTION DATA
 def _get_section_dimensions(sections, sec_idx, dims_name):
      sec_idx = np.asarray(sec_idx, dtype=np.int32)
-     result = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
+     sec_dims = np.full((len(sec_idx), len(dims_name)), np.nan, dtype=np.float64)
      mask = sec_idx != -1
      for i in np.flatnonzero(mask):
           definition = sections.sec_def[sec_idx[i]]
@@ -144,8 +144,8 @@ def _get_section_dimensions(sections, sec_idx, dims_name):
                          f"Dimension '{name}' is not defined for "
                          f"section '{sections.sec_name[sec_idx[i]]}'"
                     ) from None
-               result[i, j] = sections.dimensions[sec_idx[i], column]
-     return result
+               sec_dims[i, j] = sections.dimensions[sec_idx[i], column]
+     return sec_dims
 
 # TRACE AGGREGATED SECTION CHAIN OF SECTION AGGREGATION
 def _trace_aggregated_sections(aggregated_sec_idx, aggregator_mask, sec_name):

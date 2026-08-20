@@ -1,9 +1,70 @@
 import openseespy.opensees as ops
+import numpy as np
 import opsvis as opsv
 import matplotlib.pyplot as plt
 import os
+from ._ops_fiber_section import _generate_rectangular_concrete_fiber_division
+from ..preprocessing.preprocessing_class_index import SectionModel, SectionProperties
+from ..preprocessing._preprocessing_definition import _section_definition, _section_fiber
 
-class SectionProperties:
+def _define_sections(ndim, modeldata):
+    materials = modeldata.materials # Retrieve materials data
+    mat_def = materials.mat_def
+    mat_props = materials.properties
+
+    sections = modeldata.frame_sections # Retrieve sections data
+    sec_tag = sections.sec_tag
+    sec_model = sections.sec_model
+    sec_def = sections.sec_def
+    sec_mats_idx = sections.mats_idx
+    sec_mats_tag = np.full_like(sec_mats_idx, -1)
+    sec_mats_tag[sec_mats_idx >= 0] = materials.mat_tag[sec_mats_idx[sec_mats_idx >= 0]]
+    sec_dims = sections.dimensions
+    sec_props = sections.properties
+
+    if ndim == 3:
+        for i in sections.index:
+            mat_idx = sec_mats_idx[i][np.argmax(sec_mats_idx[i] != -1)] # Get the first non -1 material index in list of material indices
+            if sec_model[i] == SectionModel.Elastic:
+                ops.section(
+                    'Elastic',
+                    int(sec_tag[i]), # secTag
+                    float(mat_props[mat_idx, mat_def[i].properties.E]), # E_mod
+                    float(sec_props[i, SectionProperties.A]), # A
+                    float(sec_props[i, SectionProperties.Iz]), # Iz
+                    float(sec_props[i, SectionProperties.Iy]), # Iy
+                    float(mat_props[mat_idx, mat_def[i].properties.G]), # G_mod
+                    float(sec_props[i, SectionProperties.Jxx]), # Jxx
+                    float(sec_props[i, SectionProperties.alphaY]), # alphaY
+                    float(sec_props[i, SectionProperties.alphaZ]), # alphaZ
+                )
+            if sec_model[i] == SectionModel.Fiber:
+                print(mat_props[mat_idx, mat_def[i].properties])
+                ops.section(
+                    'Fiber',
+                    int(sec_tag[i]), # secTag
+                    '-GJ',
+                    float(mat_props[mat_idx, mat_def[i].properties.G] * sec_props[i, SectionProperties.Jxx]), # GJ
+                )
+                _generate_rectangular_concrete_fiber_division(section_tag=int(sec_tag[i]), materials_tag=sec_mats_tag[i], dimensions=sec_dims[i], properties=sec_props[i])
+    else:
+        for i in sections.index:
+            mat_idx = sec_mats_idx[i, 0]
+            if sec_model[i] == SectionModel.Elastic:
+                ops.section(
+                    'Elastic',
+                    int(sec_tag[i]), # secTag
+                    float(mat_props[mat_idx, mat_def[i].properties.E]), # E_mod
+                    float(sec_props[i, SectionProperties.A]), # A
+                    float(sec_props[i, SectionProperties.Iz]), # Iz
+                    float(mat_props[mat_idx, mat_def[i].properties.G]), # G_mod
+                    float(sec_props[i, SectionProperties.alphaY]), # alphaY
+                )
+
+
+
+
+class Sec:
     def __init__(self, workspace):
         self.ws = workspace
         self.tag = self.ws.tag_manager
@@ -89,63 +150,3 @@ class SectionProperties:
                 Nip = 5 # Number of integration point
                             # type: 'Lobatto', tag,            secTag,     N
                 ops.beamIntegration('Lobatto', IntegrationTag, SectionTag, Nip) # Defining integration method
-        
-        Sec_Aggregator_dict = self.ws.sec_aggregator
-        for SectionName, data in Sec_Aggregator_dict.items():
-            if data['Aggregator Type'] in FrameSections_dict:
-                BaseSection = FrameSections_dict[data['Aggregator Type']]
-            elif data['Aggregator Type'] in Sec_Fiber_dict:
-                BaseSection = FrameSections_dict[Sec_Fiber_dict['Aggregator Type']['Base Section']]
-            
-            SectionTag = self.tag.add('Section', f"{SectionName}")
-            Mat = Materials_dict[data['Base Material']]
-            if data['Aggregator Type'] == 'Aggregator:Flexural Stiffness':
-                AggregatedSectionTag = self.tag.get_tag('Section', f"{data['Aggregated Section']}")
-                MaterialTagMz = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_Mz")
-                MaterialTagMy = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_My")
-
-                E = Mat['E'] # Modulus of elasticity of section
-                Iz = BaseSection['Iz'] # Second moment of area of section about local z axis
-                Iy = BaseSection['Iy'] # Second moment of area of section about local y axis
-
-                          # matType: 'Elastic', matTag,        E
-                ops.uniaxialMaterial('Elastic', MaterialTagMz, E * Iz) # Defining Material objects
-                ops.uniaxialMaterial('Elastic', MaterialTagMy, E * Iy) # Defining Material objects
-                 # secType: 'Aggregator', secTag,     *mats (matTag, dof),                         '-section', sectionTag
-                ops.section('Aggregator', SectionTag, *(MaterialTagMz, 'Mz', MaterialTagMy, 'My'), '-section', AggregatedSectionTag) # Defining Section aggregator object
-            elif data['Aggregator Type'] == 'Aggregator:Axial Stiffness':
-                AggregatedSectionTag = self.tag.get_tag('Section', f"{data['Aggregated Section']}")
-                MaterialTagP = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_P")
-                
-                E = Mat['E'] # Modulus of elasticity of section
-                A = BaseSection['A'] # Area of section
-
-                          # matType: 'Elastic', matTag,      E
-                ops.uniaxialMaterial('Elastic', MaterialTagP, E * A) # Defining Material objects
-                 # secType: 'Aggregator', secTag,     *mats (matTag, dof), '-section', sectionTag
-                ops.section('Aggregator', SectionTag, *(MaterialTagP, 'P'), '-section', AggregatedSectionTag) # Defining Section aggregator object
-            elif data['Aggregator Type'] == 'Aggregator:Shear Stiffness':
-                AggregatedSectionTag = self.tag.get_tag('Section', f"{data['Aggregated Section']}")
-                MaterialTagVy = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_Vy")
-                MaterialTagVz = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_Vz")
-
-                G = Mat['G'] # Shear modulus of section
-                Avy = BaseSection['Avy'] # Shear area of section along local y axis
-                Avz = BaseSection['Avz'] # Shear area of section along local z axis
-
-                          # matType: 'Elastic', matTag,        E
-                ops.uniaxialMaterial('Elastic', MaterialTagVy, G * Avy) # Defining Material objects
-                ops.uniaxialMaterial('Elastic', MaterialTagVz, G * Avz) # Defining Material objects
-                 # secType: 'Aggregator', secTag,     *mats (matTag, dof),                         '-section', sectionTag
-                ops.section('Aggregator', SectionTag, *(MaterialTagVy, 'Vy', MaterialTagVz, 'Vz'), '-section', AggregatedSectionTag) # Defining Section aggregator object
-            elif data['Aggregator Type'] == 'Aggregator:Torsional Stiffness':
-                AggregatedSectionTag = self.tag.get_tag('Section', f"{data['Aggregated Section']}")
-                MaterialTagT = self.tag.add('Material', f"{data['Aggregator Type']}_{SectionName}_T")
-
-                G = Mat['G'] # Shear modulus of section
-                Jxx = BaseSection['Jxx'] # Torsional constant
-
-                          # matType: 'Elastic', matTag,      E
-                ops.uniaxialMaterial('Elastic', MaterialTagT, G * Jxx) # Defining Material objects
-                 # secType: 'Aggregator', secTag,     *mats (matTag, dof), '-section', sectionTag
-                ops.section('Aggregator', SectionTag, *(MaterialTagT, 'T'),  '-section', AggregatedSectionTag) # Defining Section aggregator object

@@ -246,6 +246,21 @@ class SpringIMKPinchingProperties(IntEnum):
     Count = 32 # Total number of properties
 
 # SECTION PROPERTIES
+class SectionProperties(IntEnum):
+    A = 0
+    Avy = 1
+    Avz = 2
+    Iz = 3
+    Iy = 4
+    Jxx = 5
+    alphaY = 6
+    alphaZ = 7
+    AbarHoop = 8
+    AbarTop = 9
+    AbarBot = 10
+    AbarInt = 11
+    Count = 12 # Total number of properties
+
 class RectangularElasticDimensions(IntEnum):
     h = 0
     b = 1
@@ -267,3 +282,16 @@ class RectangularConcreteFiberDimensions(IntEnum):
 class SlabSectionDimensions(IntEnum):
     t = 0
     Count = 1 # Total number of properties
+
+class RectangularConcreteFiberProperties(IntEnum):
+    yCore = 0
+    zCore = 1
+    yCover = 2
+    zCover = 3
+    yStartInt = 4
+    yEndInt = 5
+    nMeshYCore = 6
+    nMeshZCore = 7
+    nMeshYCover = 8
+    nMeshZCover = 9
+    Count = 10 # Total number of properties
