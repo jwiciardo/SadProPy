@@ -6,7 +6,6 @@ from .preprocessing_class_index import (
     IntegrationType,
     ElementType,
     LoadCaseType,
-    RectangularConcreteFiberProperties,
 )
 from .material_class_index.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
 from .material_class_index.steel import SteelElastic, Steel02, Steel02MinMax
@@ -27,6 +26,12 @@ material_model_dict = {
     "Concrete04+MinMax": MaterialModel.Concrete04MinMax,
     "Steel02": MaterialModel.Steel02,
     "Steel02+MinMax": MaterialModel.Steel02MinMax,
+    "Axial": MaterialModel.Axial,
+    "FlexuralZ": MaterialModel.FlexuralZ,
+    "ShearY": MaterialModel.ShearY,
+    "FlexuralY": MaterialModel.FlexuralY,
+    "ShearZ": MaterialModel.ShearZ,
+    "Torsional": MaterialModel.Torsional,
     "IMKBilinear": MaterialModel.IMKBilinear,
     "IMKPeakOriented": MaterialModel.IMKPeakOriented,
     "IMKPinching": MaterialModel.IMKPinching,
@@ -41,7 +46,12 @@ material_definition_dict = {
     (MaterialType.Spring, MaterialModel.IMKBilinear): SpringIMKBilinear,
     (MaterialType.Spring, MaterialModel.IMKPeakOriented): SpringIMKPeakOriented,
     (MaterialType.Spring, MaterialModel.IMKPinching): SpringIMKPinching,
-    (MaterialType.Aggregator, MaterialModel.Elastic): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.Axial): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.FlexuralZ): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.ShearY): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.FlexuralY): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.ShearZ): AggregatorElastic,
+    (MaterialType.Aggregator, MaterialModel.Torsional): AggregatorElastic,
 }
 section_shape_dict = {
     "Rectangular": SectionShape.Rectangular,
@@ -60,9 +70,6 @@ section_definition_dict = {
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Steel, SectionShape.Rectangular, SectionModel.Elastic): RectangularElastic,
     (MaterialType.Concrete, SectionShape.Rectangular, SectionModel.Fiber): RectangularConcreteFiber,
-}
-section_fiber_dict = {
-    RectangularConcreteFiber: RectangularConcreteFiberProperties,
 }
 integration_type_dict = {
     "Lobatto": IntegrationType.Lobatto,

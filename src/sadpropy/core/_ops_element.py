@@ -1,5 +1,15 @@
 import openseespy.opensees as ops
 
+def _define_element(ndim, modeldata):
+    elements = modeldata.elements # Retrieve elements data
+
+    if ndim == 3:
+        abc
+    else:
+        abc
+
+
+
 class Elements:
     def __init__(self, workspace):
         self.ws = workspace

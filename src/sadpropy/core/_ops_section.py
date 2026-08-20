@@ -2,8 +2,7 @@ import openseespy.opensees as ops
 import numpy as np
 from ._ops_fiber_section import _generate_fiber_model
 from ._ops_beam_integration import _generate_beam_integration_for_distributed_placticity
-from ..preprocessing.preprocessing_class_index import SectionModel, SectionProperties, AggregatorElasticProperties
-from ..preprocessing.preprocessing_dictionary import section_definition_dict, section_fiber_dict
+from ..preprocessing.preprocessing_class_index import SectionModel, SectionProperties, AggregatorSectionDofs
 
 def _define_sections(ndim, modeldata):
     materials = modeldata.materials # Retrieve materials data
@@ -20,10 +19,12 @@ def _define_sections(ndim, modeldata):
     sec_integration_type = sections.integration_type
     sec_integration_points = sections.integration_points
     sec_integration_tag = sections.integration_tag
+    sec_integration_tag = sections.integration_tag
+    sec_aggregated_idx = sections.aggregated_sec_idx
+    sec_aggregated_tag = np.full_like(sec_aggregated_idx, -1)
+    sec_aggregated_tag[sec_aggregated_idx >= 0] = sections.sec_tag[sec_aggregated_idx[sec_aggregated_idx >= 0]]
     sec_dims = sections.dimensions
     sec_props = sections.properties
-    print(sections)
-
     if ndim == 3:
         for i in sections.index:
             mat_idx = sec_mats_idx[i][np.argmax(sec_mats_idx[i] != -1)] # Get the first non -1 material index in list of material indices
@@ -31,11 +32,11 @@ def _define_sections(ndim, modeldata):
                 ops.section(
                     'Elastic',
                     int(sec_tag[i]), # secTag
-                    float(mat_props[mat_idx, mat_def[i].properties.E]), # E_mod
+                    float(mat_props[mat_idx, mat_def[mat_idx].properties.E]), # E_mod
                     float(sec_props[i, SectionProperties.A]), # A
                     float(sec_props[i, SectionProperties.Iz]), # Iz
                     float(sec_props[i, SectionProperties.Iy]), # Iy
-                    float(mat_props[mat_idx, mat_def[i].properties.G]), # G_mod
+                    float(mat_props[mat_idx, mat_def[mat_idx].properties.G]), # G_mod
                     float(sec_props[i, SectionProperties.Jxx]), # Jxx
                     float(sec_props[i, SectionProperties.alphaY]), # alphaY
                     float(sec_props[i, SectionProperties.alphaZ]), # alphaZ
@@ -45,7 +46,7 @@ def _define_sections(ndim, modeldata):
                     'Fiber',
                     int(sec_tag[i]), # secTag
                     '-GJ',
-                    float(mat_props[mat_idx, mat_def[i].properties.G] * sec_props[i, SectionProperties.Jxx]), # GJ
+                    float(mat_props[mat_idx, mat_def[mat_idx].properties.G] * sec_props[i, SectionProperties.Jxx]), # GJ
                 )
                 _generate_fiber_model(
                     section_definition=sec_def[i],
@@ -61,11 +62,27 @@ def _define_sections(ndim, modeldata):
                     integration_points=int(sec_integration_points[i]),
                 )
             if sec_model[i] == SectionModel.Aggregator:
-                float(mat_props[AggregatorProperties.Vy, mat_def[i].properties.G] * sec_props[i, SectionProperties.Avy])
+                mats = []
+                for idx, tag in enumerate(sec_mats_tag[i]):
+                    if tag >= 1:
+                        mats.append(int(tag))
+                        if idx == AggregatorSectionDofs.P:
+                            mats.append('P')
+                        elif idx == AggregatorSectionDofs.Mz:
+                            mats.append('Mz')
+                        elif idx == AggregatorSectionDofs.Vy:
+                            mats.append('Vy')
+                        elif idx == AggregatorSectionDofs.My:
+                            mats.append('My')
+                        elif idx == AggregatorSectionDofs.Vz:
+                            mats.append('Vz')
+                        elif idx == AggregatorSectionDofs.T:
+                            mats.append('T')
                 ops.section(
                     'Aggregator',
                     int(sec_tag[i]), # secTag
-
+                    *mats, # *mats = [matTag1,dof1,matTag2,dof2,...]
+                    int(sec_aggregated_tag[i]), # sectionTag
                 )
     else:
         for i in sections.index:
@@ -80,19 +97,4 @@ def _define_sections(ndim, modeldata):
                     float(mat_props[mat_idx, mat_def[i].properties.G]), # G_mod
                     float(sec_props[i, SectionProperties.alphaY]), # alphaY
                 )
-
-
-
-
-class Sec:
-    def __init__(self, workspace):
-        self.ws = workspace
-        self.tag = self.ws.tag_manager
-    
-    def define(self):
-        if data['Integration Type'] == 'Lobatto':
-            IntegrationTag = self.tag.add('Integration', f"{SectionName}")
-            SectionTag = self.tag.get_tag('Section', f"{SectionName}")
-            Nip = 5 # Number of integration point
-                        # type: 'Lobatto', tag,            secTag,     N
-            ops.beamIntegration('Lobatto', IntegrationTag, SectionTag, Nip) # Defining integration method
+    # NEED TO FINISH CODE FOR 2D-STRUCTURE

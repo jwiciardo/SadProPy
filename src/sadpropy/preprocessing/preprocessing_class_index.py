@@ -13,6 +13,12 @@ class MaterialModel(IntEnum):
     Concrete04MinMax = 2
     Steel02 = 11
     Steel02MinMax = 12
+    Axial = 51
+    FlexuralZ = 52
+    ShearY = 53
+    FlexuralY = 54
+    ShearZ = 55
+    Torsional = 56
     IMKBilinear = 91
     IMKPeakOriented = 92
     IMKPinching = 93
@@ -309,3 +315,12 @@ class RectangularConcreteFiberProperties(IntEnum):
     nMeshYCover = 8
     nMeshZCover = 9
     Count = 10 # Total number of properties
+
+class AggregatorSectionDofs(IntEnum):
+    P = 0
+    Mz = 1
+    Vy = 2
+    My = 3
+    Vz = 4
+    T = 5
+    Count = 6 # Total number of properties

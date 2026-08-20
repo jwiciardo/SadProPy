@@ -88,6 +88,42 @@ def _define_materials(modeldata):
                 '-max',
                 float(mat_props[i, mat_def[i].properties.etmax]), # maxStrain
             )
+        if mat_model[i] == MaterialModel.Axial:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.EA]), # E
+            )
+        if mat_model[i] == MaterialModel.FlexuralZ:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.EIz]), # E
+            )
+        if mat_model[i] == MaterialModel.ShearY:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.GAvy]), # E
+            )
+        if mat_model[i] == MaterialModel.FlexuralY:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.EIy]), # E
+            )
+        if mat_model[i] == MaterialModel.ShearZ:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.GAvz]), # E
+            )
+        if mat_model[i] == MaterialModel.Torsional:
+            ops.uniaxialMaterial(
+                'Elastic',
+                int(mat_tag[i]), # matTag
+                float(mat_props[i, mat_def[i].properties.GJxx]), # E
+            )
         if mat_model[i] == MaterialModel.IMKBilinear:
             ops.uniaxialMaterial(
                 'Bilin',

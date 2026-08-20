@@ -60,7 +60,6 @@ def _rectangular_concrete_fiber_model(section_tag, materials_tag, dimensions, pr
     opsv.plot_fiber_section(fiber_sec, matcolor=matcolor)
     plt.title('Section ID:%d' %section_tag)
     plt.axis('equal')
-    plt.show()
 
 def _generate_fiber_model(section_definition, section_tag, materials_tag, dimensions, properties):
     section_definition.generate_fiber_model(section_tag=section_tag, materials_tag=materials_tag, dimensions=dimensions, properties=properties)
