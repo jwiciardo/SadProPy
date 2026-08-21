@@ -128,8 +128,6 @@ class ModelDataStorer:
         sec_idx = element_objects["Section Index"][mask]
         length = element_objects["Length"][mask]
         centroids, vec_x, vec_y, vec_z, rotation_matrices = _generate_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
-        geometric_transf, geometric_transf_name = _generate_geometric_transformation(element_type=element_type, vec_z=vec_z)
-        transformation_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(geometric_transf), names=geometric_transf_name), dtype=np.int32)
         elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = _generate_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
         is_auto_end_offsets = element_objects["Is Auto End Offsets"]
         rigid_zone_factor = element_objects["Rigid Zone Factor"]
@@ -151,6 +149,8 @@ class ModelDataStorer:
             offsets_length=offsets_length,
             rotation_matrices=rotation_matrices,
         )
+        geom_transf_idx, transf_vec, transf_name = _generate_geometric_transformation(element_type=element_type, vec_z=vec_z, end_offsets=end_offsets)
+        transf_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(transf_vec), names=transf_name), dtype=np.int32)
         elements = Elements(
             index = index,
             unique_name = unique_name,
@@ -161,7 +161,8 @@ class ModelDataStorer:
             centroids = centroids,
             length = length,
             rotation_matrices = rotation_matrices,
-            transformation_tag = transformation_tag,
+            transf_tag = transf_tag,
+            transf_vec = transf_vec,
             elements_connectivity = elements_connectivity,
             shared_connected_nodes = shared_connected_nodes,
             current_elements_end = current_elements_end,

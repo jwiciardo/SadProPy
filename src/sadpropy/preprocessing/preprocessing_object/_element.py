@@ -227,26 +227,38 @@ def _generate_end_offsets(offsets_length, rotation_matrices):
 
 # GENERATE GEOMETRIC TRANSFORMATION
 def _map_vectorz_to_name(element_type, vec_z):
-    names = []
+    vectorz_to_name = {}
     for ele_type, vec in zip(element_type, vec_z):
         axis = np.argmax(np.abs(vec))
+        sign = np.sign(vec[axis])
         if axis == 0:
             z_dir = "z_in_X"
         elif axis == 1:
             z_dir = "z_in_Y"
-        else:
+        elif axis == 2:
             z_dir = "z_in_Z"
-        names.append(f"{ele_type}-{z_dir}")
-    vectorz_to_name = {
-        tuple(vec): name
-        for name, vec in zip(names, vec_z)
-    }
+        if ele_type == ElementType.Beam:
+            prefix = "Beam"
+        elif ele_type == ElementType.Column:
+            prefix = "Column"
+    vectorz_to_name[(ele_type, tuple(vec))] = (f"{prefix}-{z_dir}")
     return vectorz_to_name
 
-def _generate_geometric_transformation(element_type, vec_z):
-    geometric_transf = np.unique(vec_z, axis=0)
-    vectorz_to_name = _map_vectorz_to_name(element_type=element_type, vec_z=vec_z)
-    geometric_transf_name = []
-    for vec in geometric_transf:
-        geometric_transf_name.append(vectorz_to_name[tuple(vec)])
-    return geometric_transf, geometric_transf_name
+def _generate_geometric_transformation(element_type, vec_z, end_offsets):
+    beam_column_mask = np.isin(element_type, [ElementType.Beam, ElementType.Column])
+    bc_element_type = element_type[beam_column_mask]
+    bc_vec_z = vec_z[beam_column_mask]
+    bc_end_offsets = end_offsets[beam_column_mask]
+    bc_transf_data = np.column_stack([bc_vec_z, bc_end_offsets])
+    bc_transf_unique, bc_geom_transf_idx = np.unique(bc_transf_data, axis=0, return_inverse=True)
+    bc_transf_vec = bc_transf_unique[:, 0:3]
+    bc_transf_offsets = bc_transf_unique[:, 3:9]
+    print(bc_transf_vec)
+    print(bc_transf_offsets)
+    bc_transf_name = _map_vectorz_to_name(element_type=bc_element_type, vec_z=bc_vec_z)
+    
+    geom_transf_idx = np.full(len(element_type), -1, dtype=np.int32)
+    geom_transf_idx[beam_column_mask] = bc_geom_transf_idx
+    print(geom_transf_idx)
+    print(bc_transf_name)
+    return geom_transf_idx, bc_transf_vec, bc_transf_offsets, bc_transf_name

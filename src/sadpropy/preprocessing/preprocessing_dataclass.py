@@ -330,7 +330,8 @@ class Elements:
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
     rotation_matrices: np.ndarray       # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
-    transformation_tag: np.ndarray      # int32, shape (N,)
+    transf_tag: np.ndarray              # int32, shape (N,)
+    transf_vec: np.ndarray              # int32, shape (N,3)
     elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
     shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
     current_elements_end: np.ndarray    # int32, shape (N,Max. connections)
@@ -421,7 +422,8 @@ class Elements:
             centroids = np.empty((0, 3), dtype=np.float64),
             length = np.empty(0, dtype=np.float64),
             rotation_matrices = np.empty((0, 3, 3), dtype=np.int32),
-            transformation_tag = np.empty(0, dtype=np.int32),
+            transf_tag = np.empty(0, dtype=np.int32),
+            transf_vec = np.empty((0,3), dtype=np.int32),
             elements_connectivity = np.empty((0, 1), dtype=np.int32),
             shared_connected_nodes = np.empty((0, 1), dtype=np.int32),
             current_elements_end = np.empty((0, 1), dtype=np.int32),

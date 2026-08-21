@@ -14,6 +14,7 @@ def _define_sections(ndim, modeldata):
     sec_model = sections.sec_model
     sec_def = sections.sec_def
     sec_mats_idx = sections.mats_idx
+    sec_mat_idx = sec_mats_idx[:, np.argmax(sec_mats_idx != -1)] # Get the first non -1 material index in list of material indices
     sec_mats_tag = np.full_like(sec_mats_idx, -1)
     sec_mats_tag[sec_mats_idx >= 0] = materials.mat_tag[sec_mats_idx[sec_mats_idx >= 0]]
     sec_integration_type = sections.integration_type
@@ -26,30 +27,27 @@ def _define_sections(ndim, modeldata):
     sec_aggregated_tag[sec_aggregated_idx >= 0] = sections.sec_tag[sec_aggregated_idx[sec_aggregated_idx >= 0]]
     sec_dims = sections.dimensions
     sec_props = sections.properties
-    print(sec_integration_def)
     if ndim == 3:
         for i in sections.index:
-            mat_idx = sec_mats_idx[i][np.argmax(sec_mats_idx[i] != -1)] # Get the first non -1 material index in list of material indices
             if sec_model[i] == SectionModel.Elastic:
                 ops.section(
                     'Elastic',
                     int(sec_tag[i]), # secTag
-                    float(mat_props[mat_idx, mat_def[mat_idx].properties.E]), # E_mod
+                    float(mat_props[sec_mat_idx[i], mat_def[sec_mat_idx[i]].properties.E]), # E_mod
                     float(sec_props[i, SectionProperties.A]), # A
                     float(sec_props[i, SectionProperties.Iz]), # Iz
                     float(sec_props[i, SectionProperties.Iy]), # Iy
-                    float(mat_props[mat_idx, mat_def[mat_idx].properties.G]), # G_mod
+                    float(mat_props[sec_mat_idx[i], mat_def[sec_mat_idx[i]].properties.G]), # G_mod
                     float(sec_props[i, SectionProperties.Jxx]), # Jxx
                     float(sec_props[i, SectionProperties.alphaY]), # alphaY
                     float(sec_props[i, SectionProperties.alphaZ]), # alphaZ
                 )
             if sec_model[i] == SectionModel.Fiber:
-                print(sec_integration_def[i])
                 ops.section(
                     'Fiber',
                     int(sec_tag[i]), # secTag
                     '-GJ',
-                    float(mat_props[mat_idx, mat_def[mat_idx].properties.G] * sec_props[i, SectionProperties.Jxx]), # GJ
+                    float(mat_props[sec_mat_idx[i], mat_def[sec_mat_idx[i]].properties.G] * sec_props[i, SectionProperties.Jxx]), # GJ
                 )
                 _generate_fiber_model(
                     section_definition=sec_def[i],
@@ -91,15 +89,14 @@ def _define_sections(ndim, modeldata):
                 )
     else:
         for i in sections.index:
-            mat_idx = sec_mats_idx[i, 0]
             if sec_model[i] == SectionModel.Elastic:
                 ops.section(
                     'Elastic',
                     int(sec_tag[i]), # secTag
-                    float(mat_props[mat_idx, mat_def[i].properties.E]), # E_mod
+                    float(mat_props[sec_mat_idx[i], mat_def[i].properties.E]), # E_mod
                     float(sec_props[i, SectionProperties.A]), # A
                     float(sec_props[i, SectionProperties.Iz]), # Iz
-                    float(mat_props[mat_idx, mat_def[i].properties.G]), # G_mod
+                    float(mat_props[sec_mat_idx[i], mat_def[i].properties.G]), # G_mod
                     float(sec_props[i, SectionProperties.alphaY]), # alphaY
                 )
     # NEED TO FINISH CODE FOR 2D-STRUCTURE

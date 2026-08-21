@@ -6,7 +6,7 @@ def _define_node(modeldata):
     node_coords = nodes.coords
     for i in nodes.index:
         tag = int(node_tag[i])
-        coords = tuple(map(float, node_coords[i]))
+        coords = list(map(float, node_coords[i]))
         ops.node(
             tag, # nodeTag
             *coords, # *crds = [X, Y, Z]
