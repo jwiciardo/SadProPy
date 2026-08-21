@@ -111,6 +111,7 @@ class FrameSections:
     mats_idx: np.ndarray                # int32, shape (N,6)
     mat_type: np.ndarray                # int8, shape (N,)
     integration_type: np.ndarray        # int8, shape (N,)
+    integration_def: np.ndarray         # object, shape (N,)
     integration_points: np.ndarray      # int32, shape (N,)
     integration_tag: np.ndarray         # int32, shape (N,)
     aggregated_sec_idx: np.ndarray      # int32, shape (N,)
@@ -157,6 +158,7 @@ class FrameSections:
             mats_idx = np.empty((0, 6), dtype=np.int32),
             mat_type = np.empty(0, dtype=np.int8),
             integration_type = np.empty(0, dtype=np.int8),
+            integration_def = np.empty(0, dtype=object),
             integration_points = np.empty(0, dtype=np.int32),
             integration_tag = np.empty(0, dtype=np.int32),
             aggregated_sec_idx = np.empty(0, dtype=np.int32),

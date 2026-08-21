@@ -9,6 +9,7 @@ from .preprocessing_dictionary import (
     section_model_dict,
     section_definition_dict,
     integration_type_dict,
+    integration_definition_dict,
     element_type_dict,
     loadcase_type_dict,
 )
@@ -302,6 +303,7 @@ class ExcelTranslator:
             for value in data["Integration Type"]],
             dtype=np.int8
         )
+        integration_def = [integration_definition_dict[int_type] if int_type >= 0 else None for int_type in integration_type]
         integration_points = np.asarray([
             value if value is not None else -1
             for value in data["Integration Points"]],
@@ -380,6 +382,7 @@ class ExcelTranslator:
             mats_idx = mats_idx,
             mat_type = mat_type,
             integration_type = integration_type,
+            integration_def = integration_def,
             integration_points = integration_points,
             integration_tag = integration_tag,
             aggregated_sec_idx=aggregated_sec_idx,

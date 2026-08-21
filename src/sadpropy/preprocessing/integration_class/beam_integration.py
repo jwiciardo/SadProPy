@@ -1,0 +1,7 @@
+from ...core._ops_beam_integration import _generate_beam_integration_for_distributed_placticity, _generate_beam_integration_for_concentrated_placticity
+
+class DistributedPlasticity:
+    generate = staticmethod(_generate_beam_integration_for_distributed_placticity)
+
+class ConcentratedPlasticity:
+    generate = staticmethod(_generate_beam_integration_for_concentrated_placticity)

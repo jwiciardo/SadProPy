@@ -7,11 +7,12 @@ from .preprocessing_class_index import (
     ElementType,
     LoadCaseType,
 )
-from .material_class_index.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
-from .material_class_index.steel import SteelElastic, Steel02, Steel02MinMax
-from .material_class_index.spring import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
-from .material_class_index.aggregator import AggregatorElastic
-from .section_class_index.rectangular import RectangularElastic, RectangularConcreteFiber
+from .material_class.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
+from .material_class.steel import SteelElastic, Steel02, Steel02MinMax
+from .material_class.spring import SpringIMKBilinear, SpringIMKPeakOriented, SpringIMKPinching
+from .material_class.aggregator import AggregatorElastic
+from .section_class.rectangular import RectangularElastic, RectangularConcreteFiber
+from .integration_class.beam_integration import DistributedPlasticity, ConcentratedPlasticity
 
 material_type_dict = {
     "Concrete": MaterialType.Concrete,
@@ -74,6 +75,10 @@ section_definition_dict = {
 integration_type_dict = {
     "Lobatto": IntegrationType.Lobatto,
     "Hinge Radau": IntegrationType.HingeRadau,
+}
+integration_definition_dict = {
+    IntegrationType.Lobatto: DistributedPlasticity,
+    IntegrationType.HingeRadau: ConcentratedPlasticity,
 }
 element_type_dict = {
     "Column": ElementType.Column,

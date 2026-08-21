@@ -17,6 +17,7 @@ def _define_sections(ndim, modeldata):
     sec_mats_tag = np.full_like(sec_mats_idx, -1)
     sec_mats_tag[sec_mats_idx >= 0] = materials.mat_tag[sec_mats_idx[sec_mats_idx >= 0]]
     sec_integration_type = sections.integration_type
+    sec_integration_def = sections.integration_def
     sec_integration_points = sections.integration_points
     sec_integration_tag = sections.integration_tag
     sec_integration_tag = sections.integration_tag
@@ -25,6 +26,7 @@ def _define_sections(ndim, modeldata):
     sec_aggregated_tag[sec_aggregated_idx >= 0] = sections.sec_tag[sec_aggregated_idx[sec_aggregated_idx >= 0]]
     sec_dims = sections.dimensions
     sec_props = sections.properties
+    print(sec_integration_def)
     if ndim == 3:
         for i in sections.index:
             mat_idx = sec_mats_idx[i][np.argmax(sec_mats_idx[i] != -1)] # Get the first non -1 material index in list of material indices
@@ -42,6 +44,7 @@ def _define_sections(ndim, modeldata):
                     float(sec_props[i, SectionProperties.alphaZ]), # alphaZ
                 )
             if sec_model[i] == SectionModel.Fiber:
+                print(sec_integration_def[i])
                 ops.section(
                     'Fiber',
                     int(sec_tag[i]), # secTag
@@ -55,12 +58,13 @@ def _define_sections(ndim, modeldata):
                     dimensions=sec_dims[i],
                     properties=sec_props[i]
                 )
-                _generate_beam_integration_for_distributed_placticity(
-                    integration_type=sec_integration_type[i],
-                    integration_tag=int(sec_integration_tag[i]),
-                    section_tag=int(sec_tag[i]),
-                    integration_points=int(sec_integration_points[i]),
-                )
+                if sec_integration_def[i] is not None:
+                    _generate_beam_integration_for_distributed_placticity(
+                        integration_type=sec_integration_type[i],
+                        integration_tag=int(sec_integration_tag[i]),
+                        section_tag=int(sec_tag[i]),
+                        integration_points=int(sec_integration_points[i]),
+                    )
             if sec_model[i] == SectionModel.Aggregator:
                 mats = []
                 for idx, tag in enumerate(sec_mats_tag[i]):
@@ -82,6 +86,7 @@ def _define_sections(ndim, modeldata):
                     'Aggregator',
                     int(sec_tag[i]), # secTag
                     *mats, # *mats = [matTag1,dof1,matTag2,dof2,...]
+                    '-section',
                     int(sec_aggregated_tag[i]), # sectionTag
                 )
     else:

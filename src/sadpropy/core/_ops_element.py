@@ -1,12 +1,19 @@
 import openseespy.opensees as ops
 
 def _define_element(ndim, modeldata):
+    sections = modeldata.frame_sections # Retrieve sections data
+    
+
+
+    materials = modeldata.materials # Retrieve materials data
     elements = modeldata.elements # Retrieve elements data
+    ele_sec_idx = elements.sec_idx
 
     if ndim == 3:
-        abc
+        print(ele_sec_idx)
     else:
-        abc
+        print(ele_sec_idx)
+
 
 
 

@@ -26,4 +26,5 @@ class AnalysisModel:
         _define_materials(modeldata=self._modeldata) # Define materials
         _define_sections(ndim=ndim, modeldata=self._modeldata) # Define sections
         _define_node(modeldata=self._modeldata) # Define nodes
+        _define_element(ndim=ndim, modeldata=self._modeldata) # Define elements
         
