@@ -324,3 +324,7 @@ class AggregatorSectionDofs(IntEnum):
     Vz = 4
     T = 5
     Count = 6 # Total number of properties
+
+class SeismicCode(IntEnum):
+    EN_8_2004 = 0
+    SNI_1726_2019 = 1

@@ -1,5 +1,23 @@
 import numpy as np
+from ..preprocessing_class_index import SlabSectionDimensions
 from ...utility.exception import ValidationError
+
+# GENERATE SHELL SELFWEIGHT
+def _generate_shell_selfweight(materials, slab_sections, shell_sec_idx):
+    # Shell section dimensions
+    shell_sec_dims = slab_sections.dimensions[shell_sec_idx]
+    shell_thickness = shell_sec_dims[:, SlabSectionDimensions.t]
+
+    # Shell material properties
+    shell_mats_idx = slab_sections.mats_idx[shell_sec_idx]
+    shell_mat_idx = shell_mats_idx[:, np.argmax(shell_mats_idx != -1)]
+    shell_mat_def = materials.mat_def[shell_mat_idx]
+    shell_mat_props = materials.properties[shell_mat_idx]
+    row_idx = np.arange(len(shell_mat_props))
+    unitweight_idx = np.array([matdef.properties.Unitweight for matdef in shell_mat_def])
+    shell_unitweight = shell_mat_props[row_idx, unitweight_idx]
+    shell_selfweight = shell_unitweight * shell_thickness
+    return shell_selfweight
 
 # GENERATE SHELL CONNECTIVITY
 # Need to be vectorised for faster performance

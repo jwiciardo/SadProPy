@@ -1,3 +1,5 @@
+import numpy as np
+from .exception import ValidationError
 from .tolerance import Tolerance
 
 __all__ = ["significant_figures", "rayleigh_damping_coefficients"]
@@ -11,10 +13,49 @@ def significant_figures(x, tol=Tolerance.FLOAT):
         return 0.0 if abs(x) < tol else x
 
 # COMPUTE POLYGON AREA
-#def PolygonArea(coords):
-        x = coords[:,0]
-        y = coords[:,1]
-        return 0.5 * abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) # Defining formula to calculate polygon area (Shoelace formula)
+def PolygonArea(vertices_coords): # Defining formula to calculate polygon area (Shoelace formula)
+    if vertices_coords.ndim == 3:
+        x = vertices_coords[:, :, 0]
+        y = vertices_coords[:, :, 1]
+        x_next = np.roll(x, -1, axis=1)
+        y_next = np.roll(y, -1, axis=1)
+        cross = x * y_next - x_next * y
+        return 0.5 * np.abs(np.sum(cross, axis=1))
+    elif vertices_coords.ndim == 2:
+        x = vertices_coords[:, 0]
+        y = vertices_coords[:, 1]
+        x_next = np.roll(x, -1)
+        y_next = np.roll(y, -1)
+        cross = x * y_next - x_next * y
+        return 0.5 * np.abs(np.sum(cross))
+    else:
+        raise ValidationError("Vertices coordinates must have 2 or 3 dimensions")
+
+# COMPUTE POLYGON CNETROID
+def PolygonCentroid(vertices_coords):
+    if vertices_coords.ndim == 3:
+        x = vertices_coords[:, :, 0]
+        y = vertices_coords[:, :, 1]
+        x_next = np.roll(x, -1, axis=1)
+        y_next = np.roll(y, -1, axis=1)
+        cross = x * y_next - x_next * y
+        area = 0.5 * np.abs(np.sum(cross, axis=1))
+        cx = np.sum((x + x_next) * cross, axis=1) / (6.0 * area)
+        cy = np.sum((y + y_next) * cross, axis=1) / (6.0 * area)
+        return np.column_stack([cx, cy])
+    elif vertices_coords.ndim == 2:
+        x = vertices_coords[:, 0]
+        y = vertices_coords[:, 1]
+        x_next = np.roll(x, -1)
+        y_next = np.roll(y, -1)
+        cross = x * y_next - x_next * y
+        area = 0.5 * np.sum(cross)
+        cx = np.sum((x + x_next) * cross) / (6.0 * area)
+        cy = np.sum((y + y_next) * cross) / (6.0 * area)
+        return np.array([cx, cy])
+    else:
+        raise ValidationError("Vertices coordinates must have 2 or 3 dimensions")
+
 
 # COMPUTE RAYLEIGH DAMPING COEFFICIENTS
 def rayleigh_damping_coefficients(damp_ratio1, damp_ratio2, omega1, omega2):

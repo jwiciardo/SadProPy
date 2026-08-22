@@ -20,7 +20,7 @@ def _get_concentrated_elemental_loads(element_name, loadcase_type, load_directio
     modified_load = np.asarray(segment_load, dtype=np.float64)
     return modified_element_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load
 
-def _get_distributed_elemental_loads(element_name, element_objects, loadcase_type, load_direction, locations, uniform_load, loads):
+def _get_distributed_elemental_loads(element_name, element_objects, loadcase_type, load_direction, locations, loads, uniform_load):
     element_idx = np.asarray([element_objects["Name to Index"][name] for name in element_name], dtype=np.int32)
     element_length = element_objects["Length"][element_idx]
 
@@ -110,7 +110,7 @@ def _generate_group_nodal_loads(node_tag, loadcase_type, loads):
         len(node_tag),
         dtype=[
             ("tag", np.int32),
-            ("loadcase", np.int32),
+            ("loadcase", np.int8),
         ])
     grouping_keys["tag"] = node_tag
     grouping_keys["loadcase"] = loadcase_type
@@ -136,7 +136,7 @@ def _generate_group_concentrated_element_loads(ndim, elements, element_tag, load
         n,
         dtype=[
             ("tag", np.int32),
-            ("loadcase", np.int32),
+            ("loadcase", np.int8),
             ("direction", "U15"),
             ("location", np.float64),
         ])
@@ -191,7 +191,7 @@ def _generate_group_distributed_element_loads(ndim, elements, element_tag, loadc
         n,
         dtype=[
             ("tag", np.int32),
-            ("loadcase", np.int32),
+            ("loadcase", np.int8),
             ("direction", "U15"),
         ])
     grouping_keys["tag"] = element_tag

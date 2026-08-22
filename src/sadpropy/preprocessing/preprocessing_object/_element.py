@@ -1,9 +1,27 @@
 import numpy as np
 from collections import defaultdict
-from ..preprocessing_class_index import ElementType, ConnectionEnd
+from ..preprocessing_class_index import ElementType, ConnectionEnd, SectionProperties
 from ._section import _get_section_dimensions
 from ...utility.helper import transform_to_global_axes, transform_to_local_axes, get_parent_node
 from ...utility.tolerance import Tolerance
+
+# GENERATE ELEMENT SELFWEIGHT
+def _generate_element_selfweight(materials, sections, element_sec_idx):
+    # Element section dimensions
+    shell_sec_def = sections.sec_def[element_sec_idx]
+    shell_sec_props = sections.properties[element_sec_idx]
+    element_sec_area = shell_sec_props[:, SectionProperties.A]
+
+    # Element material properties
+    element_mats_idx = sections.mats_idx[element_sec_idx]
+    element_mat_idx = element_mats_idx[:, np.argmax(element_mats_idx != -1)]
+    element_mat_def = materials.mat_def[element_mat_idx]
+    element_mat_props = materials.properties[element_mat_idx]
+    row_idx = np.arange(len(element_mat_props))
+    unitweight_idx = np.array([matdef.properties.Unitweight for matdef in element_mat_def])
+    element_unitweight = element_mat_props[row_idx, unitweight_idx]
+    element_selfweight = element_unitweight * element_sec_area
+    return element_selfweight
 
 # GENERATE LOCAL AXES
 def _compute_element_centroids(inode_coords, jnode_coords):
@@ -227,38 +245,35 @@ def _generate_end_offsets(offsets_length, rotation_matrices):
 
 # GENERATE GEOMETRIC TRANSFORMATION
 def _map_vectorz_to_name(element_type, vec_z):
-    vectorz_to_name = {}
+    names = []
     for ele_type, vec in zip(element_type, vec_z):
         axis = np.argmax(np.abs(vec))
         sign = np.sign(vec[axis])
         if axis == 0:
-            z_dir = "z_in_X"
+            axis_name = "X"
         elif axis == 1:
-            z_dir = "z_in_Y"
-        elif axis == 2:
-            z_dir = "z_in_Z"
+            axis_name = "Y"
+        else:
+            axis_name = "Z"
+        sign_name = "+" if sign > 0 else "-"
         if ele_type == ElementType.Beam:
             prefix = "Beam"
         elif ele_type == ElementType.Column:
             prefix = "Column"
-    vectorz_to_name[(ele_type, tuple(vec))] = (f"{prefix}-{z_dir}")
-    return vectorz_to_name
+        names.append(f"{prefix}_{axis_name}{sign_name}")
+    return np.asarray(names, dtype="U32")
 
 def _generate_geometric_transformation(element_type, vec_z, end_offsets):
     beam_column_mask = np.isin(element_type, [ElementType.Beam, ElementType.Column])
     bc_element_type = element_type[beam_column_mask]
     bc_vec_z = vec_z[beam_column_mask]
     bc_end_offsets = end_offsets[beam_column_mask]
-    bc_transf_data = np.column_stack([bc_vec_z, bc_end_offsets])
+    bc_transf_data = np.column_stack([bc_element_type, bc_vec_z, bc_end_offsets])
     bc_transf_unique, bc_geom_transf_idx = np.unique(bc_transf_data, axis=0, return_inverse=True)
-    bc_transf_vec = bc_transf_unique[:, 0:3]
-    bc_transf_offsets = bc_transf_unique[:, 3:9]
-    print(bc_transf_vec)
-    print(bc_transf_offsets)
-    bc_transf_name = _map_vectorz_to_name(element_type=bc_element_type, vec_z=bc_vec_z)
-    
+    bc_transf_element_type = bc_transf_unique[:, 0]
+    bc_transf_vec = bc_transf_unique[:, 1:4]
+    bc_transf_offsets = bc_transf_unique[:, 4:10]
+    bc_transf_name = _map_vectorz_to_name(element_type=bc_transf_element_type, vec_z=bc_transf_vec)
     geom_transf_idx = np.full(len(element_type), -1, dtype=np.int32)
     geom_transf_idx[beam_column_mask] = bc_geom_transf_idx
-    print(geom_transf_idx)
-    print(bc_transf_name)
     return geom_transf_idx, bc_transf_vec, bc_transf_offsets, bc_transf_name

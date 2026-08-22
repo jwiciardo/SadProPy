@@ -1,9 +1,19 @@
 import openseespy.opensees as ops
 import numpy as np
-import pandas as pd
-import math
-from utility.Operator import SignificantNumber, PolygonArea
-from DISSERTATION.sarpy.utility.constants import g
+from ..utility.operator_function import PolygonArea
+from ..utility.constant import GRAVITATIONAL_ACCELERATION
+from ..preprocessing.preprocessing_class import MassSource
+
+g = GRAVITATIONAL_ACCELERATION
+
+def _compute_mass(modeldata):
+    nodes = modeldata.nodes
+    shells = modeldata.shells
+    shell_nodes_idx = modeldata.nodes_idx
+    shell_coords = nodes.coords[shell_nodes_idx]
+    print(shell_coords)
+
+
 
 class Masses:
     def __init__(self, workspace):

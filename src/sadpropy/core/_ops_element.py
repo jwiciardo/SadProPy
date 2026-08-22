@@ -7,26 +7,47 @@ def _define_element(ndim, modeldata):
     mat_model = materials.mat_model
     mat_def = materials.mat_def
     mat_props = materials.properties
-    print(mat_props)
-
     sections = modeldata.frame_sections # Retrieve sections data
     sec_mat_idx = sections.mats_idx[:, np.argmax(sections.mats_idx != -1)] # Get the first non -1 material index in list of material indices
     sec_props = sections.properties
 
     nodes = modeldata.nodes # Retrieve nodes data
-
     elements = modeldata.elements # Retrieve elements data
     ele_tag = elements.element_tag
     ele_nodes_idx = elements.end_nodes_idx
     ele_nodes_tag = nodes.node_tag[ele_nodes_idx]
-    ele_transf_tag = elements.transformation_tag
-    print(ele_transf_tag)
     ele_sec_idx = elements.sec_idx
     ele_mat_idx = sec_mat_idx[ele_sec_idx]
+    ele_transformation_tag = elements.transformation_tag
+    ele_transf_tag = elements.transf_tag
+    ele_transf_vec = elements.transf_vec
+    ele_transf_offsets = elements.transf_offsets
+    is_pdelta = modeldata.analysis_preferences.is_pdelta
     if ndim == 3:
-        for i in sections.index:
+        for transf_idx in range(len(ele_transf_tag)):
+            vec_z = list(map(float, ele_transf_vec[transf_idx]))
+            I_offset = list(map(float, ele_transf_offsets[transf_idx, :3]))
+            J_offset = list(map(float, ele_transf_offsets[transf_idx, 3:6]))
+            if is_pdelta:
+                ops.geomTransf(
+                    'PDelta',
+                    int(ele_transf_tag[transf_idx]), # transfTag
+                    *vec_z, # *vecxz
+                    '-jntOffset',
+                    *I_offset, # *dI
+                    *J_offset, # *dJ
+                )
+            else:
+                ops.geomTransf(
+                    'Linear',
+                    int(ele_transf_tag[transf_idx]), # transfTag
+                    *vec_z, # *vecxz
+                    '-jntOffset',
+                    *I_offset, # *dI
+                    *J_offset, # *dJ
+                )
+        for i in elements.index:
             ele_nodes = list(map(int, ele_nodes_tag[i]))
-            print(float(sec_props[ele_sec_idx[i], SectionProperties.A]))
             if mat_model[ele_mat_idx[i]] == MaterialModel.Elastic:
                 ops.element(
                     'ElasticTimoshenkoBeam',
@@ -40,119 +61,39 @@ def _define_element(ndim, modeldata):
                     float(sec_props[ele_sec_idx[i], SectionProperties.Iz]), # Iz
                     float(sec_props[ele_sec_idx[i], SectionProperties.Avy]), # Avy
                     float(sec_props[ele_sec_idx[i], SectionProperties.Avz]), # Avz
-
-
-
-
+                    int(ele_transformation_tag[i]), # transfTag
                 )
     else:
-        print(ele_mat_idx)
-
-
-
-
-class Elements:
-    def __init__(self, workspace):
-        self.ws = workspace
-        self.tag = self.ws.tag_manager
-    
-    def create(self):
-        FrameSections_dict = self.ws.framesections
-        Sec_Fiber_dict = self.ws.sec_fiber
-        Sec_Aggregator_dict = self.ws.sec_aggregator
-        AnalysisSettings = self.ws.analysis_settings
-        PDelta = AnalysisSettings['P-Delta']
-        NonlinearAnalysis = AnalysisSettings['Nonlinear Analysis']
-        ElementOffset_dict = self.ws.elementoffset
-        
-        # Column
-        TransfType = 'PDelta' if PDelta == 1 else 'Linear'
-        ElementCol_dict = self.ws.elementscol
-        for SectionName, data in ElementOffset_dict.items():
-            iOffsetLength, jOffsetLength = data['Offset Length (I)'], data['Offset Length (J)']
-            if data['Element Type'] == 'Column':
-                iend_offset = (0.0, 0.0, iOffsetLength)
-                jend_offset = (0.0, 0.0, -jOffsetLength)
-            TransfTag = self.tag.add('Transformation', f"{SectionName}_{TransfType}")
-                         # transfType, transfTag, *vecxz (X, Y, Z), '-jntOffset', *dI (X, Y, Z), *dJ (X, Y, Z)
-            ops.geomTransf(TransfType, TransfTag, *(0, 1, 0),       '-jntOffset', *iend_offset,  *jend_offset) # Local Z of the section towards Global Y +ve
-
-        for ElementTag, data in ElementCol_dict.items():
-            inode, jnode, BaseSection, NLSection, ElementType = data['I'], data['J'], data['Base Section'], data['NL Section'], data['Element Type']
-            if NLSection in Sec_Aggregator_dict:
-                NLSection = Sec_Aggregator_dict[NLSection]['Aggregated Section']
-            elif NLSection in Sec_Fiber_dict or NLSection in FrameSections_dict:
-                pass
-            SectionTag = self.tag.get_tag('Section', f"{BaseSection}")
-            TransfTag = self.tag.get_tag('Transformation', f"{BaseSection}_{TransfType}")
-            if NonlinearAnalysis == 0 or NLSection == BaseSection:
-                 # eleType: 'elasticBeamColumn', eleTag,     *eleNodes,       secTag,     transfTag, '-mass', mass
-                ops.element('elasticBeamColumn', ElementTag, *(inode, jnode), SectionTag, TransfTag, '-mass', 0.0) # Creating Element objects for Linear Analysis
+        for transf_idx in range(len(ele_transf_tag)):
+            I_offset = list(map(float, ele_transf_offsets[transf_idx, :3]))
+            J_offset = list(map(float, ele_transf_offsets[transf_idx, 3:6]))
+            if is_pdelta:
+                ops.geomTransf(
+                    'PDelta',
+                    int(ele_transf_tag[transf_idx]), # transfTag
+                    '-jntOffset',
+                    *I_offset, # *dI
+                    *J_offset, # *dJ
+                )
             else:
-                IntegrationTag = self.tag.get_tag('Integration', f"{NLSection}")
-                 # eleType: 'forceBeamColumn', eleTag,     *eleNodes,       transfTag, integrationTag, '-mass', mass
-                ops.element('forceBeamColumn', ElementTag, *(inode, jnode), TransfTag, IntegrationTag, '-mass', 0.0) # Creating Element objects for Nonlinear Analysis
-            self.tag.store('Element', ElementTag, f"{ElementTag}")
-            
-        # Beam X
-        ElementBeamX_dict = self.ws.elementsbeamx
-        for SectionName, data in ElementOffset_dict.items():
-            iOffsetLength, jOffsetLength = data['Offset Length (I)'], data['Offset Length (J)']
-            if data['Element Type'] == 'Beam':
-                iend_offset = (iOffsetLength, 0.0, 0.0)
-                jend_offset = (-jOffsetLength, 0.0, 0.0)
-            TransfTag = self.tag.add('Transformation', f"{SectionName}_X")
-             # transfType: 'Linear', transfTag, *vecxz (X, Y, Z), '-jntOffset', *dI (X, Y, Z), *dJ (X, Y, Z)   
-            ops.geomTransf('Linear', TransfTag, *(0, -1, 0),      '-jntOffset', *iend_offset,  *jend_offset) # Local Z of the section towards Global Y -ve
-
-        for ElementTag, data in ElementBeamX_dict.items():
-            inode, jnode, BaseSection, NLSection, ElementType = data['I'], data['J'], data['Base Section'], data['NL Section'], data['Element Type']
-            if NLSection in Sec_Aggregator_dict:
-                NLSection = Sec_Aggregator_dict[NLSection]['Aggregated Section']
-            elif NLSection in Sec_Fiber_dict or NLSection in FrameSections_dict:
-                pass
-            SectionTag = self.tag.get_tag('Section', f"{BaseSection}")
-            TransfTag = self.tag.get_tag('Transformation', f"{BaseSection}_X")
-            if NonlinearAnalysis == 0 or NLSection == BaseSection:
-                 # eleType: 'elasticBeamColumn', eleTag,     *eleNodes,       secTag,     transfTag, '-mass', mass
-                ops.element('elasticBeamColumn', ElementTag, *(inode, jnode), SectionTag, TransfTag, '-mass', 0.0) # Creating Element objects for Linear Analysis
-            else:
-                IntegrationTag = self.tag.get_tag('Integration', f"{NLSection}")
-                 # eleType: 'forceBeamColumn', eleTag,     *eleNodes,       transfTag, integrationTag, '-mass', mass
-                ops.element('forceBeamColumn', ElementTag, *(inode, jnode), TransfTag, IntegrationTag, '-mass', 0.0) # Creating Element objects for Nonlinear Analysis
-            self.tag.store('Element', ElementTag, f"{ElementTag}")
-        
-        # Beam Y
-        ElementBeamY_dict = self.ws.elementsbeamy
-        for SectionName, data in ElementOffset_dict.items():
-            iOffsetLength, jOffsetLength = data['Offset Length (I)'], data['Offset Length (J)']
-            if data['Element Type'] == 'Beam':
-                iend_offset = (0.0, iOffsetLength, 0.0)
-                jend_offset = (0.0, -jOffsetLength, 0.0)
-            TransfTag = self.tag.add('Transformation', f"{SectionName}_Y")
-             # transfType: 'Linear', transfTag, *vecxz (X, Y, Z), '-jntOffset', *dI (X, Y, Z), *dJ (X, Y, Z)   
-            ops.geomTransf('Linear', TransfTag, *(1, 0, 0),       '-jntOffset', *iend_offset,  *jend_offset) # Local Z of the section towards Global X +ve
-
-        for ElementTag, data in ElementBeamY_dict.items():
-            inode, jnode, BaseSection, NLSection, ElementType = data['I'], data['J'], data['Base Section'], data['NL Section'], data['Element Type']
-            if NLSection in Sec_Aggregator_dict:
-                NLSection = Sec_Aggregator_dict[NLSection]['Aggregated Section']
-            elif NLSection in Sec_Fiber_dict or NLSection in FrameSections_dict:
-                pass
-            SectionTag = self.tag.get_tag('Section', f"{BaseSection}")
-            TransfTag = self.tag.get_tag('Transformation', f"{BaseSection}_Y")
-            if NonlinearAnalysis == 0 or NLSection == BaseSection:
-                 # eleType: 'elasticBeamColumn', eleTag,     *eleNodes,       secTag,     transfTag, '-mass', mass
-                ops.element('elasticBeamColumn', ElementTag, *(inode, jnode), SectionTag, TransfTag, '-mass', 0.0) # Creating Element objects for Linear Analysis
-            else:
-                IntegrationTag = self.tag.get_tag('Integration', f"{NLSection}")
-                 # eleType: 'forceBeamColumn', eleTag,     *eleNodes,       transfTag, integrationTag, '-mass', mass
-                ops.element('forceBeamColumn', ElementTag, *(inode, jnode), TransfTag, IntegrationTag, '-mass', 0.0) # Creating Element objects for Nonlinear Analysis
-            self.tag.store('Element', ElementTag, f"{ElementTag}")
-
-        Element_dict = ElementCol_dict | ElementBeamX_dict | ElementBeamY_dict # Combining elements dictionary
-        Nodes_to_Element_dict = {} # Predefined Nodes to element dictionary
-        for ElementTag, (inode, jnode, BaseSection, NLSection, ElementType) in Element_dict.items():
-            Nodes = tuple(sorted((inode, jnode)))
-            Nodes_to_Element_dict[Nodes] = ElementTag # Storing element tag for each nodes
-        return Element_dict, Nodes_to_Element_dict
+                ops.geomTransf(
+                    'Linear',
+                    int(ele_transf_tag[transf_idx]), # transfTag
+                    '-jntOffset',
+                    *I_offset, # *dI
+                    *J_offset, # *dJ
+                )
+        for i in sections.index:
+            ele_nodes = list(map(int, ele_nodes_tag[i]))
+            if mat_model[ele_mat_idx[i]] == MaterialModel.Elastic:
+                ops.element(
+                    'ElasticTimoshenkoBeam',
+                    int(ele_tag[i]), # eleTag
+                    *ele_nodes, # *eleNodes
+                    float(mat_props[ele_mat_idx[i], mat_def[ele_mat_idx[i]].properties.E]), # E_mod
+                    float(mat_props[ele_mat_idx[i], mat_def[ele_mat_idx[i]].properties.G]), # G_mod
+                    float(sec_props[ele_sec_idx[i], SectionProperties.A]), # Area
+                    float(sec_props[ele_sec_idx[i], SectionProperties.Iz]), # Iz
+                    float(sec_props[ele_sec_idx[i], SectionProperties.Avy]), # Avy
+                    int(ele_transformation_tag[i]), # transfTag
+                )

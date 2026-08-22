@@ -1,4 +1,5 @@
 import numpy as np
+from .preprocessing_class_index import LoadCaseType, SeismicCode
 
 class LoadDirection:
     global_direction = {
@@ -28,3 +29,23 @@ class LoadDirection:
     @classmethod
     def get_direction(cls, ndim):
         return {**cls.global_direction[ndim], **cls.local_direction[ndim]}
+
+class MassSource:
+    _definition = {
+        SeismicCode.EN_8_2004: {
+            LoadCaseType.SW: 1.0,
+            LoadCaseType.D: 1.0,
+            LoadCaseType.L: 0.3,
+            LoadCaseType.Lr: 0.3,
+        },
+        SeismicCode.SNI_1726_2019: {
+            LoadCaseType.SW: 1.0,
+            LoadCaseType.D: 1.0,
+            LoadCaseType.L: 0.25,
+            LoadCaseType.Lr: 0.25,
+        }
+    }
+
+    @classmethod
+    def get(cls, code):
+        return cls._definition[code]

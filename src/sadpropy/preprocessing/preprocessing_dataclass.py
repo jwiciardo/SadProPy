@@ -38,14 +38,14 @@ class ProjectInformation:
 class AnalysisPreferences:
     is_nonlinear_analysis: bool
     is_pdelta: bool
-    liveload_mass_factor: float
+    mass_source_ref: int
 
     @classmethod
     def empty(cls):
         return cls(
             is_nonlinear_analysis = None,
             is_pdelta = None,
-            liveload_mass_factor = 0.0,
+            mass_source_ref = 0,
         )
     
 # PROPERTIES: MATERIALS
@@ -330,8 +330,6 @@ class Elements:
     centroids: np.ndarray               # float64, shape (N,3)
     length: np.ndarray                  # float64, shape (N,)
     rotation_matrices: np.ndarray       # int32, shape (N,3,3) for 3D or (N,2,2) for 2D
-    transf_tag: np.ndarray              # int32, shape (N,)
-    transf_vec: np.ndarray              # int32, shape (N,3)
     elements_connectivity: np.ndarray   # int32, shape (N,Max. connections)
     shared_connected_nodes: np.ndarray  # int32, shape (N,Max. connections)
     current_elements_end: np.ndarray    # int32, shape (N,Max. connections)
@@ -339,6 +337,11 @@ class Elements:
     rigid_zone_factor: np.ndarray       # float64, shape (N,)
     offsets_length: np.ndarray          # float64, shape (N,2)
     end_offsets: np.ndarray             # float64, shape (N,6)
+    transf_tag: np.ndarray              # int32, shape (N,)
+    transf_vec: np.ndarray              # int32, shape (N,3)
+    transf_offsets: np.ndarray          # int32, shape (N,6)
+    transformation_tag: np.ndarray      # int32, shape (N,)
+    selfweight: np.ndarray              # float64, shape (N,)
 
     def name_to_idx(self, names):
         lookup = dict(zip(self.unique_name, self.index))
@@ -422,8 +425,6 @@ class Elements:
             centroids = np.empty((0, 3), dtype=np.float64),
             length = np.empty(0, dtype=np.float64),
             rotation_matrices = np.empty((0, 3, 3), dtype=np.int32),
-            transf_tag = np.empty(0, dtype=np.int32),
-            transf_vec = np.empty((0,3), dtype=np.int32),
             elements_connectivity = np.empty((0, 1), dtype=np.int32),
             shared_connected_nodes = np.empty((0, 1), dtype=np.int32),
             current_elements_end = np.empty((0, 1), dtype=np.int32),
@@ -431,6 +432,11 @@ class Elements:
             rigid_zone_factor = np.empty(0, dtype=np.float64),
             offsets_length = np.empty((0, 2), dtype=np.float64),
             end_offsets = np.empty((0, 6), dtype=np.float64),
+            transf_tag = np.empty(0, dtype=np.int32),
+            transf_vec = np.empty((0, 3), dtype=np.int32),
+            transf_offsets = np.empty((0, 6), dtype=np.float64),
+            transformation_tag = np.empty(0, dtype=np.int32),
+            selfweight = np.empty(0, dtype=np.float64),
         )
     
 @dataclass(slots=True, frozen=True)
@@ -531,6 +537,8 @@ class Shells:
     nodes_idx: np.ndarray               # int32, shape (N,4)
     element_type: np.ndarray            # int8, shape(N,)
     sec_idx: np.ndarray                 # int32, shape (N,)
+    area: np.ndarray                    # float64, shape (N,)
+    selfweight: np.ndarray              # float64, shape (N,)
 
     def name_to_idx(self, names):
         lookup = dict(zip(self.unique_name, self.index))
@@ -569,6 +577,8 @@ class Shells:
             nodes_idx = np.empty((0, 4), dtype=np.int32),
             element_type = np.empty(0, dtype=np.int8),            
             sec_idx = np.empty(0, dtype=np.int32),
+            area = np.empty(0, dtype=np.float64),
+            selfweight = np.empty(0, dtype=np.float64),
         )
     
 # PROPERTIES: RESTRAINTS
@@ -654,6 +664,40 @@ class ShellToElementalLoads:
             loads = np.empty((0, 2, 3), dtype=np.float64),
         )
 
+# LOADS: SELFWEIGHT TO ELEMENTAL LOADS
+@dataclass(slots=True, frozen=True)
+class SelfweightToElementalLoads:
+    element_tag: np.ndarray             # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
+    location: np.ndarray                # float64, shape (N,)
+    loads: np.ndarray                   # float64, shape (N,3)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            element_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            location = np.empty((0, 2), dtype=np.float64),
+            loads = np.empty((0, 2, 3), dtype=np.float64),
+        )
+
+# MASSES
+@dataclass(slots=True, frozen=True)
+class NodalMasses:
+    node_tag: np.ndarray                # int32, shape (N,)
+    loadcase: np.ndarray                # int8, shape (N,)
+    load: np.ndarray                    # float64, shape (N,)
+    mass: np.ndarray                    # float64, shape (N,)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            node_tag = np.empty(0, dtype=np.int32),
+            loadcase = np.empty(0, dtype=np.int8),
+            load = np.empty(0, dtype=np.float64),
+            mass = np.empty(0, dtype=np.float64),
+        )
+
 # MODEL DATA
 @dataclass(slots=True)
 class ModelData:
@@ -674,6 +718,8 @@ class ModelData:
     concentrated_elemental_loads: ConcentratedElementalLoads
     distributed_elemental_loads: DistributedElementalLoads
     shell_to_elemental_loads: ShellToElementalLoads
+    selfweight_to_elemental_loads: SelfweightToElementalLoads
+    nodal_masses: NodalMasses
 
     @classmethod
     def empty(cls):
@@ -702,4 +748,6 @@ class ModelData:
             concentrated_elemental_loads = ConcentratedElementalLoads.empty(),
             distributed_elemental_loads = DistributedElementalLoads.empty(),
             shell_to_elemental_loads = ShellToElementalLoads.empty(),
+            selfweight_to_elemental_loads = SelfweightToElementalLoads.empty(),
+            nodal_masses = NodalMasses.empty()
         )

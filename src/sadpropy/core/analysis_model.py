@@ -1,8 +1,11 @@
 import openseespy.opensees as ops
+import opsvis as opsv
+import matplotlib.pyplot as plt
 from ._ops_material import _define_materials
 from ._ops_section import _define_sections
 from ._ops_node import _define_node
 from ._ops_element import _define_element
+from ._ops_restraint import _define_restraint
 
 class AnalysisModel:
     def __init__(self, modeldata):
@@ -27,4 +30,12 @@ class AnalysisModel:
         _define_sections(ndim=ndim, modeldata=self._modeldata) # Define sections
         _define_node(modeldata=self._modeldata) # Define nodes
         _define_element(ndim=ndim, modeldata=self._modeldata) # Define elements
+        _define_restraint(modeldata=self._modeldata) # Define restraint
+
+    def plot_model(self):
+        opsv.plot_model(node_labels=0, element_labels=0, fig_wi_he=(50,20), az_el=(-150,35), fig_lbrt=(0.05,0.05,0.95,0.95), local_axes=False,
+                fmt_model={'color':'blue', 'linestyle':'solid', 'linewidth':1.2, 'marker':'.', 'markersize':6})
+        plt.title('Undeformed Shape')
+        plt.show()
+
         

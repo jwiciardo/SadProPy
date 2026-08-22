@@ -12,8 +12,9 @@ from .preprocessing_dictionary import (
     integration_definition_dict,
     element_type_dict,
     loadcase_type_dict,
+    seismic_code_dict,
 )
-from .preprocessing_class_index import SectionModel
+from .preprocessing_class_index import SectionModel, LoadCaseType
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
@@ -23,13 +24,15 @@ from .preprocessing_dataclass import (
     SlabSections,
     Storeys,
 )
-from .preprocessing_object._shell import _generate_shell_connectivity
+from .preprocessing_object._element import _generate_element_selfweight
+from .preprocessing_object._shell import _generate_shell_selfweight, _generate_shell_connectivity
 from .preprocessing_object._section import _compute_section_properties, _trace_aggregated_sections
 from .preprocessing_object._load import _get_concentrated_elemental_loads, _get_distributed_elemental_loads, _get_shell_to_elemental_loads
 from ..utility import ConverterToInternalUnits, UserDefinedUnits
 from ..utility import TagManager
 from ..utility.exception import ValidationError
 from ..utility.filepath import get_filepath
+from ..utility.operator_function import PolygonArea
 
 class ExcelReader:
     def __init__(self, inputfile_path):
@@ -100,13 +103,14 @@ class ExcelTranslator:
         frame_sections = self._translate_frame_sections(materials=materials)
         slab_sections = self._translate_slab_sections(materials=materials)
         node_objects, storeys = self._translate_node_objects(project_information=project_information)
-        element_objects = self._translate_element_objects(node_objects=node_objects, sections=frame_sections)
-        shell_objects = self._translate_shell_objects(element_objects=element_objects, slab_sections=slab_sections)
+        element_objects = self._translate_element_objects(materials=materials, sections=frame_sections, node_objects=node_objects)
+        shell_objects = self._translate_shell_objects(materials=materials, slab_sections=slab_sections, node_objects=node_objects, element_objects=element_objects)
         restraints = self._translate_restraints(node_objects=node_objects)
         nodal_loads = self._translate_nodal_loads()
         concentrated_elemental_loads = self._translate_concentrated_elemental_loads()
         distributed_elemental_loads = self._translate_distributed_elemental_loads(element_objects=element_objects)
         shell_to_elemental_loads = self._translate_shell_to_elemental_loads(element_objects=element_objects, shell_objects=shell_objects)
+        selfweight_to_elemental_loads = self._translate_selfweight_to_elemental_loads(element_objects=element_objects, shell_objects=shell_objects)
         return {
             "Filepath Information": filepath_information,
             "Project Information": project_information,
@@ -124,6 +128,7 @@ class ExcelTranslator:
             "Concentrated Elemental Loads": concentrated_elemental_loads,
             "Distributed Elemental Loads": distributed_elemental_loads,
             "Shell to Elemental Loads": shell_to_elemental_loads,
+            "Selfweight to Elemental Loads": selfweight_to_elemental_loads,
         }
 
     # HELPER METHOD
@@ -230,13 +235,15 @@ class ExcelTranslator:
             required_preferences=[
                 "Nonlinear Analysis",
                 "P-Delta",
-                "LL Mass Factor",
+                "Mass Source Reference",
             ],
         ) # Reading Sheet "Analysis Preferences" in the Input file
+
+        mass_source_ref = seismic_code_dict[str(values["Mass Source Reference"])]
         analysis_preferences = AnalysisPreferences(
             is_nonlinear_analysis = str(values["Nonlinear Analysis"]).strip().lower() == "yes",
             is_pdelta = str(values["P-Delta"]).strip().lower() == "yes",
-            liveload_mass_factor = float(values["LL Mass Factor"]),
+            mass_source_ref = mass_source_ref,
         ) # Storing analysis preferences to dataclass
         return analysis_preferences
 
@@ -256,7 +263,7 @@ class ExcelTranslator:
         mat_model = np.asarray([material_model_dict[value.strip()] for value in data["Material Model"]], dtype=np.int8)
 
         # Translate material properties
-        mat_def = [material_definition_dict[(mtype, model)] for mtype, model in zip(mat_type, mat_model)]
+        mat_def = np.asarray([material_definition_dict[(mtype, model)] for mtype, model in zip(mat_type, mat_model)], dtype=object)
         max_columns = max(definition.properties.Count for definition in mat_def)
         properties = np.full((n, max_columns), np.nan, dtype=np.float64)
         unique_definitions = list(dict.fromkeys(mat_def))
@@ -303,7 +310,7 @@ class ExcelTranslator:
             for value in data["Integration Type"]],
             dtype=np.int8
         )
-        integration_def = [integration_definition_dict[int_type] if int_type >= 0 else None for int_type in integration_type]
+        integration_def = np.asarray([integration_definition_dict[int_type] if int_type >= 0 else None for int_type in integration_type], dtype=object)
         integration_points = np.asarray([
             value if value is not None else -1
             for value in data["Integration Points"]],
@@ -453,7 +460,7 @@ class ExcelTranslator:
         storeys = self._generate_storeys(storey_elevations=storey_elevations) # Generating Storey data from storey elevations
         return node_objects, storeys
 
-    def _translate_element_objects(self, node_objects, sections):
+    def _translate_element_objects(self, materials, sections, node_objects):
         sheet_name = "Element Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -493,6 +500,7 @@ class ExcelTranslator:
             dtype=bool,
             count=n,
         )
+        selfweight = _generate_element_selfweight(materials=materials, sections=sections, element_sec_idx=sec_idx)
         name_to_idx = dict(zip(unique_name, index))
         element_objects = {
             "Index": index,
@@ -505,11 +513,12 @@ class ExcelTranslator:
             "Rigid Zone Factor": rigid_zone_factor,
             "Offsets Length": offsets_length,
             "Is Zero Length Element": is_zero_length_element,
+            "Selfweight": selfweight,
             "Name to Index": name_to_idx,
         } # Storing element objects data to dictionary
         return element_objects
 
-    def _translate_shell_objects(self, element_objects, slab_sections):
+    def _translate_shell_objects(self, materials, slab_sections, node_objects, element_objects):
         sheet_name = "Shell Objects"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -532,6 +541,10 @@ class ExcelTranslator:
             )
         element_type = np.asarray([element_type_dict[value.strip().title()] for value in data["Element Type"]], dtype=np.int8)
         sec_idx = slab_sections.name_to_idx(names=data["Section"])
+        node_coords = node_objects["Coordinates"]
+        vertices_coords = node_coords[vertices_idx]
+        area = PolygonArea(vertices_coords=vertices_coords)
+        selfweight = _generate_shell_selfweight(materials=materials, slab_sections=slab_sections, shell_sec_idx=sec_idx)
         name_to_idx = dict(zip(unique_name, index))
         shell_objects = {
             "Index": index,
@@ -540,6 +553,8 @@ class ExcelTranslator:
             "Vertices Index": vertices_idx,
             "Element Type": element_type,
             "Section Index": sec_idx,
+            "Area": area,
+            "Selfweight": selfweight,
             "Name to Index": name_to_idx,
         } # Storing shell objects data to dictionary
         return shell_objects
@@ -653,8 +668,8 @@ class ExcelTranslator:
             loadcase_type=loadcase_type,
             load_direction=load_direction,
             locations=locations,
-            uniform_load=uniform_load,
             loads=loads,
+            uniform_load=uniform_load,
         )
         distributed_elemental_loads = {
             "Element Name": modified_element_name,
@@ -696,3 +711,58 @@ class ExcelTranslator:
             "Load": modified_load,
         } # Storing Shell to Elemental Loads data to dictionary
         return shell_to_elemental_loads
+
+    def _translate_selfweight_to_elemental_loads(self, element_objects, shell_objects):
+        sheet_name="Shell to Elemental Loads"
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=7,
+        ) # Reading Sheet "Shell to Elemental Loads" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            shell_to_elemental_loads = []
+            return shell_to_elemental_loads
+        
+        # Shell selfweight
+        shell_name = shell_objects["Unique Name"]
+        n = len(shell_name)
+        shell_loadcase_type = np.full(n, LoadCaseType.SW, dtype=np.int8)
+        shell_load_direction = np.full(n, "Gravity", dtype="U15")
+        shell_selfweight_load = shell_objects["Selfweight"]
+        shell_name, shell_edge_name, shell_loadcase_type, shell_load_direction, shell_location, shell_selfweight_load = _get_shell_to_elemental_loads(
+            shell_name=shell_name,
+            element_objects=element_objects,
+            shell_objects=shell_objects,
+            loadcase_type=shell_loadcase_type,
+            load_direction=shell_load_direction,
+            load=shell_selfweight_load,
+        )
+
+        # Element selfweight
+        element_name = element_objects["Unique Name"]
+        m = len(element_name)
+        element_loadcase_type = np.full(m, LoadCaseType.SW, dtype=np.int8)
+        element_load_direction = np.full(m, "Gravity", dtype="U15")
+        element_selfweight_load = element_objects["Selfweight"]
+        element_name, element_loadcase_type, element_load_direction, element_location, element_selfweight_load = _get_distributed_elemental_loads(
+            element_name=element_name,
+            element_objects=element_objects,
+            loadcase_type=element_loadcase_type,
+            load_direction=element_load_direction,
+            locations=np.full((m, 1), np.nan, dtype=np.float64),
+            loads=np.full((m, 1), np.nan, dtype=np.float64),
+            uniform_load=element_selfweight_load,
+        )
+        modified_element_name = np.concatenate([shell_edge_name, element_name])
+        modified_loadcase_type = np.concatenate([shell_loadcase_type, element_loadcase_type])
+        modified_load_direction = np.concatenate([shell_load_direction, element_load_direction])
+        modified_location = np.vstack([shell_location, element_location])
+        modified_load = np.vstack([shell_selfweight_load, element_selfweight_load])
+        selfweight_to_elemental_loads = {
+            "Element Name": modified_element_name,
+            "Load Case": modified_loadcase_type,
+            "Direction": modified_load_direction,
+            "Location": modified_location,
+            "Load": modified_load,
+        } # Storing Selfweight to Elemental Loads data to dictionary
+        return selfweight_to_elemental_loads

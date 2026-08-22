@@ -6,6 +6,7 @@ from .preprocessing_class_index import (
     IntegrationType,
     ElementType,
     LoadCaseType,
+    SeismicCode,
 )
 from .material_class.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
 from .material_class.steel import SteelElastic, Steel02, Steel02MinMax
@@ -96,4 +97,8 @@ loadcase_type_dict = {
     "Earthquake-Y": LoadCaseType.Ey,
     "Wind-X": LoadCaseType.Wx,
     "Wind-Y": LoadCaseType.Wy,
+}
+seismic_code_dict = {
+    "EN 1998-1:2004": SeismicCode.EN_8_2004,
+    "SNI 1726:2019": SeismicCode.SNI_1726_2019,
 }
