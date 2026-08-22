@@ -8,7 +8,12 @@ from .preprocessing_object._element import (
     _generate_geometric_transformation,
 )
 from .preprocessing_object._load import _generate_group_nodal_loads, _generate_group_concentrated_element_loads, _generate_group_distributed_element_loads
-from .preprocessing_object._mass import _generate_concentrated_element_to_nodal_gravity_loads, _generate_distributed_element_to_nodal_gravity_loads, _generate_summed_grouping_nodal_loads
+from .preprocessing_object._mass import (
+    _generate_concentrated_element_to_nodal_gravity_loads,
+    _generate_distributed_element_to_nodal_gravity_loads,
+    _generate_summed_grouping_nodal_loads,
+    _generate_summed_grouping_storey_masses,
+)
 from .preprocessing_object._zero_length_element import _generate_zerolength_element_local_axes
 from .preprocessing_class_index import ElementType, NodeSource, LoadCaseType
 from .preprocessing_class import MassSource
@@ -63,6 +68,7 @@ class ModelDataStorer:
             shell_to_elemental_loads=shell_to_elemental_loads,
             selfweight_to_elemental_loads=selfweight_to_elemental_loads,
         )
+        diaphragms = self._generate_diaphragms(nodes=nodes, masses=nodal_masses)
         print()
         return ModelData(
             filepath_information = self._translator_data["Filepath Information"],
@@ -515,6 +521,7 @@ class ModelDataStorer:
         loadcase = np.concatenate([nod_loadcase, conc_loadcase, dist_loadcase, shell_loadcase, selfweight_loadcase])
         load = np.concatenate([nod_load, conc_load, dist_load, shell_load, selfweight_load])
         result_node_tag, result_loadcase, result_load = _generate_summed_grouping_nodal_loads(node_tag=node_tag, loadcase=loadcase, load=load)
+        result_load = np.abs(result_load)
 
         # Compute nodal mass
         mass_factor = np.array([factor[loadcase] for loadcase in result_loadcase])
@@ -522,9 +529,23 @@ class ModelDataStorer:
         nodal_masses = NodalMasses(
             node_tag = result_node_tag,
             loadcase = result_loadcase,
-            load = result_load,
+            weight = result_load,
             mass = result_mass,
         ) # Store nodal masses data to dataclass
         return nodal_masses
+
+    def _generate_diaphragms(self, nodes, masses):
+        # Total storey mass
+        masses_node_idx = nodes.tag_to_idx(tags=masses.node_tag)
+        masses_node_coords = nodes.coords[masses_node_idx]
+        masses_nodal_mass = masses.weight
+        total_storey_mass, elevation = _generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=masses_nodal_mass)
+
+        # Total weighted storey mass
+        weighted_nodal_mass = masses_node_coords * masses_nodal_mass[:, None]
+        total_weighted_storey_mass, elevation =_generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=weighted_nodal_mass)
+        diaphragms = total_weighted_storey_mass / total_storey_mass[:, None]
+        print(diaphragms)
+
 
 

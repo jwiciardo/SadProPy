@@ -686,7 +686,7 @@ class SelfweightToElementalLoads:
 class NodalMasses:
     node_tag: np.ndarray                # int32, shape (N,)
     loadcase: np.ndarray                # int8, shape (N,)
-    load: np.ndarray                    # float64, shape (N,)
+    weight: np.ndarray                  # float64, shape (N,)
     mass: np.ndarray                    # float64, shape (N,)
 
     @classmethod
@@ -694,7 +694,7 @@ class NodalMasses:
         return cls(
             node_tag = np.empty(0, dtype=np.int32),
             loadcase = np.empty(0, dtype=np.int8),
-            load = np.empty(0, dtype=np.float64),
+            weight = np.empty(0, dtype=np.float64),
             mass = np.empty(0, dtype=np.float64),
         )
 

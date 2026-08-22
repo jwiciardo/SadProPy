@@ -1,5 +1,6 @@
 import numpy as np
 from ...utility.helper import transform_to_global_axes
+from ..preprocessing_class import MassSource
 
 def _generate_concentrated_element_to_nodal_gravity_loads(nodes, elements, element_tag, loadcase, location, loads):
     n = len(element_tag)
@@ -44,6 +45,7 @@ def _generate_concentrated_element_to_nodal_gravity_loads(nodes, elements, eleme
     return result_inode_tag, result_jnode_tag, result_loadcase, result_nodal_i_load, result_nodal_j_load
 
 def _generate_distributed_element_to_nodal_gravity_loads(nodes, elements, element_tag, loadcase, location, loads):
+    factor = MassSource.get(0)
     n = len(element_tag)
     element_idx = np.fromiter((elements.tag_to_idx(tags=tag)
         for tag in element_tag), dtype=np.int32, count=n)
@@ -111,3 +113,21 @@ def _generate_summed_grouping_nodal_loads(node_tag, loadcase, load):
     result_loadcase = unique_grouping_keys["loadcase"]
     result_load = total_load
     return result_node_tag, result_loadcase, result_load
+
+def _generate_summed_grouping_storey_masses(node_coords, masses):
+    node_elevation = node_coords[:, 2]
+    mask = ~np.isclose(node_elevation, 0.0)
+
+    node_elevation = node_elevation[mask]
+    masses = masses[mask]
+    elevation, indices = np.unique(
+        node_elevation,
+        return_inverse=True,
+    )
+    if masses.ndim == 1:
+        total_masses = np.zeros(len(elevation), dtype=masses.dtype)
+    else:
+        total_masses = np.zeros((len(elevation), masses.shape[1]), dtype=masses.dtype)
+    np.add.at(total_masses, indices, masses)
+    order = np.argsort(elevation)[::-1]
+    return total_masses[order], elevation[order]

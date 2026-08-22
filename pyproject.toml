@@ -29,9 +29,10 @@ Repository = "https://github.com/jwiciardo/SadProPy"
 
 [project.optional-dependencies]
 dev = [
-"pytest>=8.0,<10.0",
-"ruff>=0.6",
-"mypy>=1.8"
+    "pytest>=8.0,<10.0",
+    "ruff>=0.6",
+    "mypy>=1.8",
+    "pandas>=3.0",
 ]
 
 [project.scripts]

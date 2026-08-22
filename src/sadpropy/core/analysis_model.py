@@ -6,6 +6,7 @@ from ._ops_section import _define_sections
 from ._ops_node import _define_node
 from ._ops_element import _define_element
 from ._ops_restraint import _define_restraint
+from ._ops_mass import _compute_and_define_mass
 
 class AnalysisModel:
     def __init__(self, modeldata):
@@ -31,6 +32,7 @@ class AnalysisModel:
         _define_node(modeldata=self._modeldata) # Define nodes
         _define_element(ndim=ndim, modeldata=self._modeldata) # Define elements
         _define_restraint(modeldata=self._modeldata) # Define restraint
+        _compute_and_define_mass(modeldata=self._modeldata) # Compute Mass
 
     def plot_model(self):
         opsv.plot_model(node_labels=0, element_labels=0, fig_wi_he=(50,20), az_el=(-150,35), fig_lbrt=(0.05,0.05,0.95,0.95), local_axes=False,

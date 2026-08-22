@@ -6,12 +6,13 @@ from ..preprocessing.preprocessing_class import MassSource
 
 g = GRAVITATIONAL_ACCELERATION
 
-def _compute_mass(modeldata):
+def _compute_and_define_mass(modeldata):
     nodes = modeldata.nodes
-    shells = modeldata.shells
-    shell_nodes_idx = modeldata.nodes_idx
-    shell_coords = nodes.coords[shell_nodes_idx]
-    print(shell_coords)
+    nodal_masses = modeldata.nodal_masses
+    masses_node_tag = nodal_masses.node_tag
+    masses_nodal_mass = nodal_masses.mass
+    #print(masses_node_tag)
+    #print(masses_nodal_mass)
 
 
 
