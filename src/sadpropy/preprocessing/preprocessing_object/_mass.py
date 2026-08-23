@@ -61,12 +61,13 @@ def _generate_distributed_element_to_nodal_gravity_loads(nodes, elements, elemen
     inode_tag = nodes.node_tag[end_nodes_idx[:, 0]]
     jnode_tag = nodes.node_tag[end_nodes_idx[:, 1]]
     fraction_length = location[:, 1] - location[:, 0]
+    initial_location = location[:, 0]
     load1 = transformed_load[:, 0]
     load2 = transformed_load[:, 1]
-    concentrated_load = (load1 + load2) / 2.0 * fraction_length * element_length
-    concentrated_load_location = ((load1 / 2.0) + ((load2 - load1) / 3.0)) / ((load1 + load2) / 2.0) * fraction_length
-    nodal_i_load = concentrated_load * (1.0 - concentrated_load_location)
-    nodal_j_load = concentrated_load * concentrated_load_location
+    resultant_load = (load1 + load2) / 2.0 * fraction_length * element_length
+    resultant_load_location = initial_location + (((3.0 * load1) + (2.0 * (load2 - load1))) / (3.0 * (load1 + load2)) * fraction_length)
+    nodal_i_load = resultant_load * (1.0 - resultant_load_location)
+    nodal_j_load = resultant_load * resultant_load_location
 
     grouping_keys = np.empty(
         n,
@@ -93,26 +94,15 @@ def _generate_distributed_element_to_nodal_gravity_loads(nodes, elements, elemen
     result_nodal_j_load = total_nodal_j_load
     return result_inode_tag, result_jnode_tag, result_loadcase, result_nodal_i_load, result_nodal_j_load
 
-def _generate_summed_grouping_nodal_loads(node_tag, loadcase, load):
-    n = len(node_tag)
-    grouping_keys = np.empty(
-        n,
-        dtype=[
-            ("node_tag", np.int32),
-            ("loadcase", np.int8),
-        ])
-    grouping_keys["node_tag"] = node_tag
-    grouping_keys["loadcase"] = loadcase
-    unique_grouping_keys, indices = np.unique(
-        grouping_keys,
+def _generate_summed_grouping_nodal_loads(node_tag, load):
+    result_node_tag, indices = np.unique(
+        node_tag,
         return_inverse=True,
     )
-    total_load = np.zeros(len(unique_grouping_keys), dtype=load.dtype)
+    total_load = np.zeros(len(result_node_tag), dtype=load.dtype)
     np.add.at(total_load, indices, load)
-    result_node_tag = unique_grouping_keys["node_tag"]
-    result_loadcase = unique_grouping_keys["loadcase"]
     result_load = total_load
-    return result_node_tag, result_loadcase, result_load
+    return result_node_tag, result_load
 
 def _generate_summed_grouping_storey_masses(node_coords, masses):
     node_elevation = node_coords[:, 2]

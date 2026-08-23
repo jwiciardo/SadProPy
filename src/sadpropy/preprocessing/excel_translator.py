@@ -571,7 +571,7 @@ class ExcelTranslator:
         node_name = np.asarray(data["Node"], dtype="U15")
         node_idx = np.fromiter((node_name_to_idx[name] for name in node_name), dtype=np.int32, count=n)
         dof_columns = [data["UX"], data["UY"], data["UZ"], data["RX"], data["RY"], data["RZ"]]
-        dofs = self._group_typical_columns(columns=dof_columns, dtype=np.int32)
+        dofs = self._group_typical_columns(columns=dof_columns, dtype=np.int8)
         restraints = {
             "Node Index": node_idx,
             "DOFs": dofs,
@@ -713,16 +713,6 @@ class ExcelTranslator:
         return shell_to_elemental_loads
 
     def _translate_selfweight_to_elemental_loads(self, element_objects, shell_objects):
-        sheet_name="Shell to Elemental Loads"
-        data, n = self._reader.read(
-            sheet_name=sheet_name, 
-            orientation="columns", 
-            start_row=7,
-        ) # Reading Sheet "Shell to Elemental Loads" in the Input file
-        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
-            shell_to_elemental_loads = []
-            return shell_to_elemental_loads
-        
         # Shell selfweight
         shell_name = shell_objects["Unique Name"]
         n = len(shell_name)

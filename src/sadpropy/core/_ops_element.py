@@ -2,7 +2,7 @@ import openseespy.opensees as ops
 import numpy as np
 from ..preprocessing.preprocessing_class_index import MaterialModel, SectionProperties
 
-def _define_element(ndim, modeldata):
+def _define_elements(ndim, modeldata):
     materials = modeldata.materials # Retrieve materials data
     mat_model = materials.mat_model
     mat_def = materials.mat_def

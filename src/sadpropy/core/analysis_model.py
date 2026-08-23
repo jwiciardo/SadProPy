@@ -3,10 +3,11 @@ import opsvis as opsv
 import matplotlib.pyplot as plt
 from ._ops_material import _define_materials
 from ._ops_section import _define_sections
-from ._ops_node import _define_node
-from ._ops_element import _define_element
-from ._ops_restraint import _define_restraint
-from ._ops_mass import _compute_and_define_mass
+from ._ops_node import _define_nodes
+from ._ops_element import _define_elements
+from ._ops_restraint import _define_restraints
+from ._ops_mass import _compute_and_define_masses
+from ._ops_diaphragm import _define_diaphragms
 
 class AnalysisModel:
     def __init__(self, modeldata):
@@ -29,10 +30,11 @@ class AnalysisModel:
         self._initialise_model(ndim=ndim) # Initialise model
         _define_materials(modeldata=self._modeldata) # Define materials
         _define_sections(ndim=ndim, modeldata=self._modeldata) # Define sections
-        _define_node(modeldata=self._modeldata) # Define nodes
-        _define_element(ndim=ndim, modeldata=self._modeldata) # Define elements
-        _define_restraint(modeldata=self._modeldata) # Define restraint
-        _compute_and_define_mass(modeldata=self._modeldata) # Compute Mass
+        _define_nodes(modeldata=self._modeldata) # Define nodes
+        _define_elements(ndim=ndim, modeldata=self._modeldata) # Define elements
+        _define_restraints(modeldata=self._modeldata) # Define restraints
+        applied_nodal_mass = _compute_and_define_masses(modeldata=self._modeldata) # Compute Masses
+        _define_diaphragms(modeldata=self._modeldata) # Define diaphragms
 
     def plot_model(self):
         opsv.plot_model(node_labels=0, element_labels=0, fig_wi_he=(50,20), az_el=(-150,35), fig_lbrt=(0.05,0.05,0.95,0.95), local_axes=False,

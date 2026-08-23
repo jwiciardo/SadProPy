@@ -14,6 +14,7 @@ from .preprocessing_object._mass import (
     _generate_summed_grouping_nodal_loads,
     _generate_summed_grouping_storey_masses,
 )
+from .preprocessing_object._diaphragm import _get_storey_nodes
 from .preprocessing_object._zero_length_element import _generate_zerolength_element_local_axes
 from .preprocessing_class_index import ElementType, NodeSource, LoadCaseType
 from .preprocessing_class import MassSource
@@ -30,6 +31,7 @@ from .preprocessing_dataclass import (
     ShellToElementalLoads,
     SelfweightToElementalLoads,
     NodalMasses,
+    Diaphragms,
 )
 from ..utility import TagManager
 from ..utility.helper import get_parent_node
@@ -90,6 +92,7 @@ class ModelDataStorer:
             shell_to_elemental_loads = shell_to_elemental_loads,
             selfweight_to_elemental_loads = selfweight_to_elemental_loads,
             nodal_masses = nodal_masses,
+            diaphragms = diaphragms,
         )
     
     # SUPPORTING METHODS
@@ -121,9 +124,9 @@ class ModelDataStorer:
         )
         unique_name = np.concatenate((usr_unique_name, np.asarray(gen_unique_name, dtype="U20")))
         if len(gen_coords) > 0:
-            coords = np.vstack((usr_coords, np.asarray(gen_coords, dtype=np.float64)))
+            coords = np.round(np.vstack((usr_coords, np.asarray(gen_coords, dtype=np.float64))), decimals=6)
         else:
-            coords = usr_coords
+            coords = np.round(usr_coords, decimals=6)
         generated_source = np.concatenate((usr_generated_source, np.asarray(gen_generated_source, dtype=np.int32)))
         generated_from = np.concatenate((usr_generated_from, np.asarray(gen_generated_from, dtype="U15")))
         self._element_to_end_nodes_map = usr_element_to_end_nodes | gen_element_to_end_nodes
@@ -519,16 +522,15 @@ class ModelDataStorer:
         # Concatenate all loads
         node_tag = np.concatenate([nod_node_tag, conc_node_tag, dist_node_tag, shell_node_tag, selfweight_node_tag])
         loadcase = np.concatenate([nod_loadcase, conc_loadcase, dist_loadcase, shell_loadcase, selfweight_loadcase])
+        mass_factor = np.array([factor[lc] for lc in loadcase])
         load = np.concatenate([nod_load, conc_load, dist_load, shell_load, selfweight_load])
-        result_node_tag, result_loadcase, result_load = _generate_summed_grouping_nodal_loads(node_tag=node_tag, loadcase=loadcase, load=load)
-        result_load = np.abs(result_load)
+        load = np.abs(load) * mass_factor
+        result_node_tag, result_load = _generate_summed_grouping_nodal_loads(node_tag=node_tag, load=load)
 
         # Compute nodal mass
-        mass_factor = np.array([factor[loadcase] for loadcase in result_loadcase])
-        result_mass = result_load / g * mass_factor
+        result_mass = result_load / g
         nodal_masses = NodalMasses(
             node_tag = result_node_tag,
-            loadcase = result_loadcase,
             weight = result_load,
             mass = result_mass,
         ) # Store nodal masses data to dataclass
@@ -538,14 +540,32 @@ class ModelDataStorer:
         # Total storey mass
         masses_node_idx = nodes.tag_to_idx(tags=masses.node_tag)
         masses_node_coords = nodes.coords[masses_node_idx]
-        masses_nodal_mass = masses.weight
+        masses_nodal_mass = masses.mass
         total_storey_mass, elevation = _generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=masses_nodal_mass)
 
         # Total weighted storey mass
         weighted_nodal_mass = masses_node_coords * masses_nodal_mass[:, None]
-        total_weighted_storey_mass, elevation =_generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=weighted_nodal_mass)
-        diaphragms = total_weighted_storey_mass / total_storey_mass[:, None]
-        print(diaphragms)
+        total_weighted_storey_mass, _ =_generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=weighted_nodal_mass)
+        diaph_coords = np.round(total_weighted_storey_mass / total_storey_mass[:, None], decimals=6)
 
+        # Diaphragms properties
+        n = len(diaph_coords)
+        index = np.arange(n, dtype=np.int32)
+        diaph_name = np.array([f"Diaph-{z:.1f}" for z in diaph_coords[:, 2]], dtype="U32")
+        diaph_tag = np.asarray(self._tagmanager.add(category="Node", n=n, names=diaph_name), dtype=np.int32)
+        dofs = np.tile((0, 0, 1, 1, 1, 0), (n, 1)).astype(np.int8)
+        constrained_node_idx = _get_storey_nodes(nodes=nodes, elevation=elevation)
+        constrained_node_tag = self._tagmanager.get_tag(category="Node", names=nodes.unique_name[constrained_node_idx]) # Retrieve constrained node tag
+        diaphragms = Diaphragms(
+            index = index,
+            unique_name = diaph_name,
+            diaph_tag = diaph_tag,
+            coords = diaph_coords,
+            dofs = dofs,
+            constrained_nodes_idx = constrained_node_idx,
+            constrained_nodes_tag = constrained_node_tag,
+            storey_mass = total_storey_mass,
+        ) # Store diaphragms data to dataclass
+        return diaphragms
 
 

@@ -587,7 +587,7 @@ class Restraints:
     node_idx: np.ndarray                # int32, shape (N,)
     node_name: np.ndarray               # str, shape (N,)
     node_tag: np.ndarray                # int32, shape (N,)
-    dofs: np.ndarray                    # int32, shape (N,6)
+    dofs: np.ndarray                    # int8, shape (N,6)
 
     @classmethod
     def empty(cls):
@@ -595,7 +595,7 @@ class Restraints:
             node_idx = np.empty(0, dtype=np.int32),
             node_name = np.empty(0, dtype="U32"),
             node_tag = np.empty(0, dtype=np.int32),
-            dofs = np.empty((0, 6), dtype=np.float64),
+            dofs = np.empty((0, 6), dtype=np.int8),
         )
     
 # LOADS: NODAL LOADS
@@ -685,7 +685,6 @@ class SelfweightToElementalLoads:
 @dataclass(slots=True, frozen=True)
 class NodalMasses:
     node_tag: np.ndarray                # int32, shape (N,)
-    loadcase: np.ndarray                # int8, shape (N,)
     weight: np.ndarray                  # float64, shape (N,)
     mass: np.ndarray                    # float64, shape (N,)
 
@@ -693,9 +692,33 @@ class NodalMasses:
     def empty(cls):
         return cls(
             node_tag = np.empty(0, dtype=np.int32),
-            loadcase = np.empty(0, dtype=np.int8),
             weight = np.empty(0, dtype=np.float64),
             mass = np.empty(0, dtype=np.float64),
+        )
+
+# DIAPHRAGMS
+@dataclass(slots=True, frozen=True)
+class Diaphragms:
+    index: np.ndarray                   # int32, shape (N,)
+    unique_name: np.ndarray             # str, shape (N,)
+    diaph_tag: np.ndarray               # int32, shape (N,)
+    coords: np.ndarray                  # float64, shape (N,3)
+    dofs: np.ndarray                    # int8, shape (N,6)
+    constrained_nodes_idx: np.ndarray   # int32, shape(N, N_node)
+    constrained_nodes_tag: np.ndarray   # int32, shape(N, N_node)
+    storey_mass: np.ndarray             # float64, shape (N,)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            node_idx = np.empty(0, dtype=np.int32),
+            unique_name = np.empty(0, dtype="U32"),
+            node_tag = np.empty(0, dtype=np.int32),
+            coords = np.empty((0, 3), dtype=np.float64),
+            dofs = np.empty((0, 6), dtype=np.int8),
+            constrained_nodes_idx = np.empty(0, dtype=np.int32),
+            constrained_nodes_tag = np.empty(0, dtype=np.int32),
+            storey_mass = np.empty(0, dtype=np.float64),
         )
 
 # MODEL DATA
@@ -720,6 +743,7 @@ class ModelData:
     shell_to_elemental_loads: ShellToElementalLoads
     selfweight_to_elemental_loads: SelfweightToElementalLoads
     nodal_masses: NodalMasses
+    diaphragms: Diaphragms
 
     @classmethod
     def empty(cls):
@@ -749,5 +773,6 @@ class ModelData:
             distributed_elemental_loads = DistributedElementalLoads.empty(),
             shell_to_elemental_loads = ShellToElementalLoads.empty(),
             selfweight_to_elemental_loads = SelfweightToElementalLoads.empty(),
-            nodal_masses = NodalMasses.empty()
+            nodal_masses = NodalMasses.empty(),
+            diaphragms = Diaphragms.empty()
         )

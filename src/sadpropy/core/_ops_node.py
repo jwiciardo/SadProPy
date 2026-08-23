@@ -1,13 +1,12 @@
 import openseespy.opensees as ops
 
-def _define_node(modeldata):
+def _define_nodes(modeldata):
     nodes = modeldata.nodes # Retrieve nodes data
     node_tag = nodes.node_tag
     node_coords = nodes.coords
-    for i in nodes.index:
-        tag = int(node_tag[i])
-        coords = list(map(float, node_coords[i]))
+    for tag, coords in zip(node_tag, node_coords):
+        coords = list(map(float, coords))
         ops.node(
-            tag, # nodeTag
+            int(tag), # nodeTag
             *coords, # *crds = [X, Y, Z]
         )
