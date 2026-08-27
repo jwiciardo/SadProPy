@@ -6,6 +6,9 @@ from .preprocessing_class_index import (
     IntegrationType,
     ElementType,
     LoadCaseType,
+    LoadType,
+    ModalCombinationMethod,
+    DirectionalCombinationType,
     SeismicCode,
 )
 from .material_class.concrete import ConcreteElastic, Concrete04, Concrete04MinMax
@@ -14,6 +17,7 @@ from .material_class.spring import SpringIMKBilinear, SpringIMKPeakOriented, Spr
 from .material_class.aggregator import AggregatorElastic
 from .section_class.rectangular import RectangularElastic, RectangularConcreteFiber
 from .integration_class.beam_integration import DistributedPlasticity, ConcentratedPlasticity
+from .load_case_class.load_case import LinearStatic, Modal, ResponseSpectrum
 
 material_type_dict = {
     "Concrete": MaterialType.Concrete,
@@ -88,15 +92,39 @@ element_type_dict = {
     "Brace": ElementType.Brace,
     "Zero Length": ElementType.ZeroLength,
 }
-loadcase_type_dict = {
-    "Selfweight": LoadCaseType.SW,
-    "Dead": LoadCaseType.D,
-    "Live": LoadCaseType.L,
-    "Live Roof": LoadCaseType.Lr,
-    "Earthquake-X": LoadCaseType.Ex,
-    "Earthquake-Y": LoadCaseType.Ey,
-    "Wind-X": LoadCaseType.Wx,
-    "Wind-Y": LoadCaseType.Wy,
+load_case_type_dict = {
+    "Linear Static": LoadCaseType.LinearStatic,
+    "Nonlinear Static": LoadCaseType.NonlinearStatic,
+    "Modal": LoadCaseType.Modal,
+    "Response Spectrum": LoadCaseType.ResponseSpectrum,
+    "Linear Time History": LoadCaseType.LinearTimeHistory,
+    "Nonlinear Time History": LoadCaseType.NonlinearTimeHistory,
+}
+load_type_dict = {
+    "Dead": LoadType.Dead,
+    "Live": LoadType.Live,
+    "Live Roof": LoadType.LiveRoof,
+    "Seismic": LoadType.Seismic,
+    "Wind": LoadType.Wind,
+    "Eigenvalue": LoadType.Eigenvalue,
+    "Accel UX": LoadType.AccelUX,
+    "Accel UY": LoadType.AccelUY,
+    "Accel UZ": LoadType.AccelUZ,
+    "Accel RX": LoadType.AccelRX,
+    "Accel RY": LoadType.AccelRY,
+    "Accel RZ": LoadType.AccelRZ,
+}
+modal_comb_method_dict = {
+    "CQC": ModalCombinationMethod.CQC,
+    "SRSS": ModalCombinationMethod.SRSS,
+}
+dir_comb_type_dict = {
+    "SRSS": DirectionalCombinationType.SRSS,
+}
+load_case_definition_dict = {
+    (LoadCaseType.LinearStatic): LinearStatic,
+    (LoadCaseType.Modal): Modal,
+    (LoadCaseType.ResponseSpectrum): ResponseSpectrum,
 }
 seismic_code_dict = {
     "EN 1998-1:2004": SeismicCode.EN_8_2004,

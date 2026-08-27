@@ -11,10 +11,14 @@ from .preprocessing_dictionary import (
     integration_type_dict,
     integration_definition_dict,
     element_type_dict,
-    loadcase_type_dict,
+    load_case_type_dict,
+    load_type_dict,
+    modal_comb_method_dict,
+    dir_comb_type_dict,
+    load_case_definition_dict,
     seismic_code_dict,
 )
-from .preprocessing_class_index import SectionModel, LoadCaseType
+from .preprocessing_class_index import SectionModel, LoadType
 from .preprocessing_dataclass import (
     FilePathInformation,
     ProjectInformation,
@@ -23,6 +27,8 @@ from .preprocessing_dataclass import (
     FrameSections,
     SlabSections,
     Storeys,
+    LoadCases,
+    LoadCombinations,
 )
 from .preprocessing_object._element import _generate_element_selfweight
 from .preprocessing_object._shell import _generate_shell_selfweight, _generate_shell_connectivity
@@ -106,6 +112,7 @@ class ExcelTranslator:
         element_objects = self._translate_element_objects(materials=materials, sections=frame_sections, node_objects=node_objects)
         shell_objects = self._translate_shell_objects(materials=materials, slab_sections=slab_sections, node_objects=node_objects, element_objects=element_objects)
         restraints = self._translate_restraints(node_objects=node_objects)
+        load_cases = self._translate_load_cases()
         nodal_loads = self._translate_nodal_loads()
         concentrated_elemental_loads = self._translate_concentrated_elemental_loads()
         distributed_elemental_loads = self._translate_distributed_elemental_loads(element_objects=element_objects)
@@ -124,6 +131,7 @@ class ExcelTranslator:
             "Element Objects": element_objects,
             "Shell Objects": shell_objects,
             "Restraints": restraints,
+            "Load Cases": load_cases,
             "Nodal Loads": nodal_loads,
             "Concentrated Elemental Loads": concentrated_elemental_loads,
             "Distributed Elemental Loads": distributed_elemental_loads,
@@ -168,12 +176,14 @@ class ExcelTranslator:
         return storeys
 
     def _modify_empty_values(self, values, converter=None, dtype=object, filled_values=np.nan):
-        modified_values = np.where(
-            [value is not None for value in values],
-            converter(values=values) if converter is not None else np.asarray(values, dtype=dtype), 
-            filled_values,
-        )
-        return modified_values
+        modified_values = [
+            converter(value)
+            if converter is not None and value is not None
+            else value if value is not None
+            else filled_values
+            for value in values
+        ]
+        return np.asarray(modified_values, dtype=dtype)
 
     def _group_typical_columns(self, columns, converter=None, dtype=object):
         group_values = np.column_stack([
@@ -344,7 +354,7 @@ class ExcelTranslator:
             ]
         sec_def[aggregator_sec_mask] = sec_def[resolved_sec_idx[aggregator_sec_mask]]
         max_columns = max(definition.dimensions.Count for definition in sec_def[normal_sec_mask])
-        dimensions = np.full((n, max_columns), np.nan, dtype=np.float64)
+        dimensions = np.full((n, max_columns), np.nan, dtype=object)
         unique_definitions = list(dict.fromkeys(sec_def[normal_sec_mask]))
         for definition in unique_definitions:
             mask = (
@@ -578,6 +588,109 @@ class ExcelTranslator:
         } # Storing restraints data to dictionary
         return restraints
 
+    def _translate_load_cases(self):
+        sheet_name="Load Cases"
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=12,
+        ) # Reading Sheet "Load Cases" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            load_cases = LoadCases.empty()
+            return load_cases
+        index = np.arange(n, dtype=np.int32)
+        load_case_name = np.asarray(data["Load Case Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=load_case_name, col_name="Load Case Name")
+        load_case_type = np.asarray([
+            load_case_type_dict[value.strip().title()]
+            if value is not None and value.strip() else -1
+            for value in data["Load Case Type"]],
+            dtype=np.int8
+        )
+        load_type_columns = ["Load Type 1", "Load Type 2", "Load Type 3", "Load Type 4", "Load Type 5", "Load Type 6"]
+        load_types = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=None, dtype="U15", filled_values="") for column in load_type_columns
+        ])
+        load_types = np.asarray([[
+            load_type_dict[value.strip()]
+            if value and value.strip() else -1
+            for value in row]
+            for row in load_types],
+            dtype=np.int8,
+        )
+        function_name_columns = ["Function Name 1", "Function Name 2", "Function Name 3", "Function Name 4", "Function Name 5", "Function Name 6"]
+        function_names = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=None, dtype="U64", filled_values=np.nan) for column in function_name_columns
+        ])
+        modal_combination_method = np.asarray([
+            modal_comb_method_dict[value.strip()]
+            if value is not None and value.strip() else -1
+            for value in data["Modal Combination Method"]],
+            dtype=np.int8
+        )
+        directional_combination_type = np.asarray([
+            dir_comb_type_dict[value.strip()]
+            if value is not None and value.strip() else -1
+            for value in data["Directional Combination Type"]],
+            dtype=np.int8
+        )
+
+        # Translate load case parameters
+        load_case_def = np.asarray([load_case_definition_dict[(lctype)] for lctype in load_case_type], dtype=object)
+        max_columns = max(definition.parameters.Count for definition in load_case_def)
+        parameters = np.full((n, max_columns), np.nan, dtype=np.float64)
+        unique_definitions = list(dict.fromkeys(load_case_def))
+        for definition in unique_definitions:
+            mask = np.asarray([d is definition for d in load_case_def], dtype=bool)
+            selected_data = {key: np.asarray(value)[mask] for key, value in data.items()}
+            translated_params = definition.translate(data=selected_data, converter=self._to_internalunits, load_types=load_types[mask])
+            print(translated_params.shape)
+            parameters[mask, :definition.parameters.Count] = translated_params
+        load_cases = LoadCases(
+            index = index,
+            load_case_name = load_case_name,
+            load_case_type = load_case_type,
+            load_types = load_types,
+            function_names = function_names,
+            modal_combination_method = modal_combination_method,
+            directional_combination_type = directional_combination_type,
+            parameters = parameters,
+        ) # Storing load cases data to dictionary
+        return load_cases
+
+    def _translate_load_combinations(self):
+        sheet_name="Load Combinations"
+        data, n = self._reader.read(
+            sheet_name=sheet_name, 
+            orientation="columns", 
+            start_row=6,
+        ) # Reading Sheet "Load Combinations" in the Input file
+        if not self._validate_data(nrows=n, sheet_name=sheet_name, mandatory=False):
+            load_combinations = LoadCombinations.empty()
+            return load_combinations
+        index = np.arange(n, dtype=np.int32)
+        load_combination_name = np.asarray(data["Load Combination Name"], dtype="U32")
+        self._validate_duplicate_value(col_data=load_combination_name, col_name="Load Combination Name")
+        load_name_columns = ["Load Name 1", "Load Name 2", "Load Name 3", "Load Name 4", "Load Name 5", "Load Name 6", "Load Name 7", "Load Name 8", "Load Name 9", "Load Name 10"]
+        load_names = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=None, dtype="U32", filled_values=np.nan) for column in load_name_columns
+        ])
+        scale_factor_columns = ["Scale Factor 1", "Scale Factor 2", "Scale Factor 3", "Scale Factor 4", "Scale Factor 5", "Scale Factor 6", "Scale Factor 7", "Scale Factor 8", "Scale Factor 9", "Scale Factor 10"]
+        scale_factors = np.column_stack([
+            self._modify_empty_values(values=data[column], converter=None, dtype=np.float64, filled_values=np.nan) for column in scale_factor_columns
+        ])
+        load_combinations = LoadCombinations(
+            index = index,
+            load_combination_name = load_combination_name,
+            load_case_type = load_case_type,
+            load_types = load_types,
+            function_names = function_names,
+            modal_combination_method = modal_combination_method,
+            directional_combination_type = directional_combination_type,
+            parameters = parameters,
+        ) # Storing load combinations data to dictionary
+        return load_combinations
+
     def _translate_nodal_loads(self):
         sheet_name="Nodal Loads"
         data, n = self._reader.read(
@@ -589,7 +702,7 @@ class ExcelTranslator:
             nodal_loads = []
             return nodal_loads
         node_name = np.asarray(data["Node"], dtype="U15")
-        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        load_case = np.asarray(data["L"], dtype=np.int8)
         force_columns = ["FX", "FY", "FZ"]
         moment_columns = ["MX", "MY", "MZ"]
         loads = np.column_stack(
@@ -651,7 +764,7 @@ class ExcelTranslator:
             distributed_elemental_loads = []
             return distributed_elemental_loads
         element_name = np.asarray(data["Element"], dtype="U15")
-        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([load_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         uniform_load = self._modify_empty_values(values=data["Uniform Load"], converter=self._to_internalunits.distributed_elemental_load, dtype=np.float64, filled_values=np.nan)
         load_columns = ["Load 1", "Load 2", "Load 3", "Load 4"]
@@ -691,7 +804,7 @@ class ExcelTranslator:
             shell_to_elemental_loads = []
             return shell_to_elemental_loads
         shell_name = np.asarray(data["Shell"], dtype="U15")
-        loadcase_type = np.asarray([loadcase_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
+        loadcase_type = np.asarray([load_type_dict[value.strip().title()] for value in data["Load Case"]], dtype=np.int8)
         load_direction = np.asarray(data["Direction"], dtype="U15")
         load = self._modify_empty_values(values=data["Load"], converter=self._to_internalunits.shell_load, dtype=np.float64, filled_values=np.nan)
         modified_shell_name, modified_edge_name, modified_loadcase_type, modified_load_direction, modified_location, modified_load = _get_shell_to_elemental_loads(
@@ -716,7 +829,7 @@ class ExcelTranslator:
         # Shell selfweight
         shell_name = shell_objects["Unique Name"]
         n = len(shell_name)
-        shell_loadcase_type = np.full(n, LoadCaseType.SW, dtype=np.int8)
+        shell_loadcase_type = np.full(n, LoadType.Dead, dtype=np.int8)
         shell_load_direction = np.full(n, "Gravity", dtype="U15")
         shell_selfweight_load = shell_objects["Selfweight"]
         shell_name, shell_edge_name, shell_loadcase_type, shell_load_direction, shell_location, shell_selfweight_load = _get_shell_to_elemental_loads(
@@ -731,7 +844,7 @@ class ExcelTranslator:
         # Element selfweight
         element_name = element_objects["Unique Name"]
         m = len(element_name)
-        element_loadcase_type = np.full(m, LoadCaseType.SW, dtype=np.int8)
+        element_loadcase_type = np.full(m, LoadType.Dead, dtype=np.int8)
         element_load_direction = np.full(m, "Gravity", dtype="U15")
         element_selfweight_load = element_objects["Selfweight"]
         element_name, element_loadcase_type, element_load_direction, element_location, element_selfweight_load = _get_distributed_elemental_loads(

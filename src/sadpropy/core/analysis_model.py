@@ -5,9 +5,10 @@ from ._ops_material import _define_materials
 from ._ops_section import _define_sections
 from ._ops_node import _define_nodes
 from ._ops_element import _define_elements
-from ._ops_restraint import _define_restraints
+from ._ops_restraint import _assign_restraints
 from ._ops_mass import _compute_and_define_masses
-from ._ops_diaphragm import _define_diaphragms
+from ._ops_diaphragm import _assign_diaphragms
+from ._ops_load import _assign_loads
 
 class AnalysisModel:
     def __init__(self, modeldata):
@@ -32,9 +33,10 @@ class AnalysisModel:
         _define_sections(ndim=ndim, modeldata=self._modeldata) # Define sections
         _define_nodes(modeldata=self._modeldata) # Define nodes
         _define_elements(ndim=ndim, modeldata=self._modeldata) # Define elements
-        _define_restraints(modeldata=self._modeldata) # Define restraints
+        _assign_restraints(modeldata=self._modeldata) # Define restraints
         applied_nodal_mass = _compute_and_define_masses(modeldata=self._modeldata) # Compute Masses
-        _define_diaphragms(modeldata=self._modeldata) # Define diaphragms
+        _assign_diaphragms(modeldata=self._modeldata) # Define diaphragms
+        _assign_loads(modeldata=self._modeldata) # Define loads
 
     def plot_model(self):
         opsv.plot_model(node_labels=0, element_labels=0, fig_wi_he=(50,20), az_el=(-150,35), fig_lbrt=(0.05,0.05,0.95,0.95), local_axes=False,

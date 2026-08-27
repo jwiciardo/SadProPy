@@ -28,9 +28,9 @@ class RectangularConcreteFiber:
         barDiaTop = converter.length(values=data["FiberProp3"])
         barDiaBot = converter.length(values=data["FiberProp4"])
         barDiaInt = converter.length(values=data["FiberProp5"])
-        nBarsTop = np.asarray(data["FiberProp6"], dtype=np.int8)
-        nBarsBot = np.asarray(data["FiberProp7"], dtype=np.int8)
-        nBarsInt = np.asarray(data["FiberProp8"], dtype=np.int8)
+        nBarsTop = np.asarray(data["FiberProp6"], dtype=np.float64)
+        nBarsBot = np.asarray(data["FiberProp7"], dtype=np.float64)
+        nBarsInt = np.asarray(data["FiberProp8"], dtype=np.float64)
         return np.column_stack((
             h,
             b,

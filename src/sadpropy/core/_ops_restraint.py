@@ -1,7 +1,7 @@
 import openseespy.opensees as ops
 
 
-def _define_restraints(modeldata):
+def _assign_restraints(modeldata):
     restraints = modeldata.restraints # Retrieve restraints data
     node_tag = restraints.node_tag
     restraint_dofs = restraints.dofs

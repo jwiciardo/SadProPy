@@ -16,7 +16,7 @@ from .preprocessing_object._mass import (
 )
 from .preprocessing_object._diaphragm import _get_storey_nodes
 from .preprocessing_object._zero_length_element import _generate_zerolength_element_local_axes
-from .preprocessing_class_index import ElementType, NodeSource, LoadCaseType
+from .preprocessing_class_index import ElementType, NodeSource, LoadType
 from .preprocessing_class import MassSource
 from .preprocessing_dataclass import (
     ModelData,
@@ -86,6 +86,7 @@ class ModelDataStorer:
             zerolength_elements = zerolength_elements,
             shells = shells,
             restraints = restraints,
+            load_cases = self._translator_data["Load Cases"],
             nodal_loads = nodal_loads,
             concentrated_elemental_loads = concentrated_elemental_loads,
             distributed_elemental_loads = distributed_elemental_loads,
@@ -178,7 +179,12 @@ class ModelDataStorer:
             offsets_length=offsets_length,
             rotation_matrices=rotation_matrices,
         )
-        geom_transf_idx, transf_vec, transf_offsets, transf_name = _generate_geometric_transformation(element_type=element_type, vec_z=vec_z, end_offsets=end_offsets)
+        geom_transf_idx, transf_vec, transf_offsets, transf_name = _generate_geometric_transformation(
+            element_type=element_type,
+            vec_z=vec_z, 
+            end_offsets=end_offsets,
+            rigid_zone_factor=rigid_zone_factor
+        )
         transf_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(transf_vec), names=transf_name), dtype=np.int32)
         geom_transf_tag = np.full_like(geom_transf_idx, -1)
         geom_transf_tag[geom_transf_idx >= 0] = transf_tag[geom_transf_idx[geom_transf_idx >= 0]]
@@ -423,7 +429,7 @@ class ModelDataStorer:
         factor = MassSource.get(mass_source_ref)
         
         # Nodal loads
-        nod_loadcase_mask = (nodal_loads.loadcase == LoadCaseType.SW) | (nodal_loads.loadcase == LoadCaseType.D) | (nodal_loads.loadcase == LoadCaseType.L) | (nodal_loads.loadcase == LoadCaseType.Lr)
+        nod_loadcase_mask = (nodal_loads.loadcase == LoadType.Dead) | (nodal_loads.loadcase == LoadType.Dead) | (nodal_loads.loadcase == LoadType.Live) | (nodal_loads.loadcase == LoadType.LiveRoof)
         nod_node_tag = nodal_loads.node_tag[nod_loadcase_mask]
         nod_loadcase = np.empty(0, dtype=np.int8)
         nod_load = np.empty(0, dtype=np.float64)
@@ -432,7 +438,7 @@ class ModelDataStorer:
             nod_load = nodal_loads.loads[nod_loadcase_mask, 2]
 
         # Concentrated elemental loads
-        conc_loadcase_mask = (concentrated_elemental_loads.loadcase == LoadCaseType.SW) | (concentrated_elemental_loads.loadcase == LoadCaseType.D) | (concentrated_elemental_loads.loadcase == LoadCaseType.L) | (concentrated_elemental_loads.loadcase == LoadCaseType.Lr)
+        conc_loadcase_mask = (concentrated_elemental_loads.loadcase == LoadType.Dead) | (concentrated_elemental_loads.loadcase == LoadType.Dead) | (concentrated_elemental_loads.loadcase == LoadType.Live) | (concentrated_elemental_loads.loadcase == LoadType.LiveRoof)
         conc_element_tag = concentrated_elemental_loads.element_tag[conc_loadcase_mask]
         conc_node_tag = np.empty(0, dtype=np.int32)
         conc_loadcase = np.empty(0, dtype=np.int8)
@@ -454,7 +460,7 @@ class ModelDataStorer:
             conc_load = np.concatenate([conc_nodal_i_load, conc_nodal_j_load])
 
         # Distributed elemental loads
-        dist_loadcase_mask = (distributed_elemental_loads.loadcase == LoadCaseType.SW) | (distributed_elemental_loads.loadcase == LoadCaseType.D) | (distributed_elemental_loads.loadcase == LoadCaseType.L) | (distributed_elemental_loads.loadcase == LoadCaseType.Lr)
+        dist_loadcase_mask = (distributed_elemental_loads.loadcase == LoadType.Dead) | (distributed_elemental_loads.loadcase == LoadType.Dead) | (distributed_elemental_loads.loadcase == LoadType.Live) | (distributed_elemental_loads.loadcase == LoadType.LiveRoof)
         dist_element_tag = distributed_elemental_loads.element_tag[dist_loadcase_mask]
         dist_node_tag = np.empty(0, dtype=np.int32)
         dist_loadcase = np.empty(0, dtype=np.int8)
@@ -476,7 +482,7 @@ class ModelDataStorer:
             dist_load = np.concatenate([dist_nodal_i_load, dist_nodal_j_load])
 
         # Shell to elemental loads
-        shell_loadcase_mask = (shell_to_elemental_loads.loadcase == LoadCaseType.SW) | (shell_to_elemental_loads.loadcase == LoadCaseType.D) | (shell_to_elemental_loads.loadcase == LoadCaseType.L) | (shell_to_elemental_loads.loadcase == LoadCaseType.Lr)
+        shell_loadcase_mask = (shell_to_elemental_loads.loadcase == LoadType.Dead) | (shell_to_elemental_loads.loadcase == LoadType.Dead) | (shell_to_elemental_loads.loadcase == LoadType.Live) | (shell_to_elemental_loads.loadcase == LoadType.LiveRoof)
         shell_element_tag = shell_to_elemental_loads.element_tag[shell_loadcase_mask]
         shell_node_tag = np.empty(0, dtype=np.int32)
         shell_loadcase = np.empty(0, dtype=np.int8)
@@ -498,7 +504,7 @@ class ModelDataStorer:
             shell_load = np.concatenate([shell_nodal_i_load, shell_nodal_j_load])
 
         # Selfweight to elemental loads
-        selfweight_loadcase_mask = (selfweight_to_elemental_loads.loadcase == LoadCaseType.SW) | (selfweight_to_elemental_loads.loadcase == LoadCaseType.D) | (selfweight_to_elemental_loads.loadcase == LoadCaseType.L) | (selfweight_to_elemental_loads.loadcase == LoadCaseType.Lr)
+        selfweight_loadcase_mask = (selfweight_to_elemental_loads.loadcase == LoadType.Dead) | (selfweight_to_elemental_loads.loadcase == LoadType.Dead) | (selfweight_to_elemental_loads.loadcase == LoadType.Live) | (selfweight_to_elemental_loads.loadcase == LoadType.LiveRoof)
         selfweight_element_tag = selfweight_to_elemental_loads.element_tag[selfweight_loadcase_mask]
         selfweight_node_tag = np.empty(0, dtype=np.int32)
         selfweight_loadcase = np.empty(0, dtype=np.int8)

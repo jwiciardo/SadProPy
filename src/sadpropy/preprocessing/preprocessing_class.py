@@ -1,5 +1,5 @@
 import numpy as np
-from .preprocessing_class_index import LoadCaseType, SeismicCode
+from .preprocessing_class_index import LoadType, SeismicCode
 
 class LoadDirection:
     global_direction = {
@@ -33,16 +33,14 @@ class LoadDirection:
 class MassSource:
     _definition = {
         SeismicCode.EN_8_2004: {
-            LoadCaseType.SW: 1.0,
-            LoadCaseType.D: 1.0,
-            LoadCaseType.L: 0.3,
-            LoadCaseType.Lr: 0.3,
+            LoadType.Dead: 1.0,
+            LoadType.Live: 0.3,
+            LoadType.LiveRoof: 0.3,
         },
         SeismicCode.SNI_1726_2019: {
-            LoadCaseType.SW: 1.0,
-            LoadCaseType.D: 1.0,
-            LoadCaseType.L: 0.25,
-            LoadCaseType.Lr: 0.25,
+            LoadType.Dead: 1.0,
+            LoadType.Live: 0.25,
+            LoadType.LiveRoof: 0.25,
         }
     }
 

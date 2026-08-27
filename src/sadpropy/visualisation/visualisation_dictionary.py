@@ -1,4 +1,4 @@
-from ..preprocessing.preprocessing_class_index import LoadCaseType
+from ..preprocessing.preprocessing_class_index import LoadType
 
 view_definition_dict = {
     "3D": {
@@ -33,23 +33,17 @@ view_definition_dict = {
 }
 loadcase_dict = {
     # Fullname
-    "Selfweight": LoadCaseType.SW,
-    "Dead": LoadCaseType.D,
-    "Live": LoadCaseType.L,
-    "Live Roof": LoadCaseType.Lr,
-    "Earthquake-X": LoadCaseType.Ex,
-    "Earthquake-Y": LoadCaseType.Ey,
-    "Wind-X": LoadCaseType.Wx,
-    "Wind-Y": LoadCaseType.Wy,
+    "Dead": LoadType.Dead,
+    "Live": LoadType.Live,
+    "Live Roof": LoadType.LiveRoof,
+    "Seismic": LoadType.Seismic,
+    "Wind": LoadType.Wind,
 
     # Shortname
-    "Sw": LoadCaseType.SW,
-    "D": LoadCaseType.D,
-    "L": LoadCaseType.L,
-    "Lr Roof": LoadCaseType.Lr,
-    "Ex": LoadCaseType.Ex,
-    "Ey": LoadCaseType.Ey,
-    "Wx": LoadCaseType.Wx,
-    "Wy": LoadCaseType.Wy,
+    "D": LoadType.Dead,
+    "L": LoadType.Live,
+    "Lr": LoadType.LiveRoof,
+    "S": LoadType.Seismic,
+    "W": LoadType.Wind,
 }
 load_dict = {None, "all", "nodal", "elemental", "shell to elemental", "n", "e", "ste"}

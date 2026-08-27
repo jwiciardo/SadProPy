@@ -57,14 +57,37 @@ class NodeSource(IntEnum):
     PanelZone = 2 # Panel Zone Auto Generated source
 
 class LoadCaseType:
-    SW = 0
-    D = 1
-    L = 2
-    Lr = 3
-    Ex = 4
-    Ey = 5
-    Wx = 6
-    Wy = 7
+    LinearStatic = 0
+    NonlinearStatic = 1
+    Modal = 2
+    ResponseSpectrum = 3
+    LinearTimeHistory = 4
+    NonlinearTimeHistory = 5
+
+class LoadType:
+    Dead = 0
+    Live = 1
+    LiveRoof = 2
+    Seismic = 3
+    Wind = 4
+    Eigenvalue = 5
+    AccelUX = 6
+    AccelUY = 7
+    AccelUZ = 8
+    AccelRX = 9
+    AccelRY = 10
+    AccelRZ = 11
+
+class ModalCombinationMethod:
+    CQC = 0
+    SRSS = 1
+
+class DirectionalCombinationType:
+    SRSS = 0
+
+class SeismicCode(IntEnum):
+    EN_8_2004 = 0
+    SNI_1726_2019 = 1
 
 # MATERIAL PROPERTIES
 class ConcreteElasticProperties(IntEnum):
@@ -325,6 +348,27 @@ class AggregatorSectionDofs(IntEnum):
     T = 5
     Count = 6 # Total number of properties
 
-class SeismicCode(IntEnum):
-    EN_8_2004 = 0
-    SNI_1726_2019 = 1
+# LOAD CASE PARAMETERS
+class LinearStaticParameters(IntEnum):
+    SF1 = 0
+    SF2 = 1
+    SF3 = 2
+    SF4 = 3
+    SF5 = 4
+    SF6 = 5
+    Count = 6 # Total number of parameters
+
+class ModalParameters(IntEnum):
+    NumModes = 0
+    Count = 1 # Total number of parameters
+
+class ResponseSpectrumParameters(IntEnum):
+    SF1 = 0
+    SF2 = 1
+    SF3 = 2
+    SF4 = 3
+    SF5 = 4
+    SF6 = 5
+    ModalDamping = 6
+    EccRatio = 7
+    Count = 8 # Total number of parameters

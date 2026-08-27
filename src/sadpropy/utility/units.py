@@ -58,12 +58,16 @@ class UnitRegistry:
         "ft/s": 0.3048 / 1.0,
         "in/s": 0.0254 / 1.0,
 
-        # Acceleration = Length / Time^2
+        # Translational Acceleration = Length / Time^2
         "m/s2":  1.0 / 1.0**2,
         "mm/s2": 1e-3 / 1.0**2,
         "cm/s2": 1e-2 / 1.0**2,
         "ft/s2": 0.3048 / 1.0**2,
         "in/s2": 0.0254 / 1.0**2,
+
+        # Rotational Acceleration = Angle / Time^2
+        "rad/s2":  1.0 / 1.0**2,
+        "def/s2": np.pi / 180 / 1.0**2,
 
         # Stress = Force / Area
         "Pa":  1.0 / 1.0**2,
@@ -193,6 +197,9 @@ class ConverterToInternalUnits:
     def acceleration(self, values):
         return self._convert_to_internalunits(values=values, unit=self._units.acceleration())
     
+    def rotational_acceleration(self, values):
+        return self._convert_to_internalunits(values=values, unit=self._units.rotational_acceleration())
+        
     def stress(self, values):
         return self._convert_to_internalunits(values=values, unit=self._units.stress)
     
@@ -274,6 +281,9 @@ class ConverterFromInternalUnits:
     def acceleration(self, values):
         return self._convert_from_internalunits(values=values, unit=self._units.acceleration())
     
+    def rotational_acceleration(self, values):
+        return self._convert_from_internalunits(values=values, unit=self._units.rotational_acceleration())
+        
     def stress(self, values):
         return self._convert_from_internalunits(values=values, unit=self._units.stress)
     
@@ -354,7 +364,10 @@ class UserDefinedUnits:
         
     def acceleration(self):
         return f'{self.length}/{self.time}2'
-
+    
+    def rotational_acceleration(self):
+        return f'{self.angle}/{self.time}2'
+    
     def moment(self):
         return f'{self.force}-{self.length}'
     

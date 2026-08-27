@@ -263,11 +263,11 @@ def _map_vectorz_to_name(element_type, vec_z):
         names.append(f"{prefix}_{axis_name}{sign_name}")
     return np.asarray(names, dtype="U32")
 
-def _generate_geometric_transformation(element_type, vec_z, end_offsets):
+def _generate_geometric_transformation(element_type, vec_z, end_offsets, rigid_zone_factor):
     beam_column_mask = np.isin(element_type, [ElementType.Beam, ElementType.Column])
     bc_element_type = element_type[beam_column_mask]
     bc_vec_z = vec_z[beam_column_mask]
-    bc_end_offsets = end_offsets[beam_column_mask]
+    bc_end_offsets = end_offsets[beam_column_mask] * rigid_zone_factor[beam_column_mask, None]
     bc_transf_data = np.column_stack([bc_element_type, bc_vec_z, bc_end_offsets])
     bc_transf_unique, bc_geom_transf_idx = np.unique(bc_transf_data, axis=0, return_inverse=True)
     bc_transf_element_type = bc_transf_unique[:, 0]

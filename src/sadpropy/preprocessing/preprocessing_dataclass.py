@@ -162,7 +162,7 @@ class FrameSections:
             integration_points = np.empty(0, dtype=np.int32),
             integration_tag = np.empty(0, dtype=np.int32),
             aggregated_sec_idx = np.empty(0, dtype=np.int32),
-            dimensions = np.empty((0, 1), dtype=np.float64),
+            dimensions = np.empty((0, 1), dtype=object),
             properties = np.empty((0, 12), dtype=np.float64),
         )
     
@@ -597,6 +597,49 @@ class Restraints:
             node_tag = np.empty(0, dtype=np.int32),
             dofs = np.empty((0, 6), dtype=np.int8),
         )
+
+# LOADS: LOAD CASES
+@dataclass(slots=True, frozen=True)
+class LoadCases:
+    index: np.ndarray                           # int32, shape (N,)
+    load_case_name: np.ndarray                  # str, shape (N,)
+    load_case_type: np.ndarray                  # int8, shape (N,)
+    load_types: np.ndarray                      # int8, shape (N,6)
+    function_names: np.ndarray                  # str, shape (N,6)
+    modal_combination_method: np.ndarray        # int8, shape (N,)
+    directional_combination_type: np.ndarray    # int8, shpae (N,)
+    parameters: np.ndarray                      # float64, shape (N,8)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            load_Case_name = np.empty(0, dtype="U32"),
+            load_case_type = np.empty(0, dtype=np.int8),
+            load_types = np.empty((0, 6), dtype=np.int8),
+            function_names = np.empty((0, 6), dtype="U64"),
+            modal_combination_method = np.empty(0, dtype=np.int8),
+            directional_combination_type = np.empty(0, dtype=np.int8),
+            parameters = np.empty((0, 8), dtype=np.float64),
+        )
+
+# LOADS: LOAD COMBINATIONS
+@dataclass(slots=True, frozen=True)
+class LoadCombinations:
+    index: np.ndarray                           # int32, shape (N,)
+    load_combination_name: np.ndarray           # str, shape (N,)
+    load_names_idx: np.ndarray                  # int32, shape (N,10)
+    scale_factors: np.ndarray                   # float64, shape (N,10)
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            index = np.empty(0, dtype=np.int32),
+            load_combination_name = np.empty(0, dtype="U32"),
+            load_names_idx = np.empty((0, 10), dtype=np.int32),
+            scale_factors = np.empty((0, 10), dtype=np.float64),
+        )
+
     
 # LOADS: NODAL LOADS
 @dataclass(slots=True, frozen=True)
@@ -737,6 +780,8 @@ class ModelData:
     zerolength_elements: ZeroLengthElements
     shells: Shells
     restraints: Restraints
+    load_cases: LoadCases
+    load_combinations: LoadCombinations
     nodal_loads: NodalLoads
     concentrated_elemental_loads: ConcentratedElementalLoads
     distributed_elemental_loads: DistributedElementalLoads
@@ -768,6 +813,8 @@ class ModelData:
             zerolength_elements = ZeroLengthElements.empty(),
             shells = Shells.empty(),
             restraints = Restraints.empty(),
+            load_cases = LoadCases.empty(),
+            load_combinations = LoadCombinations.empty(),
             nodal_loads = NodalLoads.empty(),
             concentrated_elemental_loads = ConcentratedElementalLoads.empty(),
             distributed_elemental_loads = DistributedElementalLoads.empty(),

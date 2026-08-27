@@ -1,7 +1,7 @@
 import openseespy.opensees as ops
 import pandas as pd
 
-def _define_diaphragms(modeldata):
+def _assign_diaphragms(modeldata):
     diaphragms = modeldata.diaphragms # Retrieve diaphragms data
     diaph_tag = diaphragms.diaph_tag
     diaph_coords = diaphragms.coords
