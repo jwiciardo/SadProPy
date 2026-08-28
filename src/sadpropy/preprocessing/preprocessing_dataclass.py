@@ -71,7 +71,7 @@ class Materials:
             try:
                 return lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Material '{name}' does not exist") from None
 
         # Array case
         result = np.full(len(names), -1, dtype=np.int32)
@@ -84,7 +84,7 @@ class Materials:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Material '{name}' does not exist") from None
         return result
 
     @classmethod
@@ -130,7 +130,7 @@ class FrameSections:
             try:
                 return lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Section '{name}' does not exist") from None
 
         # Array case
         result = np.full(len(names), -1, dtype=np.int32)
@@ -143,7 +143,7 @@ class FrameSections:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Section '{name}' does not exist") from None
         return result
 
     @classmethod
@@ -187,7 +187,7 @@ class SlabSections:
             try:
                 return lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Section '{name}' does not exist") from None
 
         # Array case
         result = np.full(len(names), -1, dtype=np.int32)
@@ -200,7 +200,7 @@ class SlabSections:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Node '{name}' does not exist") from None
+                raise ValidationError(f"Section '{name}' does not exist") from None
         return result
 
     @classmethod
@@ -552,7 +552,7 @@ class Shells:
             try:
                 return lookup[name]
             except KeyError:
-                raise ValidationError(f"Element '{name}' does not exist") from None
+                raise ValidationError(f"Shell '{name}' does not exist") from None
 
         # Array case
         result = np.full(len(names), -1, dtype=np.int32)
@@ -565,7 +565,7 @@ class Shells:
             try:
                 result[i] = lookup[name]
             except KeyError:
-                raise ValidationError(f"Element '{name}' does not exist") from None
+                raise ValidationError(f"Shell '{name}' does not exist") from None
         return result
 
     @classmethod
@@ -610,6 +610,34 @@ class LoadCases:
     directional_combination_type: np.ndarray    # int8, shpae (N,)
     parameters: np.ndarray                      # float64, shape (N,8)
 
+    def name_to_idx(self, names):
+        lookup = dict(zip(self.load_case_name, self.index))
+        # Scalar case
+        if np.isscalar(names):
+            if names is None:
+                return -1
+            name = str(names).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                return -1
+            try:
+                return lookup[name]
+            except KeyError:
+                raise ValidationError(f"Load case '{name}' does not exist") from None
+
+        # Array case
+        result = np.full(len(names), -1, dtype=np.int32)
+        for i, name in enumerate(names):
+            if name is None:
+                continue
+            name = str(name).strip()
+            if not name or name.lower() in {"none", "nan"}:
+                continue
+            try:
+                result[i] = lookup[name]
+            except KeyError:
+                raise ValidationError(f"Load case '{name}' does not exist") from None
+        return result
+    
     @classmethod
     def empty(cls):
         return cls(
@@ -628,7 +656,7 @@ class LoadCases:
 class LoadCombinations:
     index: np.ndarray                           # int32, shape (N,)
     load_combination_name: np.ndarray           # str, shape (N,)
-    load_names_idx: np.ndarray                  # int32, shape (N,10)
+    load_cases_idx: np.ndarray                 # int32, shape (N,10)
     scale_factors: np.ndarray                   # float64, shape (N,10)
 
     @classmethod
@@ -636,7 +664,7 @@ class LoadCombinations:
         return cls(
             index = np.empty(0, dtype=np.int32),
             load_combination_name = np.empty(0, dtype="U32"),
-            load_names_idx = np.empty((0, 10), dtype=np.int32),
+            load_cases_idx = np.empty((0, 10), dtype=np.int32),
             scale_factors = np.empty((0, 10), dtype=np.float64),
         )
 

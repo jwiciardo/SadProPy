@@ -113,6 +113,7 @@ class ExcelTranslator:
         shell_objects = self._translate_shell_objects(materials=materials, slab_sections=slab_sections, node_objects=node_objects, element_objects=element_objects)
         restraints = self._translate_restraints(node_objects=node_objects)
         load_cases = self._translate_load_cases()
+        load_combinations = self._translate_load_combinations(load_cases=load_cases)
         nodal_loads = self._translate_nodal_loads()
         concentrated_elemental_loads = self._translate_concentrated_elemental_loads()
         distributed_elemental_loads = self._translate_distributed_elemental_loads(element_objects=element_objects)
@@ -132,6 +133,7 @@ class ExcelTranslator:
             "Shell Objects": shell_objects,
             "Restraints": restraints,
             "Load Cases": load_cases,
+            "Load Combinations": load_combinations,
             "Nodal Loads": nodal_loads,
             "Concentrated Elemental Loads": concentrated_elemental_loads,
             "Distributed Elemental Loads": distributed_elemental_loads,
@@ -658,7 +660,7 @@ class ExcelTranslator:
         ) # Storing load cases data to dictionary
         return load_cases
 
-    def _translate_load_combinations(self):
+    def _translate_load_combinations(self, load_cases):
         sheet_name="Load Combinations"
         data, n = self._reader.read(
             sheet_name=sheet_name, 
@@ -671,9 +673,9 @@ class ExcelTranslator:
         index = np.arange(n, dtype=np.int32)
         load_combination_name = np.asarray(data["Load Combination Name"], dtype="U32")
         self._validate_duplicate_value(col_data=load_combination_name, col_name="Load Combination Name")
-        load_name_columns = ["Load Name 1", "Load Name 2", "Load Name 3", "Load Name 4", "Load Name 5", "Load Name 6", "Load Name 7", "Load Name 8", "Load Name 9", "Load Name 10"]
-        load_names = np.column_stack([
-            self._modify_empty_values(values=data[column], converter=None, dtype="U32", filled_values=np.nan) for column in load_name_columns
+        load_case_columns = ["Load Name 1", "Load Name 2", "Load Name 3", "Load Name 4", "Load Name 5", "Load Name 6", "Load Name 7", "Load Name 8", "Load Name 9", "Load Name 10"]
+        load_cases_idx = np.column_stack([
+            load_cases.name_to_idx(names=data[column]) for column in load_case_columns
         ])
         scale_factor_columns = ["Scale Factor 1", "Scale Factor 2", "Scale Factor 3", "Scale Factor 4", "Scale Factor 5", "Scale Factor 6", "Scale Factor 7", "Scale Factor 8", "Scale Factor 9", "Scale Factor 10"]
         scale_factors = np.column_stack([
@@ -682,13 +684,10 @@ class ExcelTranslator:
         load_combinations = LoadCombinations(
             index = index,
             load_combination_name = load_combination_name,
-            load_case_type = load_case_type,
-            load_types = load_types,
-            function_names = function_names,
-            modal_combination_method = modal_combination_method,
-            directional_combination_type = directional_combination_type,
-            parameters = parameters,
+            load_cases_idx = load_cases_idx,
+            scale_factors = scale_factors,
         ) # Storing load combinations data to dictionary
+        print(load_combinations)
         return load_combinations
 
     def _translate_nodal_loads(self):
