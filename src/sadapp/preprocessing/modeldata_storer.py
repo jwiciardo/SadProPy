@@ -1,0 +1,575 @@
+import numpy as np
+from .preprocessing_object._node import _autogenerate_nodes
+from .preprocessing_object._element import (
+    _generate_element_local_axes,
+    _generate_element_connectivity,
+    _autogenerate_offsets_length,
+    _generate_end_offsets,
+    _generate_geometric_transformation,
+)
+from .preprocessing_object._load import _generate_group_nodal_loads, _generate_group_concentrated_element_loads, _generate_group_distributed_element_loads
+from .preprocessing_object._mass import (
+    _generate_concentrated_element_to_nodal_gravity_loads,
+    _generate_distributed_element_to_nodal_gravity_loads,
+    _generate_summed_grouping_nodal_loads,
+    _generate_summed_grouping_storey_masses,
+)
+from .preprocessing_object._diaphragm import _get_storey_nodes
+from .preprocessing_object._zero_length_element import _generate_zerolength_element_local_axes
+from .preprocessing_class_index import ElementType, NodeSource
+from .preprocessing_dataclass import (
+    ModelData,
+    Nodes,
+    Elements,
+    ZeroLengthElements,
+    Shells,
+    Restraints,
+    NodalLoads,
+    ConcentratedElementalLoads,
+    DistributedElementalLoads,
+    ShellToElementalLoads,
+    SelfweightToElementalLoads,
+    NodalMasses,
+    Diaphragms,
+)
+from ..utility import TagManager
+from ..utility.helper import get_parent_node
+from ..utility.constant import GRAVITATIONAL_ACCELERATION
+
+g = GRAVITATIONAL_ACCELERATION
+
+class ModelDataStorer:
+    def __init__(self, translator_data):
+        # TAG MANAGER
+        self._tagmanager = TagManager()
+
+        # STORE INPUTFILE MODEL DATA
+        self._translator_data = translator_data
+    
+    def retrieve(self):
+        nodes = self._generate_nodes()
+        elements = self._generate_elements(nodes=nodes)
+        zerolength_elements = self._generate_zero_length_elements(nodes=nodes, elements=elements)
+        shells = self._generate_shells(nodes=nodes)
+        restraints = self._generate_restraints(nodes=nodes)
+        nodal_loads = self._generate_nodal_loads()
+        concentrated_elemental_loads = self._generate_concentrated_elemental_loads(elements=elements)
+        distributed_elemental_loads = self._generate_distributed_elemental_loads(elements=elements)
+        shell_to_elemental_loads = self._generate_shell_to_elemental_loads(elements=elements)
+        selfweight_to_elemental_loads = self._generate_selfweight_to_elemental_loads(elements=elements)
+        nodal_masses = self._generate_masses(
+            nodes=nodes,
+            elements=elements,
+            nodal_loads=nodal_loads,
+            concentrated_elemental_loads=concentrated_elemental_loads,
+            distributed_elemental_loads=distributed_elemental_loads,
+            shell_to_elemental_loads=shell_to_elemental_loads,
+            selfweight_to_elemental_loads=selfweight_to_elemental_loads,
+        )
+        diaphragms = self._generate_diaphragms(nodes=nodes, masses=nodal_masses)
+        print()
+        return ModelData(
+            filepath_information = self._translator_data["Filepath Information"],
+            project_information = self._translator_data["Project Information"],
+            userdefined_units = self._translator_data["Userdefined Units"],
+            analysis_preferences = self._translator_data["Analysis Preferences"],
+            materials = self._translator_data["Materials"],
+            frame_sections = self._translator_data["Frame Sections"],
+            slab_sections = self._translator_data["Slab Sections"],
+            storeys = self._translator_data["Storeys"],
+            nodes = nodes,
+            elements = elements,
+            zerolength_elements = zerolength_elements,
+            shells = shells,
+            restraints = restraints,
+            load_cases = self._translator_data["Load Cases"],
+            load_combinations = self._translator_data["Load Combinations"],
+            nodal_loads = nodal_loads,
+            concentrated_elemental_loads = concentrated_elemental_loads,
+            distributed_elemental_loads = distributed_elemental_loads,
+            shell_to_elemental_loads = shell_to_elemental_loads,
+            selfweight_to_elemental_loads = selfweight_to_elemental_loads,
+            mass_sources = self._translator_data["Mass Sources"],
+            nodal_masses = nodal_masses,
+            diaphragms = diaphragms,
+        )
+    
+    # SUPPORTING METHODS
+    def _generate_nodes(self):
+        node_objects = self._translator_data["Node Objects"] # Retrieve node objects data
+        element_objects = self._translator_data["Element Objects"] # Retrieve element objects data
+
+        # Userdefined generated nodes
+        n = len(node_objects["Index"])
+        usr_unique_name = node_objects["Unique Name"]
+        usr_coords = node_objects["Coordinates"]
+        usr_generated_source = np.full(n, NodeSource.User, dtype=np.int32)
+        usr_generated_from = np.empty(n, dtype="U15")
+        usr_element_to_end_nodes = {
+            element_idx: [iend_node, jend_node]
+            for element_idx, (iend_node, jend_node) in zip(element_objects["Index"], element_objects["End Nodes Index"])
+        }
+        usr_nodes = {
+            "Unique Name": usr_unique_name,
+            "Coordinates": usr_coords,
+            "Generated Source": usr_generated_source,
+            "Generated From": usr_generated_from,
+            "Element to End Nodes": usr_element_to_end_nodes,
+        }
+        # Generated nodes
+        gen_unique_name, gen_coords, gen_generated_source, gen_generated_from, gen_element_to_end_nodes = _autogenerate_nodes(
+            usr_nodes=usr_nodes,
+            element_objects=element_objects
+        )
+        unique_name = np.concatenate((usr_unique_name, np.asarray(gen_unique_name, dtype="U20")))
+        if len(gen_coords) > 0:
+            coords = np.round(np.vstack((usr_coords, np.asarray(gen_coords, dtype=np.float64))), decimals=6)
+        else:
+            coords = np.round(usr_coords, decimals=6)
+        generated_source = np.concatenate((usr_generated_source, np.asarray(gen_generated_source, dtype=np.int32)))
+        generated_from = np.concatenate((usr_generated_from, np.asarray(gen_generated_from, dtype="U15")))
+        self._element_to_end_nodes_map = usr_element_to_end_nodes | gen_element_to_end_nodes
+        m = len(unique_name)
+        index = np.arange(m, dtype=np.int32)
+        node_tag = np.asarray(self._tagmanager.add(category="Node", n=m, names=unique_name), dtype=np.int32)
+        nodes = Nodes(
+            index = index,
+            name = unique_name,
+            tag = node_tag,
+            coords = coords,
+            generated_source = generated_source,
+            generated_from = generated_from,
+        ) # Store nodes data to dataclass
+        return nodes
+
+    def _generate_elements(self, nodes):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        element_objects = self._translator_data["Element Objects"] # Retrieve element objects data
+        element_type = element_objects["Element Type"]
+        mask = (element_type == ElementType.Column) | (element_type == ElementType.Beam) | (element_type == ElementType.Brace)
+        n = len(element_objects["Index"][mask])
+        index = np.arange(n, dtype=np.int32)
+        unique_name = element_objects["Unique Name"][mask]
+        element_tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        end_nodes_idx = np.asarray([self._element_to_end_nodes_map[element_idx] for element_idx in element_objects["Index"][mask]], dtype=np.int32)
+        element_type = element_objects["Element Type"][mask]
+        sec_idx = element_objects["Section Index"][mask]
+        length = element_objects["Length"][mask]
+        centroids, vec_x, vec_y, vec_z, rotation_matrices = _generate_element_local_axes(nodes=nodes, end_nodes_index=end_nodes_idx, ndim=ndim)
+        elements_connectivity, shared_connected_nodes, current_elements_end, neighbour_elements_end = _generate_element_connectivity(nodes=nodes, end_nodes_index=end_nodes_idx)
+        is_auto_end_offsets = element_objects["Is Auto End Offsets"][mask]
+        rigid_zone_factor = element_objects["Rigid Zone Factor"][mask]
+        # Userdefined end offsets
+        usr_offsets_length = element_objects["Offsets Length"][mask]
+        
+        # Autogenerated end offsets
+        autogen_offsets_length = _autogenerate_offsets_length(
+            sections=self._translator_data["Frame Sections"],
+            sec_idx=sec_idx,
+            element_type=element_type,
+            elements_connectivity=elements_connectivity,
+            current_elements_end=current_elements_end,
+            centroids=centroids,
+            rotation_matrices=rotation_matrices,
+        )
+        offsets_length = np.where(is_auto_end_offsets[:, None], autogen_offsets_length, usr_offsets_length) # Set condition where auto end offsets return is True return autogen offsets length, otherwise usr offsets length
+        end_offsets = _generate_end_offsets(
+            offsets_length=offsets_length,
+            rotation_matrices=rotation_matrices,
+        )
+        print(end_offsets)
+        geom_transf_idx, transf_vec, transf_offsets, transf_name = _generate_geometric_transformation(
+            element_type=element_type,
+            vec_z=vec_z, 
+            end_offsets=end_offsets,
+            rigid_zone_factor=rigid_zone_factor
+        )
+        transf_tag = np.asarray(self._tagmanager.add(category="Geometric Transformation", n=len(transf_vec), names=transf_name), dtype=np.int32)
+        geom_transf_tag = np.full_like(geom_transf_idx, -1)
+        geom_transf_tag[geom_transf_idx >= 0] = transf_tag[geom_transf_idx[geom_transf_idx >= 0]]
+        selfweight = element_objects["Selfweight"][mask]
+        elements = Elements(
+            index = index,
+            name = unique_name,
+            tag = element_tag,
+            end_nodes_idx = end_nodes_idx,
+            type_ = element_type,
+            sec_idx = sec_idx,
+            centroids = centroids,
+            length = length,
+            rotation_matrices = rotation_matrices,
+            connectivity = elements_connectivity,
+            shared_connected_nodes = shared_connected_nodes,
+            current_elements_end = current_elements_end,
+            neighbour_elements_end = neighbour_elements_end,
+            rigid_zone_factor = rigid_zone_factor,
+            offsets_length = offsets_length,
+            end_offsets = end_offsets,
+            transf_tag = transf_tag,
+            transf_vec = transf_vec,
+            transf_offsets = transf_offsets,
+            transformation_tag = geom_transf_tag,
+            selfweight = selfweight,
+        ) # Store beamcolumn elements data to dataclass
+        return elements
+
+    def _generate_zero_length_elements(self, nodes, elements):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        nodes_generated_from = nodes.generated_from # Retrieve parent name of generated node
+        if len(nodes.index[nodes_generated_from != ""]) == 0:
+            zerolength_elements = ZeroLengthElements.empty()
+            return zerolength_elements
+        child_nodes = np.asarray([node_idx for node_idx in nodes.index[nodes_generated_from != ""]], dtype=np.int32) # Filter empty string values in nodes index
+        parent_nodes = get_parent_node(nodes=nodes, child_node=child_nodes) # Get parent node
+        n = len(child_nodes)
+        index = np.arange(n, dtype=np.int32)
+        unique_name = np.empty(n, dtype="U15")
+        end_nodes_idx = np.empty((n, 2), dtype=np.int32)
+        for i in range(n):
+            name = f"ZL{i}"
+            unique_name[i] = name
+            end_nodes_idx[i] = [parent_nodes[i], child_nodes[i]]
+        element_tag = np.asarray(self._tagmanager.add(category="Element", n=n, names=unique_name), dtype=np.int32)
+        element_type = np.full(n, ElementType.ZeroLength, dtype=np.int8)
+        rotation_matrices = _generate_zerolength_element_local_axes(ndim=ndim, elements=elements, child_nodes=child_nodes)
+        zerolength_elements = ZeroLengthElements(
+            index = index,
+            name = unique_name,
+            tag = element_tag,
+            end_nodes_idx = end_nodes_idx,
+            element_type = element_type,
+            rotation_matrices = rotation_matrices,
+        ) # Store zerolength elements data to dataclass
+        return zerolength_elements
+
+    def _generate_shells(self, nodes):
+        shell_objects = self._translator_data["Shell Objects"] # Retrieve shell objects data
+        if len(shell_objects) == 0:
+            shells = Shells.empty()
+            return shells
+        element_type = shell_objects["Element Type"]
+        mask = element_type == ElementType.Slab
+        n = len(shell_objects["Index"][mask])
+        index = np.arange(n, dtype=np.int32)
+        unique_name = shell_objects["Unique Name"][mask]
+        elements_idx = np.asarray([element for element in shell_objects["Edges Index"][mask]], dtype=np.int32)
+        vertices = get_parent_node(nodes=nodes, child_node=shell_objects["Vertices Index"][mask])
+        nodes_idx = np.asarray([node for node in vertices], dtype=np.int32)
+        sec_idx = shell_objects["Section Index"][mask]
+        area = shell_objects["Area"][mask]
+        selfweight = shell_objects["Selfweight"][mask]
+        shells = Shells(
+            index = index,
+            name = unique_name,
+            elements_idx = elements_idx,
+            nodes_idx = nodes_idx,
+            element_type = element_type,
+            sec_idx = sec_idx,
+            area = area,
+            selfweight = selfweight,
+        ) # Store shells data to dataclass
+        return shells
+
+    def _generate_restraints(self, nodes):
+        restraints = self._translator_data["Restraints"] # Retrieve restraints data
+        node_idx = restraints["Node Index"] # Retrieve node index
+        node_idx = get_parent_node(nodes, node_idx) # Get node index
+        node_name = nodes.name[node_idx] # Retrieve node name
+        node_tag = nodes.tag[node_idx] # Retrieve node tag
+        dofs = restraints["DOFs"] # Retrieve dofs
+        restraints = Restraints(
+            node_idx = node_idx,
+            node_name = node_name,
+            node_tag = node_tag,
+            dofs = dofs,
+        ) # Store restraints data to dataclass
+        return restraints
+
+    def _generate_nodal_loads(self):
+        nodalloads = self._translator_data["Nodal Loads"] # Retrieve nodal loads data
+        if len(nodalloads) == 0:
+            nodal_loads = NodalLoads.empty()
+            return nodal_loads
+        node_name = nodalloads["Node Name"]
+        node_tag = self._tagmanager.get_tag(category="Node", names=node_name) # Retrieve node tag
+        load_case_idx = nodalloads["Load Case Index"] # Retrieve load case index
+        loads = nodalloads["Loads"] # Retrieve nodal loads
+        result_node_tag, result_load_case_idx, result_loads = _generate_group_nodal_loads(
+            node_tag=node_tag,
+            load_case_idx=load_case_idx,
+            loads=loads,
+        )
+        nodal_loads = NodalLoads(
+            node_tag = result_node_tag,
+            load_case_idx = result_load_case_idx,
+            loads = result_loads,
+        ) # Store nodal loads data to dataclass
+        return nodal_loads
+
+    def _generate_concentrated_elemental_loads(self, elements):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        elemental_loads = self._translator_data["Concentrated Elemental Loads"] # Retrieve concentrated elemental loads data
+        if len(elemental_loads) == 0:
+            concentrated_elemental_loads = ConcentratedElementalLoads.empty()
+            return concentrated_elemental_loads
+        element_name = elemental_loads["Element Name"]
+        element_tag = self._tagmanager.get_tag(category="Element", names=element_name) # Retrieve element tag
+        load_case_idx = elemental_loads["Load Case Index"] # Retrieve load case index
+        direction = elemental_loads["Direction"] # Retrieve load direction
+        load = elemental_loads["Load"] # Retrieve concentrated element loads
+        location = elemental_loads["Location"] # Retrieve concentrated element loads location
+        result_element_tag, result_load_case_idx, result_location, transformed_loads = _generate_group_concentrated_element_loads(
+            ndim=ndim,
+            elements=elements,
+            element_tag=element_tag,
+            load_case_idx=load_case_idx,
+            direction=direction,
+            location=location,
+            load=load,
+        )
+        concentrated_elemental_loads = ConcentratedElementalLoads(
+            element_tag = result_element_tag,
+            load_case_idx = result_load_case_idx,
+            location = result_location,
+            loads = transformed_loads,
+        ) # Store concentrated elemental loads data to dataclass
+        return concentrated_elemental_loads
+
+    def _generate_distributed_elemental_loads(self, elements):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        elemental_loads = self._translator_data["Distributed Elemental Loads"] # Retrieve distributed elemental loads data
+        if len(elemental_loads) == 0:
+            distributed_elemental_loads = DistributedElementalLoads.empty()
+            return distributed_elemental_loads
+        element_name = elemental_loads["Element Name"]
+        element_tag = self._tagmanager.get_tag(category="Element", names=element_name) # Retrieve element tag
+        load_case_idx = elemental_loads["Load Case Index"] # Retrieve load case index
+        direction = elemental_loads["Direction"] # Retrieve load direction
+        load = elemental_loads["Load"] # Retrieve distributed element loads
+        location = elemental_loads["Location"] # Retrieve distributed element loads location
+        result_element_tag, result_load_case_idx, result_location, transformed_loads = _generate_group_distributed_element_loads(
+            ndim=ndim,
+            elements=elements,
+            element_tag=element_tag,
+            load_case_idx=load_case_idx,
+            direction=direction,
+            location=location,
+            load=load,
+        )
+        distributed_elemental_loads = DistributedElementalLoads(
+            element_tag = result_element_tag,
+            load_case_idx = result_load_case_idx,
+            location = result_location,
+            loads = transformed_loads,
+        ) # Store distributed elemental loads data to dataclass
+        return distributed_elemental_loads
+
+    def _generate_shell_to_elemental_loads(self, elements):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        shell_loads = self._translator_data["Shell to Elemental Loads"] # Retrieve shell to elemental loads data
+        if len(shell_loads) == 0:
+            shell_to_elemental_loads = ShellToElementalLoads.empty()
+            return shell_to_elemental_loads
+        edge_name = shell_loads["Edge Name"]
+        element_tag = self._tagmanager.get_tag(category="Element", names=edge_name) # Retrieve element tag
+        load_case_idx = shell_loads["Load Case Index"] # Retrieve load case index
+        direction = shell_loads["Direction"] # Retrieve load direction
+        load = shell_loads["Load"] # Retrieve shell to element loads
+        location = shell_loads["Location"] # Retrieve shell to element loads location
+        result_element_tag, result_load_case_idx, result_location, transformed_loads = _generate_group_distributed_element_loads(
+            ndim=ndim,
+            elements=elements,
+            element_tag=element_tag,
+            load_case_idx=load_case_idx,
+            direction=direction,
+            location=location,
+            load=load,
+        )
+        shell_to_elemental_loads = ShellToElementalLoads(
+            element_tag = result_element_tag,
+            load_case_idx = result_load_case_idx,
+            location = result_location,
+            loads = transformed_loads,
+        ) # Store shell to elemental loads data to dataclass
+        return shell_to_elemental_loads
+
+    def _generate_selfweight_to_elemental_loads(self, elements):
+        ndim = self._translator_data["Project Information"].ndim # Retrieve number of dimensional space
+        selfweight_loads = self._translator_data["Selfweight to Elemental Loads"] # Retrieve selfweight to elemental loads data
+        if len(selfweight_loads) == 0:
+            selfweight_to_elemental_loads = SelfweightToElementalLoads.empty()
+            return selfweight_to_elemental_loads
+        element_name = selfweight_loads["Element Name"]
+        element_tag = self._tagmanager.get_tag(category="Element", names=element_name) # Retrieve element tag
+        load_case_idx = selfweight_loads["Load Case Index"] # Retrieve load case index
+        direction = selfweight_loads["Direction"] # Retrieve load direction
+        load = selfweight_loads["Load"] # Retrieve shell to element loads
+        location = selfweight_loads["Location"] # Retrieve shell to element loads location
+        result_element_tag, result_load_case_idx, result_location, transformed_loads = _generate_group_distributed_element_loads(
+            ndim=ndim,
+            elements=elements,
+            element_tag=element_tag,
+            load_case_idx=load_case_idx,
+            direction=direction,
+            location=location,
+            load=load,
+        )
+        selfweight_to_elemental_loads = SelfweightToElementalLoads(
+            element_tag = result_element_tag,
+            load_case_idx = result_load_case_idx,
+            location = result_location,
+            loads = transformed_loads,
+        ) # Store shell to elemental loads data to dataclass
+        return selfweight_to_elemental_loads
+
+    def _generate_masses(self, nodes, elements, nodal_loads, concentrated_elemental_loads, distributed_elemental_loads, shell_to_elemental_loads, selfweight_to_elemental_loads):
+        mass_sources = self._translator_data["Mass Sources"] # Retrieve mass sources data
+        scale_factor_map = dict(zip(mass_sources.load_case_idx, mass_sources.scale_factor))
+        
+        # Nodal loads
+        nod_load_case_mask = np.isin(nodal_loads.load_case_idx, mass_sources.load_case_idx)
+        nod_node_tag = nodal_loads.node_tag[nod_load_case_mask]
+        nod_load_case_idx = np.empty(0, dtype=np.int32)
+        nod_load = np.empty(0, dtype=np.float64)
+        if len(nod_node_tag) != 0:
+            nod_load_case_idx = nodal_loads.load_case_idx[nod_load_case_mask]
+            nod_load = nodal_loads.loads[nod_load_case_mask, 2]
+
+        # Concentrated elemental loads
+        conc_load_case_mask = np.isin(concentrated_elemental_loads.load_case_idx, mass_sources.load_case_idx)
+        conc_element_tag = concentrated_elemental_loads.element_tag[conc_load_case_mask]
+        conc_node_tag = np.empty(0, dtype=np.int32)
+        conc_load_case_idx = np.empty(0, dtype=np.int32)
+        conc_load = np.empty(0, dtype=np.float64)
+        if len(conc_element_tag) != 0:
+            conc_load_case_idx = concentrated_elemental_loads.load_case_idx[conc_load_case_mask]
+            conc_location = concentrated_elemental_loads.location[conc_load_case_mask]
+            conc_loads = concentrated_elemental_loads.loads[conc_load_case_mask]
+            conc_inode_tag, conc_jnode_tag, conc_load_case_idx, conc_nodal_i_load, conc_nodal_j_load = _generate_concentrated_element_to_nodal_gravity_loads(
+                nodes=nodes,
+                elements=elements, 
+                element_tag=conc_element_tag, 
+                load_case_idx=conc_load_case_idx, 
+                location=conc_location, 
+                loads=conc_loads,
+            )
+            conc_node_tag = np.concatenate([conc_inode_tag, conc_jnode_tag])
+            conc_load_case_idx = np.concatenate([conc_load_case_idx, conc_load_case_idx])
+            conc_load = np.concatenate([conc_nodal_i_load, conc_nodal_j_load])
+
+        # Distributed elemental loads
+        dist_load_case_mask = np.isin(distributed_elemental_loads.load_case_idx, mass_sources.load_case_idx)
+        dist_element_tag = distributed_elemental_loads.element_tag[dist_load_case_mask]
+        dist_node_tag = np.empty(0, dtype=np.int32)
+        dist_load_case_idx = np.empty(0, dtype=np.int32)
+        dist_load = np.empty(0, dtype=np.float64)
+        if len(dist_element_tag) != 0:
+            dist_load_case_idx = distributed_elemental_loads.load_case_idx[dist_load_case_mask]
+            dist_location = distributed_elemental_loads.location[dist_load_case_mask]
+            dist_loads = distributed_elemental_loads.loads[dist_load_case_mask]
+            dist_inode_tag, dist_jnode_tag, dist_load_case_idx, dist_nodal_i_load, dist_nodal_j_load = _generate_distributed_element_to_nodal_gravity_loads(
+                nodes=nodes,
+                elements=elements, 
+                element_tag=dist_element_tag, 
+                load_case_idx=dist_load_case_idx, 
+                location=dist_location, 
+                loads=dist_loads,
+            )
+            dist_node_tag = np.concatenate([dist_inode_tag, dist_jnode_tag])
+            dist_load_case_idx = np.concatenate([dist_load_case_idx, dist_load_case_idx])
+            dist_load = np.concatenate([dist_nodal_i_load, dist_nodal_j_load])
+
+        # Shell to elemental loads
+        shell_load_case_mask = np.isin(shell_to_elemental_loads.load_case_idx, mass_sources.load_case_idx)
+        shell_element_tag = shell_to_elemental_loads.element_tag[shell_load_case_mask]
+        shell_node_tag = np.empty(0, dtype=np.int32)
+        shell_load_case_idx = np.empty(0, dtype=np.int32)
+        shell_load = np.empty(0, dtype=np.float64)
+        if len(shell_element_tag) != 0:
+            shell_load_case_idx = shell_to_elemental_loads.load_case_idx[shell_load_case_mask]
+            shell_location = shell_to_elemental_loads.location[shell_load_case_mask]
+            shell_loads = shell_to_elemental_loads.loads[shell_load_case_mask]
+            shell_inode_tag, shell_jnode_tag, shell_load_case_idx, shell_nodal_i_load, shell_nodal_j_load = _generate_distributed_element_to_nodal_gravity_loads(
+                nodes=nodes,
+                elements=elements, 
+                element_tag=shell_element_tag, 
+                load_case_idx=shell_load_case_idx, 
+                location=shell_location, 
+                loads=shell_loads,
+            )
+            shell_node_tag = np.concatenate([shell_inode_tag, shell_jnode_tag])
+            shell_load_case_idx = np.concatenate([shell_load_case_idx, shell_load_case_idx])
+            shell_load = np.concatenate([shell_nodal_i_load, shell_nodal_j_load])
+
+        # Selfweight to elemental loads
+        selfweight_load_case_mask = np.isin(selfweight_to_elemental_loads.load_case_idx, mass_sources.load_case_idx)
+        selfweight_element_tag = selfweight_to_elemental_loads.element_tag[selfweight_load_case_mask]
+        selfweight_node_tag = np.empty(0, dtype=np.int32)
+        selfweight_load_case_idx = np.empty(0, dtype=np.int32)
+        selfweight_load = np.empty(0, dtype=np.float64)
+        if len(selfweight_element_tag) != 0:
+            selfweight_load_case_idx = selfweight_to_elemental_loads.load_case_idx[selfweight_load_case_mask]
+            selfweight_location = selfweight_to_elemental_loads.location[selfweight_load_case_mask]
+            selfweight_loads = selfweight_to_elemental_loads.loads[selfweight_load_case_mask]
+            selfweight_inode_tag, selfweight_jnode_tag, selfweight_load_case_idx, selfweight_nodal_i_load, selfweight_nodal_j_load = _generate_distributed_element_to_nodal_gravity_loads(
+                nodes=nodes,
+                elements=elements, 
+                element_tag=selfweight_element_tag, 
+                load_case_idx=selfweight_load_case_idx, 
+                location=selfweight_location, 
+                loads=selfweight_loads,
+            )
+            selfweight_node_tag = np.concatenate([selfweight_inode_tag, selfweight_jnode_tag])
+            selfweight_load_case_idx = np.concatenate([selfweight_load_case_idx, selfweight_load_case_idx])
+            selfweight_load = np.concatenate([selfweight_nodal_i_load, selfweight_nodal_j_load])
+
+        # Concatenate all loads
+        node_tag = np.concatenate([nod_node_tag, conc_node_tag, dist_node_tag, shell_node_tag, selfweight_node_tag])
+        load_case_idx = np.concatenate([nod_load_case_idx, conc_load_case_idx, dist_load_case_idx, shell_load_case_idx, selfweight_load_case_idx])
+        mass_factor = np.fromiter((scale_factor_map[lc] for lc in load_case_idx), dtype=np.float64, count=len(load_case_idx))
+        load = np.concatenate([nod_load, conc_load, dist_load, shell_load, selfweight_load])
+        load = np.abs(load) * mass_factor
+        result_node_tag, result_load = _generate_summed_grouping_nodal_loads(node_tag=node_tag, load=load)
+
+        # Compute nodal mass
+        result_mass = result_load / g
+        nodal_masses = NodalMasses(
+            node_tag = result_node_tag,
+            weight = result_load,
+            mass = result_mass,
+        ) # Store nodal masses data to dataclass
+        return nodal_masses
+
+    def _generate_diaphragms(self, nodes, masses):
+        # Total storey mass
+        masses_node_idx = nodes.tag_to_idx(tags=masses.node_tag)
+        masses_node_coords = nodes.coords[masses_node_idx]
+        masses_nodal_mass = masses.mass
+        total_storey_mass, elevation = _generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=masses_nodal_mass)
+
+        # Total weighted storey mass
+        weighted_nodal_mass = masses_node_coords * masses_nodal_mass[:, None]
+        total_weighted_storey_mass, _ =_generate_summed_grouping_storey_masses(node_coords=masses_node_coords, masses=weighted_nodal_mass)
+        diaph_coords = np.round(total_weighted_storey_mass / total_storey_mass[:, None], decimals=6)
+
+        # Diaphragms properties
+        n = len(diaph_coords)
+        index = np.arange(n, dtype=np.int32)
+        diaph_name = np.array([f"Diaph-{z:.1f}" for z in diaph_coords[:, 2]], dtype="U32")
+        diaph_tag = np.asarray(self._tagmanager.add(category="Node", n=n, names=diaph_name), dtype=np.int32)
+        dofs = np.tile((0, 0, 1, 1, 1, 0), (n, 1)).astype(np.int8)
+        constrained_node_idx = _get_storey_nodes(nodes=nodes, elevation=elevation)
+        constrained_node_tag = self._tagmanager.get_tag(category="Node", names=nodes.name[constrained_node_idx]) # Retrieve constrained node tag
+        diaphragms = Diaphragms(
+            index = index,
+            unique_name = diaph_name,
+            diaph_tag = diaph_tag,
+            coords = diaph_coords,
+            dofs = dofs,
+            constrained_nodes_idx = constrained_node_idx,
+            constrained_nodes_tag = constrained_node_tag,
+            storey_mass = total_storey_mass,
+        ) # Store diaphragms data to dataclass
+        return diaphragms
+
+
