@@ -1,5 +1,5 @@
 # %%
-import sadapp as sa
+import sadpropy as sa
 
 session = sa.start_session()
 

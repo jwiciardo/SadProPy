@@ -1,8 +1,8 @@
 import openseespy.opensees as ops
 import numpy as np
-from sadapp.postprocessing.output_storer import OutputStorer
-from sadapp.preprocessing.preprocessing_dataclass import UserDefinedUnits
-from sadapp.utility import ConverterToInternalUnits, ConverterFromInternalUnits
+from sadpropy.postprocessing.output_storer import OutputStorer
+from sadpropy.preprocessing.preprocessing_dataclass import UserDefinedUnits
+from sadpropy.utility import ConverterToInternalUnits, ConverterFromInternalUnits
 
 units = UserDefinedUnits(
     force="kN",
@@ -13,7 +13,7 @@ units = UserDefinedUnits(
     angle="rad",
 )
 to_internalunits = ConverterToInternalUnits(units=units)
-from_internalunits = ConverterFromInternalUnits()
+from_internalunits = ConverterFromInternalUnits(units=units)
 
 ndim = 2
 ndof = 3
@@ -67,16 +67,6 @@ Icol = to_internalunits.second_moment_of_area(values=Icol)
 Avcol = 5/6*Acol
 col_weight = to_internalunits.unitweight(values=23.6)*Acol
 
-ops.uniaxialMaterial('Elastic', 1, E * Acol)
-ops.uniaxialMaterial('Elastic', 2, E * Icol)
-ops.uniaxialMaterial('Elastic', 3, G * Avcol)
-ops.uniaxialMaterial('Elastic', 4, E * Abeam)
-ops.uniaxialMaterial('Elastic', 5, E * Ibeam)
-ops.uniaxialMaterial('Elastic', 6, G * Avbeam)
-
-ops.section('Aggregator', 1, *(1, 'P', 2, 'Mz', 3, 'Vy'))
-ops.section('Aggregator', 2, *(4, 'P', 5, 'Mz', 6, 'Vy'))
-
 element_idx = np.asarray((
     0,
     1,
@@ -90,6 +80,7 @@ element_tag = np.asarray((
     ), dtype=np.int32
 )
 end_nodes_idx = np.asarray((
+    #(2, 0),
     (0, 2),
     (1, 3),
     (2, 3),
@@ -102,40 +93,32 @@ element_type = np.asarray((
     ), dtype="U32"
 )
 rigid_zone_factor = np.asanyarray((
-    1.0,
-    1.0,
+    0.0,
+    0.0,
     0.0,
     ), dtype=np.float64
 )
 offsets_length = np.asarray((
-    (0.0, 0.6),
-    (0.0, 0.6),
-    (0.375, 0.375),
+    (0.0, 0.0),
+    (0.0, 0.0),
+    (0.0, 0.0),
     ), dtype=np.float64
 )
 end_offsets = np.asarray((
-    (0.0, 0.0, 0.0, -0.6),
-    (0.0, 0.0, 0.0, -0.6),
-    (0.375, 0.0, -0.375, 0.0),
+    (0.0, 0.0, 0.0, -0.0),
+    (0.0, 0.0, 0.0, -0.0),
+    (0.0, 0.0, -0.0, 0.0),
     ), dtype=np.float64
 )
 print()
-ops.beamIntegration('ConcentratedPlasticity', 1, 1, 1, 1)
 ops.geomTransf('Linear', 1, '-jntOffset', *list(map(float, rigid_zone_factor[0] * end_offsets[0, :2])), *list(map(float, rigid_zone_factor[0] * end_offsets[0, 2:4])))
-#ops.element('elasticBeamColumn', 1, *(1, 3), 1, 1)
-ops.element('forceBeamColumn', 1, *(1, 3), 1, 1)
-#ops.element('elasticBeamColumn', 1, *(1, 3), Acol, E, Icol, 1)
-ops.beamIntegration('ConcentratedPlasticity', 2, 1, 1, 1)
+#ops.element('ElasticTimoshenkoBeam', 1, *(3, 1), E, G, Acol, Icol, Avcol, 1)
+ops.element('ElasticTimoshenkoBeam', 1, *(1, 3), E, G, Acol, Icol, Avcol, 1)
 ops.geomTransf('Linear', 2, '-jntOffset', *list(map(float, rigid_zone_factor[1] * end_offsets[1, :2])), *list(map(float, rigid_zone_factor[1] * end_offsets[1, 2:4])))
-#ops.element('elasticBeamColumn', 2, *(2, 4), 1, 2)
-ops.element('forceBeamColumn', 2, *(2, 4), 2, 2)
-#ops.element('elasticBeamColumn', 2, *(2, 4), Acol, E, Icol, 2)
+ops.element('ElasticTimoshenkoBeam', 2, *(2, 4), E, G, Acol, Icol, Avcol, 2)
 
-ops.beamIntegration('ConcentratedPlasticity', 3, 2, 2, 2)
 ops.geomTransf('Linear', 3, '-jntOffset', *list(map(float, rigid_zone_factor[2] * end_offsets[2, :2])), *list(map(float, rigid_zone_factor[2] * end_offsets[2, 2:4])))
-#ops.element('elasticBeamColumn', 3, *(3, 4), 2, 3)
-ops.element('forceBeamColumn', 3, *(3, 4), 3, 3)
-#ops.element('elasticBeamColumn', 3, *(3, 4), Abeam, E, Ibeam, 3)
+ops.element('ElasticTimoshenkoBeam', 3, *(3, 4), E, G, Abeam, Ibeam, Avbeam, 3)
 
 ops.fix(1, 1, 1, 1)
 ops.fix(2, 1, 1, 1)
@@ -143,18 +126,10 @@ ops.fix(2, 1, 1, 1)
 ops.timeSeries('Constant', 1, '-factor', 1.0)
 ops.pattern('Plain', 1, 1)
 # Selfweight
+#ops.eleLoad('-ele', 1, '-type', '-beamUniform', 0.0, col_weight)
 ops.eleLoad('-ele', 1, '-type', '-beamUniform', 0.0, -col_weight)
 ops.eleLoad('-ele', 2, '-type', '-beamUniform', 0.0, -col_weight)
 ops.eleLoad('-ele', 3, '-type', '-beamUniform', -beam_weight, 0.0)
-
-for idx in [0, 1]:
-    if rigid_zone_factor[idx] == 1.0:
-        jnode = end_nodes_idx[idx, 1]
-        tag = int(node_tag[jnode])
-        offset_length = float(offsets_length[idx, 1])
-        ops.load(tag, *(0.0, -col_weight * offset_length, 0.0))
-
-
 
 # Dead
 #ops.eleLoad('-ele', 3, '-type', '-beamUniform', -5*kN/m, 0.0)
@@ -200,22 +175,10 @@ ops.reactions()
 
 for node in (1, 2):
     print(
-        "Node",
         node,
-        "Reaction",
         ops.nodeReaction(node, 1),
         ops.nodeReaction(node, 2),
         ops.nodeReaction(node, 3),
-    )
-
-for node in (1, 2, 3, 4):
-    print(
-        "Node",
-        node,
-        "Displacement",
-        from_internalunits.length(values=ops.nodeDisp(node, 1), unit='mm'),
-        from_internalunits.length(values=ops.nodeDisp(node, 2), unit='mm'),
-        from_internalunits.angle(values=ops.nodeDisp(node, 3), unit='rad'),
     )
 
 for ele_tag in (1, 2, 3):
@@ -232,5 +195,6 @@ for ele_tag in (1, 2, 3):
         "global:",
         ops.eleForce(ele_tag),
     )
+
 
 ops.loadConst('-time', 0.0)
