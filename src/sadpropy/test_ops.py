@@ -122,20 +122,14 @@ end_offsets = np.asarray((
 print()
 ops.beamIntegration('ConcentratedPlasticity', 1, 1, 1, 1)
 ops.geomTransf('Linear', 1, '-jntOffset', *list(map(float, rigid_zone_factor[0] * end_offsets[0, :2])), *list(map(float, rigid_zone_factor[0] * end_offsets[0, 2:4])))
-#ops.element('elasticBeamColumn', 1, *(1, 3), 1, 1)
 ops.element('forceBeamColumn', 1, *(1, 3), 1, 1)
-#ops.element('elasticBeamColumn', 1, *(1, 3), Acol, E, Icol, 1)
 ops.beamIntegration('ConcentratedPlasticity', 2, 1, 1, 1)
 ops.geomTransf('Linear', 2, '-jntOffset', *list(map(float, rigid_zone_factor[1] * end_offsets[1, :2])), *list(map(float, rigid_zone_factor[1] * end_offsets[1, 2:4])))
-#ops.element('elasticBeamColumn', 2, *(2, 4), 1, 2)
 ops.element('forceBeamColumn', 2, *(2, 4), 2, 2)
-#ops.element('elasticBeamColumn', 2, *(2, 4), Acol, E, Icol, 2)
 
 ops.beamIntegration('ConcentratedPlasticity', 3, 2, 2, 2)
 ops.geomTransf('Linear', 3, '-jntOffset', *list(map(float, rigid_zone_factor[2] * end_offsets[2, :2])), *list(map(float, rigid_zone_factor[2] * end_offsets[2, 2:4])))
-#ops.element('elasticBeamColumn', 3, *(3, 4), 2, 3)
 ops.element('forceBeamColumn', 3, *(3, 4), 3, 3)
-#ops.element('elasticBeamColumn', 3, *(3, 4), Abeam, E, Ibeam, 3)
 
 ops.fix(1, 1, 1, 1)
 ops.fix(2, 1, 1, 1)
@@ -208,7 +202,7 @@ for node in (1, 2):
         ops.nodeReaction(node, 3),
     )
 
-for node in (1, 2, 3, 4):
+for node in (3, 4):
     print(
         "Node",
         node,
