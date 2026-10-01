@@ -279,7 +279,6 @@ if analysis_code != 0:
     )
 
 ops.reactions()
-print(ops.nodeReaction(1))
 
 for node in (1, 2, 3, 4):
     print(
